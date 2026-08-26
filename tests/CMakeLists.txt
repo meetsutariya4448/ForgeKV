@@ -16,7 +16,11 @@ else()
     FetchContent_MakeAvailable(googletest)
 endif()
 
-add_executable(forgekv_unit_tests unit/version_test.cpp)
+add_executable(
+    forgekv_unit_tests
+    unit/storage/record_test.cpp
+    unit/version_test.cpp
+)
 target_compile_features(forgekv_unit_tests PRIVATE cxx_std_20)
 target_link_libraries(
     forgekv_unit_tests

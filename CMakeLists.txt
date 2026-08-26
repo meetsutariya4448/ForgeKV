@@ -22,7 +22,12 @@ target_compile_options(
 add_library(forgekv_sanitizers INTERFACE)
 forgekv_configure_sanitizers(forgekv_sanitizers)
 
-add_library(forgekv src/version.cpp)
+add_library(
+    forgekv
+    src/storage/crc32c.cpp
+    src/storage/record.cpp
+    src/version.cpp
+)
 add_library(ForgeKV::forgekv ALIAS forgekv)
 target_compile_features(forgekv PUBLIC cxx_std_20)
 target_include_directories(
