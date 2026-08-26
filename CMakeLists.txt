@@ -25,6 +25,7 @@ forgekv_configure_sanitizers(forgekv_sanitizers)
 add_library(
     forgekv
     src/concurrency/worker_pool.cpp
+    src/index/sharded_index.cpp
     src/network/tcp.cpp
     src/protocol/frame.cpp
     src/storage/crc32c.cpp

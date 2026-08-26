@@ -30,13 +30,14 @@ void read_exact(std::ifstream& stream, std::span<std::byte> destination,
 
 }  // namespace
 
-StorageEngine StorageEngine::open(std::filesystem::path database_directory) {
-    return StorageEngine(std::move(database_directory));
+StorageEngine StorageEngine::open(std::filesystem::path database_directory, std::size_t shard_count) {
+    return StorageEngine(std::move(database_directory), shard_count);
 }
 
-StorageEngine::StorageEngine(std::filesystem::path database_directory)
+StorageEngine::StorageEngine(std::filesystem::path database_directory, std::size_t shard_count)
     : database_directory_(std::move(database_directory)),
-      active_segment_path_(segment_path_for_id(database_directory_, kInitialSegmentId)) {
+      active_segment_path_(segment_path_for_id(database_directory_, kInitialSegmentId)),
+      index_(shard_count) {
     initialize();
 }
 
@@ -45,18 +46,17 @@ StorageEngine::~StorageEngine() { close_noexcept(); }
 std::uint64_t StorageEngine::put(std::span<const std::byte> key,
                                  std::span<const std::byte> value) {
     ensure_open();
+    std::lock_guard write_lock(write_mutex_);
+    ensure_open();
     ensure_sequence_available();
-    const std::uint64_t sequence = last_sequence_ + 1;
+    const std::uint64_t sequence = last_sequence_.load() + 1;
     const Bytes encoded = encode_record(Operation::kPut, sequence, key, value);
     const std::uint64_t record_offset = segment_size_;
     const RecordHeader header = decode_record_header(encoded);
     std::string owned_key = key_string(key);
-    if (!index_.contains(owned_key)) {
-        index_.reserve(index_.size() + 1);
-    }
 
     append_encoded(encoded);
-    last_sequence_ = sequence;
+    last_sequence_.store(sequence);
     const std::uint64_t value_offset = record_offset + kRecordHeaderSize + header.key_length;
     try {
         index_.insert_or_assign(std::move(owned_key),
@@ -79,12 +79,9 @@ std::uint64_t StorageEngine::put(std::span<const std::byte> key,
 std::optional<Bytes> StorageEngine::get(std::span<const std::byte> key) const {
     ensure_open();
     validate_lookup_key(key);
-    const auto iterator = index_.find(key_string(key));
-    if (iterator == index_.end()) {
-        return std::nullopt;
-    }
-
-    const RecordLocation& location = iterator->second;
+    const auto location_result = index_.find(key_string(key));
+    if (!location_result) return std::nullopt;
+    const RecordLocation& location = *location_result;
     if (location.segment_id != kInitialSegmentId || location.value_offset < location.key_length ||
         location.record_offset > std::numeric_limits<std::uint64_t>::max() - kRecordHeaderSize ||
         location.record_offset + kRecordHeaderSize != location.value_offset - location.key_length) {
@@ -128,38 +125,41 @@ std::optional<Bytes> StorageEngine::get(std::span<const std::byte> key) const {
 EraseResult StorageEngine::erase(std::span<const std::byte> key) {
     ensure_open();
     validate_lookup_key(key);
+    std::lock_guard write_lock(write_mutex_);
+    ensure_open();
     ensure_sequence_available();
-    const std::uint64_t sequence = last_sequence_ + 1;
+    const std::uint64_t sequence = last_sequence_.load() + 1;
     const Bytes encoded = encode_record(Operation::kDelete, sequence, key, {});
     const std::string owned_key = key_string(key);
     const bool existed = index_.contains(owned_key);
 
     append_encoded(encoded);
-    last_sequence_ = sequence;
-    index_.erase(owned_key);
+    last_sequence_.store(sequence);
+    static_cast<void>(index_.erase(owned_key));
     return EraseResult{sequence, existed};
 }
 
 void StorageEngine::close() {
-    if (!open_) {
+    std::lock_guard write_lock(write_mutex_);
+    if (!open_.load()) {
         return;
     }
     writer_.flush();
     if (!writer_) {
-        write_failed_ = true;
+        write_failed_.store(true);
         throw StorageError("failed to flush active segment during close");
     }
     writer_.close();
     if (writer_.fail()) {
-        write_failed_ = true;
+        write_failed_.store(true);
         throw StorageError("failed to close active segment");
     }
-    open_ = false;
+    open_.store(false);
 }
 
 std::size_t StorageEngine::size() const noexcept { return index_.size(); }
 
-std::uint64_t StorageEngine::last_sequence() const noexcept { return last_sequence_; }
+std::uint64_t StorageEngine::last_sequence() const noexcept { return last_sequence_.load(); }
 
 const std::filesystem::path& StorageEngine::database_directory() const noexcept {
     return database_directory_;
@@ -202,7 +202,7 @@ void StorageEngine::initialize() {
 
     replay_segment();
     open_writer();
-    open_ = true;
+    open_.store(true);
 }
 
 void StorageEngine::replay_segment() {
@@ -256,13 +256,13 @@ void StorageEngine::replay_segment() {
         } catch (const DecodeError& decode_error) {
             throw CorruptionError(corruption_message(offset, decode_error.what()));
         }
-        if (decoded.record.sequence <= last_sequence_) {
+        if (decoded.record.sequence <= last_sequence_.load()) {
             throw CorruptionError(corruption_message(offset,
                                                       "sequence is duplicate or decreasing"));
         }
 
         apply_recovered_record(header, decoded.record, offset);
-        last_sequence_ = decoded.record.sequence;
+        last_sequence_.store(decoded.record.sequence);
         offset += decoded.encoded_size;
     }
     reader.close();
@@ -284,25 +284,25 @@ void StorageEngine::open_writer() {
 }
 
 void StorageEngine::close_noexcept() noexcept {
-    if (!open_) {
+    if (!open_.load()) {
         return;
     }
     writer_.flush();
     writer_.close();
-    open_ = false;
+    open_.store(false);
 }
 
 void StorageEngine::ensure_open() const {
-    if (!open_) {
+    if (!open_.load()) {
         throw StorageError("storage engine is closed");
     }
-    if (write_failed_) {
+    if (write_failed_.load()) {
         throw StorageError("storage engine is unavailable after a mutation failure");
     }
 }
 
 void StorageEngine::ensure_sequence_available() const {
-    if (last_sequence_ == std::numeric_limits<std::uint64_t>::max()) {
+    if (last_sequence_.load() == std::numeric_limits<std::uint64_t>::max()) {
         throw StorageError("record sequence space is exhausted");
     }
 }
@@ -329,7 +329,7 @@ void StorageEngine::apply_recovered_record(const RecordHeader& header, const Rec
                                            std::uint64_t record_offset) {
     const std::string key = key_string(record.key);
     if (record.operation == Operation::kDelete) {
-        index_.erase(key);
+        static_cast<void>(index_.erase(key));
         return;
     }
 

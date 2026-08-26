@@ -3,12 +3,16 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <random>
+#include <mutex>
+#include <thread>
+#include <vector>
 #include <span>
 #include <string>
 #include <string_view>
@@ -263,6 +267,50 @@ TEST(StorageEngineTest, OperationsAfterCloseAreRejected) {
 
     EXPECT_THROW(static_cast<void>(engine.get(bytes("key"))), StorageError);
     EXPECT_THROW(static_cast<void>(engine.put(bytes("key"), bytes("value"))), StorageError);
+}
+
+TEST(StorageEngineTest, ConcurrentDifferentKeysPersist) {
+    TemporaryDirectory temporary;
+    StorageEngine engine = StorageEngine::open(temporary.path(), 16);
+    std::vector<std::jthread> threads;
+    for (int id = 0; id < 16; ++id) {
+        threads.emplace_back([&engine, id] {
+            const Bytes key = bytes("key-" + std::to_string(id));
+            const Bytes value = bytes("value-" + std::to_string(id));
+            static_cast<void>(engine.put(key, value));
+        });
+    }
+    threads.clear();
+    EXPECT_EQ(engine.size(), 16U);
+    for (int id = 0; id < 16; ++id) {
+        EXPECT_EQ(engine.get(bytes("key-" + std::to_string(id))),
+                  std::optional<Bytes>(bytes("value-" + std::to_string(id))));
+    }
+}
+
+TEST(StorageEngineTest, ConcurrentSameKeyMatchesHighestSequence) {
+    TemporaryDirectory temporary;
+    StorageEngine engine = StorageEngine::open(temporary.path(), 8);
+    const Bytes key = bytes("same");
+    std::mutex results_mutex;
+    std::vector<std::pair<std::uint64_t, Bytes>> results;
+    std::vector<std::jthread> threads;
+    for (int id = 0; id < 16; ++id) {
+        threads.emplace_back([&, id] {
+            Bytes value = bytes("value-" + std::to_string(id));
+            const std::uint64_t sequence = engine.put(key, value);
+            std::lock_guard lock(results_mutex);
+            results.emplace_back(sequence, std::move(value));
+        });
+    }
+    threads.clear();
+    const auto latest = std::max_element(results.begin(), results.end(),
+                                         [](const auto& left, const auto& right) {
+                                             return left.first < right.first;
+                                         });
+    ASSERT_NE(latest, results.end());
+    EXPECT_EQ(engine.get(key), std::optional<Bytes>(latest->second));
+    EXPECT_EQ(engine.size(), 1U);
 }
 
 }  // namespace

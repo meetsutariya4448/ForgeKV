@@ -1,6 +1,8 @@
 #pragma once
 
 #include "forgekv/storage/record.hpp"
+#include "forgekv/index/sharded_index.hpp"
+#include "forgekv/storage/location.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -10,21 +12,12 @@
 #include <span>
 #include <stdexcept>
 #include <string>
-#include <unordered_map>
+#include <atomic>
+#include <mutex>
 
 namespace forgekv::storage {
 
 inline constexpr std::uint64_t kInitialSegmentId = 1;
-
-struct RecordLocation {
-    std::uint64_t segment_id;
-    std::uint64_t record_offset;
-    std::uint64_t value_offset;
-    std::uint32_t key_length;
-    std::uint32_t value_length;
-    std::uint64_t sequence;
-    std::uint32_t payload_checksum;
-};
 
 struct EraseResult {
     std::uint64_t sequence;
@@ -43,7 +36,8 @@ public:
 
 class StorageEngine {
 public:
-    [[nodiscard]] static StorageEngine open(std::filesystem::path database_directory);
+    [[nodiscard]] static StorageEngine open(std::filesystem::path database_directory,
+                                            std::size_t shard_count = 16);
 
     StorageEngine(const StorageEngine&) = delete;
     StorageEngine& operator=(const StorageEngine&) = delete;
@@ -66,7 +60,7 @@ public:
         const std::filesystem::path& database_directory, std::uint64_t segment_id);
 
 private:
-    explicit StorageEngine(std::filesystem::path database_directory);
+    StorageEngine(std::filesystem::path database_directory, std::size_t shard_count);
 
     void initialize();
     void replay_segment();
@@ -84,11 +78,12 @@ private:
     std::filesystem::path database_directory_;
     std::filesystem::path active_segment_path_;
     std::ofstream writer_;
-    std::unordered_map<std::string, RecordLocation> index_;
+    index::ShardedIndex index_;
+    mutable std::mutex write_mutex_;
     std::uint64_t segment_size_ = 0;
-    std::uint64_t last_sequence_ = 0;
-    bool open_ = false;
-    bool write_failed_ = false;
+    std::atomic_uint64_t last_sequence_ = 0;
+    std::atomic_bool open_ = false;
+    std::atomic_bool write_failed_ = false;
 };
 
 }  // namespace forgekv::storage
