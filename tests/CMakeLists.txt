@@ -20,6 +20,7 @@ add_executable(
     forgekv_unit_tests
     integration/network_test.cpp
     integration/storage_engine_test.cpp
+    unit/concurrency/worker_pool_test.cpp
     unit/protocol/frame_test.cpp
     unit/storage/record_test.cpp
     unit/version_test.cpp
