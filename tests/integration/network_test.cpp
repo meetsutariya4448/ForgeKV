@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <barrier>
 #include <chrono>
 #include <cstddef>
 #include <filesystem>
@@ -244,6 +245,52 @@ TEST(NetworkIntegrationTest, EnforcesConfiguredConnectionLimit) {
     EXPECT_THROW(static_cast<void>(rejected.request(
                      request(protocol::Opcode::kGet, 1, bytes("key")))), NetworkError);
     ::close(first);
+}
+
+TEST(NetworkIntegrationTest, ReturnsOverloadedWhenRequestQueueSaturates) {
+    TemporaryDirectory temporary;
+    ServerConfig config{"127.0.0.1", 0, temporary.path(), std::chrono::seconds{10}};
+    config.worker_count = 1;
+    config.queue_capacity = 1;
+    config.max_connections = 8;
+    RunningServer server(std::move(config));
+
+    std::vector<TcpClient> clients;
+    clients.reserve(8);
+    for (int index = 0; index < 8; ++index) {
+        clients.push_back(TcpClient::connect("127.0.0.1", server.port(),
+                                             std::chrono::seconds{10}));
+    }
+    ASSERT_TRUE(wait_for_connection_count(server, 8));
+
+    const protocol::Bytes large_value(1024 * 1024, std::byte{0x5a});
+    std::barrier start_line(9);
+    std::atomic_int overloaded = 0;
+    std::atomic_int failures = 0;
+    std::vector<std::jthread> requests;
+    requests.reserve(clients.size());
+    for (std::size_t index = 0; index < clients.size(); ++index) {
+        requests.emplace_back([&, index] {
+            start_line.arrive_and_wait();
+            try {
+                const auto response = clients[index].request(request(
+                    protocol::Opcode::kPut, static_cast<std::uint64_t>(index + 1),
+                    bytes("key-" + std::to_string(index)), large_value));
+                if (response.status == protocol::Status::kOverloaded) {
+                    overloaded.fetch_add(1);
+                } else if (response.status != protocol::Status::kOk) {
+                    failures.fetch_add(1);
+                }
+            } catch (...) {
+                failures.fetch_add(1);
+            }
+        });
+    }
+    start_line.arrive_and_wait();
+    requests.clear();
+
+    EXPECT_GT(overloaded.load(), 0);
+    EXPECT_EQ(failures.load(), 0);
 }
 
 TEST(NetworkIntegrationTest, ShutdownInterruptsIdleConnections) {
