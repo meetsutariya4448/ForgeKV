@@ -50,18 +50,29 @@ std::uint64_t StorageEngine::put(std::span<const std::byte> key,
     const Bytes encoded = encode_record(Operation::kPut, sequence, key, value);
     const std::uint64_t record_offset = segment_size_;
     const RecordHeader header = decode_record_header(encoded);
+    std::string owned_key = key_string(key);
+    if (!index_.contains(owned_key)) {
+        index_.reserve(index_.size() + 1);
+    }
 
     append_encoded(encoded);
-    const std::uint64_t value_offset = record_offset + kRecordHeaderSize + header.key_length;
-    index_.insert_or_assign(key_string(key),
-                            RecordLocation{kInitialSegmentId,
-                                           record_offset,
-                                           value_offset,
-                                           header.key_length,
-                                           header.value_length,
-                                           sequence,
-                                           header.payload_checksum});
     last_sequence_ = sequence;
+    const std::uint64_t value_offset = record_offset + kRecordHeaderSize + header.key_length;
+    try {
+        index_.insert_or_assign(std::move(owned_key),
+                                RecordLocation{kInitialSegmentId,
+                                               record_offset,
+                                               value_offset,
+                                               header.key_length,
+                                               header.value_length,
+                                               sequence,
+                                               header.payload_checksum});
+    } catch (...) {
+        // The log is authoritative. Prevent sequence reuse and require reopen/replay if publication
+        // fails after the record has been appended.
+        write_failed_ = true;
+        throw;
+    }
     return sequence;
 }
 
@@ -74,7 +85,7 @@ std::optional<Bytes> StorageEngine::get(std::span<const std::byte> key) const {
     }
 
     const RecordLocation& location = iterator->second;
-    if (location.value_offset < location.key_length ||
+    if (location.segment_id != kInitialSegmentId || location.value_offset < location.key_length ||
         location.record_offset > std::numeric_limits<std::uint64_t>::max() - kRecordHeaderSize ||
         location.record_offset + kRecordHeaderSize != location.value_offset - location.key_length) {
         throw CorruptionError("in-memory record location has inconsistent offsets");
@@ -124,8 +135,8 @@ EraseResult StorageEngine::erase(std::span<const std::byte> key) {
     const bool existed = index_.contains(owned_key);
 
     append_encoded(encoded);
-    index_.erase(owned_key);
     last_sequence_ = sequence;
+    index_.erase(owned_key);
     return EraseResult{sequence, existed};
 }
 
@@ -286,7 +297,7 @@ void StorageEngine::ensure_open() const {
         throw StorageError("storage engine is closed");
     }
     if (write_failed_) {
-        throw StorageError("storage engine is unavailable after an append failure");
+        throw StorageError("storage engine is unavailable after a mutation failure");
     }
 }
 
