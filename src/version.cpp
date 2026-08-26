@@ -7,4 +7,3 @@ std::string_view version() noexcept {
 }
 
 }  // namespace forgekv
-

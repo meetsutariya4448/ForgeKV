@@ -28,4 +28,3 @@ function(forgekv_configure_sanitizers target)
         target_link_options(${target} INTERFACE "-fsanitize=${sanitizer_list}")
     endif()
 endfunction()
-

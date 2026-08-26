@@ -7,4 +7,3 @@ int main() {
               << " (Milestone 0 skeleton; networking is not implemented)\n";
     return 0;
 }
-

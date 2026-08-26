@@ -20,4 +20,3 @@ compile_commands.json
 
 # Benchmark output is preserved intentionally; only scratch files are ignored.
 /bench/raw/*.tmp
-

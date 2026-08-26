@@ -7,4 +7,3 @@ int main() {
               << " (Milestone 0 skeleton; workloads are not implemented)\n";
     return 0;
 }
-

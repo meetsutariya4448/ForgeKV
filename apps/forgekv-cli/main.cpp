@@ -7,4 +7,3 @@ int main() {
               << " (Milestone 0 skeleton; commands are not implemented)\n";
     return 0;
 }
-

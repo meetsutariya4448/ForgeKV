@@ -7,4 +7,3 @@ namespace forgekv {
 [[nodiscard]] std::string_view version() noexcept;
 
 }  // namespace forgekv
-
