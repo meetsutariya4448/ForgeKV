@@ -159,8 +159,59 @@ actually exists.
 - **Evidence/benchmark:** Fragmentation, persistent connection, clean restart, and malformed-client
   loopback tests pass. Concurrency performance is intentionally unmeasured.
 
+This was the deliberate Milestone 2 stepping stone and is superseded by DD-013 for Milestone 3.
+
+## DD-013: Bound connections and dispatch through a fixed worker pool
+
+- **Context:** Multiple clients must make progress without allowing connections or pending requests
+  to grow without limit.
+- **Alternatives:** Detached/thread-per-request execution; an unbounded executor; a full event loop;
+  blocking producers until queue space appears.
+- **Chosen approach:** Keep the `poll` accept loop, admit a configurable bounded number of connection
+  `std::jthread`s, and nonblockingly submit one request per connection to a bounded FIFO queue served
+  by a fixed `std::jthread` pool. Queue saturation returns `OVERLOADED`; connection-cap saturation
+  closes the newly accepted socket.
+- **Reason:** Ownership and shutdown are explicit, memory admission has concrete limits, and a fixed
+  pool demonstrates the intended synchronization without adding an event framework. Nonblocking
+  submission prevents connection threads from accumulating behind a full queue.
+- **Tradeoffs:** A thread per active connection has higher stack/scheduling cost than an event loop.
+  The close-at-cap behavior cannot return a correlated response, and one in-flight request per
+  connection leaves protocol pipelining unused.
+- **Evidence/benchmark:** Queue tests prove exact-capacity rejection and drain-on-close. Loopback
+  tests cover eight concurrent clients, a saturated queue returning `OVERLOADED`, connection-cap
+  rejection, and shutdown with an idle client.
+
+## DD-014: Serialize the log while sharding record-location publication
+
+- **Context:** The single active append stream and global sequence require a total mutation order,
+  while independent reads and map operations should not share one global index lock.
+- **Alternatives:** One mutex around the entire engine; a concurrent-map dependency; per-shard logs;
+  lock-free publication.
+- **Chosen approach:** PUT/DELETE take one global writer mutex, append and advance sequence, then
+  exclusively update one FNV-1a-selected index shard. GET copies a location under that shard's shared
+  lock and performs file I/O after unlocking.
+- **Reason:** The append-only file keeps old copied locations valid, so slow reads need not retain map
+  locks. The lock order is always writer then one shard and no operation takes multiple shards.
+- **Tradeoffs:** Writes still serialize globally; sharding primarily benefits index lookups and
+  distributed-key contention. `find` currently allocates a temporary owned key.
+- **Evidence/benchmark:** Concurrent same-key/different-key index and storage tests pass, including
+  restart validation and sequence-consistent same-key outcomes.
+
+## DD-015: Use 16 index shards as a provisional default
+
+- **Context:** Too few locks increase contention; too many shards increase mutex/map allocation and
+  initialization overhead, and the best point depends on workload and hardware.
+- **Alternatives:** One, four, 64, or 256 fixed shards; select from CPU count automatically.
+- **Chosen approach:** Make shard count configurable and use 16 by default.
+- **Reason:** The first four-thread debug-build sweep showed a large distributed-key gain by 16
+  shards without assuming the extra per-shard footprint of 64/256. The default is explicitly
+  provisional rather than labeled optimal.
+- **Tradeoffs:** The measured 64/256 cases had higher median distributed-key throughput on this host;
+  a different workload may favor another count. Same-key contention is not helped by more shards.
+- **Evidence/benchmark:** Raw 1/4/16/64/256 results and complete run metadata are preserved in
+  `bench/raw/m3-contention-20260826T182919Z-ca51e3d30e0efc5af71b2741e525b81c89712b38.csv`.
+
 ## Pending decisions for later milestones
 
-Durability modes, index shard default, TTL clock semantics, segment rotation, and compaction
-publication are not decided yet. Each will receive a decision record alongside its executable
-specification and tests.
+Durability modes, TTL clock semantics, segment rotation, and compaction publication are not decided
+yet. Each will receive a decision record alongside its executable specification and tests.

@@ -26,12 +26,14 @@ timeouts/cancellation, server request handling, and a functional CLI. Add loopba
 tests and a libFuzzer parser target. Exit when binary values and fragmented frames work and invalid
 lengths cannot cause unbounded allocation.
 
-## Milestone 3 — Concurrency and backpressure
+## Milestone 3 — Concurrency and backpressure (complete)
 
-Implement a bounded blocking queue, fixed `std::jthread` worker pool, graceful cancellation, sharded
-`std::unordered_map` index, connection cap, and deterministic overload behavior. Test same-key and
-different-shard operations, saturated shutdown, queue bounds, and request rejection under TSan.
-Benchmark queue and shard contention before selecting defaults.
+Implemented a bounded blocking queue, fixed `std::jthread` worker pool, graceful draining, sharded
+`std::unordered_map` index, connection cap, and deterministic overload behavior. Tests cover
+same-key/different-key storage and index access, queue saturation, draining shutdown, concurrent TCP
+clients, connection rejection, and idle-connection shutdown. A reproducible 1/4/16/64/256 shard
+contention sweep is preserved under `bench/raw/`. UBSan passes; TSan instrumentation builds, but the
+documented local macOS runtime crashes before GoogleTest discovery, so no TSan pass is claimed.
 
 ## Milestone 4 — Durability and TTL
 

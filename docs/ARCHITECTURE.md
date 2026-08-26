@@ -8,17 +8,17 @@
 ## System context
 
 ```text
-                        implemented TCP
+                         implemented TCP
 ┌──────────────┐      ┌──────────────────┐      ┌─────────────────────┐
-│ CLI / bench  │─────>│ network server   │─────>│ bounded dispatcher  │
-│ CLI impl. M2 │      │ [implemented M2] │      │ [planned M3]        │
+│ CLI client   │─────>│ bounded conns.   │─────>│ queue + worker pool │
+│ [impl. M2]   │      │ [impl. M3]       │      │ [impl. M3]          │
 └──────────────┘      └──────────────────┘      └──────────┬──────────┘
                                                          │
                        ┌─────────────────────────────────┼───────────────┐
                        v                                 v               v
               ┌────────────────┐               ┌────────────────┐ ┌─────────────┐
               │ sharded index  │               │ storage engine │ │ TTL heap    │
-              │ [planned M3]   │<─────────────>│ [implemented M1]│ │ [planned M4]│
+              │ [impl. M3]     │<─────────────>│ [impl. M1/M3]  │ │ [planned M4]│
               └────────────────┘               └───────┬────────┘ └─────────────┘
                                                       v
                                               ┌────────────────┐
@@ -28,38 +28,44 @@
                                               └────────────────┘
 ```
 
-The shared library, storage engine, versioned network codec, incremental parser, POSIX server/client,
-CLI, and synchronous request dispatch are implemented. The dispatcher currently runs inline on one
-connection; worker queues, sharding, TTL, rotation, and compaction remain planned.
+The shared library, storage engine, sharded index, versioned network codec, incremental parser,
+bounded concurrent POSIX server/client, fixed worker pool, CLI, and focused contention benchmark are
+implemented. TTL, durability modes, rotation, compaction, and the full workload benchmark remain
+planned.
 
 ## Single-node boundaries
 
 ### Protocol and network
 
-The network layer owns listening and connected sockets through RAII classes. It parses a versioned,
-length-delimited binary protocol with bounded key/value/frame sizes. Connection code handles partial
-reads, partial writes, timeouts, cancellation polling, and clean shutdown. Frames own decoded bytes;
-no protocol view outlives its input buffer. See `PROTOCOL.md`.
+The network layer owns listening and connected sockets through RAII classes. The accept loop creates
+at most the configured number of connection `std::jthread`s. Each parses a versioned, length-delimited
+binary protocol with bounded key/value/frame sizes and handles partial reads/writes, timeouts,
+cancellation polling, and clean shutdown. Frames own decoded bytes; no protocol view outlives its
+input buffer. See `PROTOCOL.md` and `CONCURRENCY.md`.
 
 ### Request dispatch and backpressure
 
-An accept path will submit validated requests to a fixed worker pool through a bounded queue.
-Queue capacity and connection count will be configuration limits. Saturation behavior will be
-explicit and measured; there will be no detached threads and no unbounded task accumulation.
+Validated requests are submitted without blocking to a fixed worker pool through a bounded FIFO
+queue. A full queue returns `OVERLOADED`; an excess connection is accepted and immediately closed.
+Connection threads wait for one request result at a time, preserving per-connection response order.
+The server admits no detached threads or unbounded task accumulation.
 
 ### Storage engine
 
-The current engine explicitly serializes append-only records containing type, lengths, sequence,
-independent header/payload checksums, key, and value. Writes append and flush before publishing a
-new record location. Recovery replays complete valid records, rebuilds the index, truncates a proven
-incomplete final record, and fails loudly on complete-record corruption. See `STORAGE_FORMAT.md`.
+The engine uses a global mutation mutex to serialize the active append stream and sequence. Records
+contain type, lengths, sequence, independent header/payload checksums, key, and value. Writes append
+and flush before publishing a new sharded-index location. Concurrent reads copy a location and then
+read the append-only segment without holding an index lock. Recovery replays complete valid records,
+rebuilds the index, truncates a proven incomplete final record, and fails loudly on complete-record
+corruption. See `STORAGE_FORMAT.md`.
 
 ### Index
 
-The index is planned as independently locked shards. Each shard owns a `std::unordered_map` from
-key to immutable record location and protects it with `std::shared_mutex`. GET uses shared access;
-PUT and DELETE use exclusive access. Shard count remains configurable because benchmarks, not
-assumption, will select defaults.
+The index consists of independently locked shards. Each owns a `std::unordered_map` from an owned key
+to a copied record location and protects it with `std::shared_mutex`. GET uses shared access; PUT and
+DELETE use exclusive access for one shard. No operation holds two shard locks. Shard count is
+configurable; the provisional default is 16 and its evidence boundary is documented in
+`CONCURRENCY.md`.
 
 ### Expiration
 
@@ -75,10 +81,11 @@ until segment/recovery invariants exist and can be tested.
 
 ## Ownership model
 
-The server process owns one `TcpServer`, which owns the listening descriptor and `StorageEngine`.
-Each accepted descriptor is closed after its connection loop. The application owns and joins the
-server thread used for signal-driven shutdown. A future worker pool and work items will remain owned
-by the top-level server; raw owning pointers and detached threads remain excluded.
+The server process owns one `TcpServer`, which owns the listener, `StorageEngine`, `WorkerPool`,
+accepted connection threads, and their descriptors. The pool owns worker threads and queued tasks.
+The application owns and joins the server thread used for signal-driven shutdown. Shutdown joins
+connections, drains and joins workers, then releases storage. Raw owning pointers and detached
+threads remain excluded.
 
 ## Planned distributed boundary
 

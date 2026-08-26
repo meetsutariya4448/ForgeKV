@@ -1,0 +1,49 @@
+# date_utc,2026-08-26T18:29:20Z
+# git_commit,ca51e3d30e0efc5af71b2741e525b81c89712b38
+# compiler,Apple clang version 17.0.0 (clang-1700.6.3.2)
+# compile_command,/usr/bin/c++  -I/Users/meetsutariya/Desktop/ForgeKV/include -std=c++20 -arch arm64 -Wall -Wextra -Wpedantic -Wconversion -Wshadow -o CMakeFiles/forgekv-bench.dir/apps/forgekv-bench/main.cpp.o -c /Users/meetsutariya/Desktop/ForgeKV/apps/forgekv-bench/main.cpp
+# os,Darwin 25.5.0 Darwin Kernel Version 25.5.0: Mon Apr 27 20:40:51 PDT 2026; root:xnu-12377.121.6~2/RELEASE_ARM64_T8112
+# architecture,arm64
+# cpu,Apple M2
+# logical_cores,8
+# ram,8589934592
+# storage_medium,not applicable (in-memory index benchmark)
+# durability_mode,not applicable
+# dataset_size,4096 keys
+# value_size,not applicable
+# connection_count,not applicable
+# worker_count,4 benchmark threads
+# shard_counts,1,4,16,64,256
+# repetitions,3
+# warmup,1000 operations per thread before each workload and shard count
+workload,shards,threads,keys,operations,repetition,seconds,ops_per_second,checksum
+same-key,1,4,4096,400000,1,0.468493,853800.68,18001726375
+same-key,1,4,4096,400000,2,0.449233,890406.29,18001123804
+same-key,1,4,4096,400000,3,0.482032,829820.21,17998606932
+distributed-key,1,4,4096,400000,1,0.547791,730205.05,15371452480
+distributed-key,1,4,4096,400000,2,0.619305,645885.57,14961724816
+distributed-key,1,4,4096,400000,3,0.620921,644204.81,15256627472
+same-key,4,4,4096,400000,1,0.485968,823099.32,18001453494
+same-key,4,4,4096,400000,2,0.581968,687323.26,18002354249
+same-key,4,4,4096,400000,3,0.481902,830044.21,17999688579
+distributed-key,4,4,4096,400000,1,0.320136,1249467.84,15925627392
+distributed-key,4,4,4096,400000,2,0.417415,958279.79,15776677200
+distributed-key,4,4,4096,400000,3,0.319786,1250835.68,15641417488
+same-key,16,4,4096,400000,1,0.485605,823714.32,18002465262
+same-key,16,4,4096,400000,2,0.483342,827570.58,18000860817
+same-key,16,4,4096,400000,3,0.443708,901494.45,18001684078
+distributed-key,16,4,4096,400000,1,0.185031,2161799.91,15048109456
+distributed-key,16,4,4096,400000,2,0.200997,1990081.11,15259969984
+distributed-key,16,4,4096,400000,3,0.184250,2170968.76,14416546912
+same-key,64,4,4096,400000,1,0.476363,839695.56,17990398094
+same-key,64,4,4096,400000,2,0.465361,859548.37,18002075582
+same-key,64,4,4096,400000,3,0.409288,977307.73,18000728594
+distributed-key,64,4,4096,400000,1,0.104743,3818872.48,15753939616
+distributed-key,64,4,4096,400000,2,0.089941,4447370.27,13441239568
+distributed-key,64,4,4096,400000,3,0.117181,3413536.01,15143492448
+same-key,256,4,4096,400000,1,0.422016,947831.64,17999870882
+same-key,256,4,4096,400000,2,0.465563,859174.57,17999245662
+same-key,256,4,4096,400000,3,0.497517,803992.90,18000691739
+distributed-key,256,4,4096,400000,1,0.089301,4479228.99,15956685920
+distributed-key,256,4,4096,400000,2,0.097286,4111567.38,15135210272
+distributed-key,256,4,4096,400000,3,0.196097,2039807.70,15452832528

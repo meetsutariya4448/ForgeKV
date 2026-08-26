@@ -2,6 +2,32 @@
 
 Only problems actually observed during development belong here.
 
+## 2026-08-26: Accepted socket could leak if timeout setup failed
+
+- **Problem:** The first concurrent accept path configured socket options after acceptance without a
+  cleanup guard around that throwing step.
+- **Symptoms:** Code review showed that a `setsockopt` failure would leave the new descriptor open
+  while unwinding the server loop.
+- **Root cause:** Ownership was transferred to a connection thread only after timeout setup, leaving
+  the intermediate descriptor without exception cleanup.
+- **Fix:** Close and invalidate the accepted descriptor before propagating any timeout-setup error.
+- **Test added:** Existing loopback construction and connection-lifecycle tests cover the normal
+  path; deterministic `setsockopt` failure injection is not available.
+- **Result:** Every throwing path between `accept` and connection-thread ownership now closes the
+  descriptor.
+
+## 2026-08-26: Benchmark metadata extraction evaluated an absent fallback
+
+- **Problem:** The first Milestone 3 benchmark runner failed before starting measurements.
+- **Symptoms:** Python raised `KeyError: 'arguments'` while reading `compile_commands.json`, even
+  though the selected entry contained the expected `command` field.
+- **Root cause:** `dict.get(key, fallback)` evaluates `fallback` eagerly; constructing that fallback
+  indexed the absent `arguments` field.
+- **Fix:** Select `command` or `arguments` with an explicit conditional expression.
+- **Test added:** The complete runner was executed after the fix and produced a metadata-complete raw
+  CSV. The failed invocation wrote no result file.
+- **Result:** Reproducible benchmark capture completed without inventing or losing measurements.
+
 ## 2026-08-26: CMake absent from the local toolchain
 
 - **Problem:** The required CMake configure command could not run from the initial environment.

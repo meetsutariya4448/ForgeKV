@@ -57,6 +57,7 @@ Responses use kind `2`, echo opcode and request ID, and currently have an empty 
 | 2 | INVALID_REQUEST | Frame was structurally valid but semantically invalid |
 | 3 | INTERNAL_ERROR | Unexpected server failure |
 | 4 | STORAGE_ERROR | Storage operation failed |
+| 5 | OVERLOADED | Valid request was rejected because the worker queue was full or stopping |
 
 Payloads by operation/status:
 
@@ -68,8 +69,9 @@ Payloads by operation/status:
   diagnostic wording, for control flow.
 
 Request IDs correlate responses; they are not transactions, deduplication keys, or replay
-protection. The single-threaded server responds in request order. Pipelined frames are parsed, but
-Milestone 2's client sends one request and waits for its response.
+protection. Each connection dispatches one request at a time and therefore responds in request order.
+Pipelined frames are parsed but executed sequentially on that connection; the current client sends
+one request and waits for its response.
 
 ## Incremental parser
 
@@ -100,9 +102,12 @@ continue after partial writes and `EINTR`; receive loops accept arbitrary partia
 suppressed. Accepted sockets use bounded receive/send timeouts so the server can observe stop
 requests and a client cannot block one I/O call indefinitely. EOF is a clean disconnect.
 
-The listening loop uses `poll` with a bounded interval for cancellation. Milestone 2 intentionally
-serves one active connection at a time. A slow connected client therefore delays acceptance of
-other clients; connection caps, a worker pool, queues, and overload behavior belong to Milestone 3.
+The listening loop uses `poll` with a bounded interval for cancellation. It admits at most the
+configured connection count, with one owned `std::jthread` per active connection. An excess accepted
+socket is closed immediately without a response because no request has been parsed. Valid requests
+are submitted without blocking to a bounded worker queue; a full or stopping queue receives
+`OVERLOADED` and the connection remains usable. These two saturation behaviors are intentionally
+different and deterministic.
 
 Client response-read timeouts are enforced. The current blocking `connect()` path does not provide a
 strict cross-platform connection-attempt deadline; that remains a documented limitation.
