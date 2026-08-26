@@ -19,6 +19,7 @@ endif()
 add_executable(
     forgekv_unit_tests
     integration/storage_engine_test.cpp
+    unit/protocol/frame_test.cpp
     unit/storage/record_test.cpp
     unit/version_test.cpp
 )
