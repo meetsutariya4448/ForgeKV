@@ -24,6 +24,7 @@ forgekv_configure_sanitizers(forgekv_sanitizers)
 
 add_library(
     forgekv
+    src/network/tcp.cpp
     src/protocol/frame.cpp
     src/storage/crc32c.cpp
     src/storage/engine.cpp

@@ -1,0 +1,182 @@
+#include "forgekv/network/tcp.hpp"
+
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
+#include <gtest/gtest.h>
+
+#include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <filesystem>
+#include <random>
+#include <span>
+#include <string_view>
+#include <thread>
+
+namespace forgekv::network {
+namespace {
+
+protocol::Bytes bytes(std::string_view value) {
+    const auto* begin = reinterpret_cast<const std::byte*>(value.data());
+    return protocol::Bytes(begin, begin + value.size());
+}
+
+class TemporaryDirectory {
+public:
+    TemporaryDirectory() {
+        std::random_device random;
+        path_ = std::filesystem::temp_directory_path() /
+                ("forgekv-network-test-" + std::to_string(random()));
+        std::filesystem::remove_all(path_);
+    }
+    ~TemporaryDirectory() {
+        std::error_code ignored;
+        std::filesystem::remove_all(path_, ignored);
+    }
+    const std::filesystem::path& path() const { return path_; }
+
+private:
+    std::filesystem::path path_;
+};
+
+class RunningServer {
+public:
+    explicit RunningServer(const std::filesystem::path& path)
+        : server_(ServerConfig{"127.0.0.1", 0, path, std::chrono::milliseconds{50}}),
+          thread_([this](std::stop_token token) {
+              try { server_.serve(token); }
+              catch (...) { error_ = std::current_exception(); }
+          }) {}
+
+    ~RunningServer() {
+        thread_.request_stop();
+        thread_.join();
+        EXPECT_EQ(error_, nullptr);
+    }
+    std::uint16_t port() const { return server_.port(); }
+
+private:
+    TcpServer server_;
+    std::exception_ptr error_;
+    std::jthread thread_;
+};
+
+protocol::Frame request(protocol::Opcode opcode, std::uint64_t id, protocol::Bytes key,
+                        protocol::Bytes value = {}) {
+    return protocol::Frame{protocol::FrameKind::kRequest, opcode, protocol::Status::kOk, id,
+                           std::move(key), std::move(value)};
+}
+
+int connect_raw(std::uint16_t port) {
+    const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
+    EXPECT_GE(fd, 0);
+    sockaddr_in address{};
+    address.sin_family = AF_INET;
+    address.sin_port = htons(port);
+    EXPECT_EQ(::inet_pton(AF_INET, "127.0.0.1", &address.sin_addr), 1);
+    EXPECT_EQ(::connect(fd, reinterpret_cast<sockaddr*>(&address), sizeof(address)), 0);
+    return fd;
+}
+
+void send_raw_all(int fd, std::span<const std::byte> data) {
+    while (!data.empty()) {
+        const ssize_t count = ::send(fd, data.data(), data.size(), 0);
+        ASSERT_GT(count, 0);
+        if (count <= 0) return;
+        data = data.subspan(static_cast<std::size_t>(count));
+    }
+}
+
+protocol::Frame receive_frame(int fd) {
+    protocol::FrameParser parser;
+    std::array<std::byte, 256> buffer{};
+    for (;;) {
+        const ssize_t count = ::recv(fd, buffer.data(), buffer.size(), 0);
+        EXPECT_GT(count, 0);
+        if (count <= 0) throw NetworkError("test connection closed");
+        auto frames = parser.feed(
+            std::span<const std::byte>(buffer).first(static_cast<std::size_t>(count)));
+        if (!frames.empty()) return std::move(frames.front());
+    }
+}
+
+TEST(NetworkIntegrationTest, BinaryCrudExistsAndPersistentConnectionWork) {
+    TemporaryDirectory temporary;
+    RunningServer server(temporary.path());
+    auto client = TcpClient::connect("127.0.0.1", server.port());
+    const protocol::Bytes key{std::byte{0}, std::byte{0xff}, std::byte{'k'}};
+    const protocol::Bytes value{std::byte{1}, std::byte{0}, std::byte{0xfe}};
+
+    EXPECT_EQ(client.request(request(protocol::Opcode::kPut, 1, key, value)).status,
+              protocol::Status::kOk);
+    const auto get = client.request(request(protocol::Opcode::kGet, 2, key));
+    EXPECT_EQ(get.status, protocol::Status::kOk);
+    EXPECT_EQ(get.value, value);
+    EXPECT_EQ(client.request(request(protocol::Opcode::kExists, 3, key)).value,
+              protocol::Bytes({std::byte{1}}));
+    EXPECT_EQ(client.request(request(protocol::Opcode::kDelete, 4, key)).status,
+              protocol::Status::kOk);
+    EXPECT_EQ(client.request(request(protocol::Opcode::kGet, 5, key)).status,
+              protocol::Status::kNotFound);
+}
+
+TEST(NetworkIntegrationTest, RejectsSemanticErrorWithoutDroppingConnection) {
+    TemporaryDirectory temporary;
+    RunningServer server(temporary.path());
+    auto client = TcpClient::connect("127.0.0.1", server.port());
+    EXPECT_EQ(client.request(request(protocol::Opcode::kGet, 1, bytes("key"), bytes("bad"))).status,
+              protocol::Status::kInvalidRequest);
+    EXPECT_EQ(client.request(request(protocol::Opcode::kPut, 2, bytes("key"), bytes("ok"))).status,
+              protocol::Status::kOk);
+}
+
+TEST(NetworkIntegrationTest, HandlesByteAtATimeTcpFragmentation) {
+    TemporaryDirectory temporary;
+    RunningServer server(temporary.path());
+    const int fd = connect_raw(server.port());
+    const auto encoded = protocol::encode_frame(
+        request(protocol::Opcode::kPut, 77, bytes("fragmented"), bytes("value")));
+    for (const std::byte byte : encoded) {
+        ASSERT_EQ(::send(fd, &byte, 1, 0), 1);
+    }
+    const auto response = receive_frame(fd);
+    EXPECT_EQ(response.request_id, 77U);
+    EXPECT_EQ(response.status, protocol::Status::kOk);
+    ::close(fd);
+}
+
+TEST(NetworkIntegrationTest, RestartRecoversNetworkWrittenValue) {
+    TemporaryDirectory temporary;
+    {
+        RunningServer server(temporary.path());
+        auto client = TcpClient::connect("127.0.0.1", server.port());
+        EXPECT_EQ(client.request(request(protocol::Opcode::kPut, 1, bytes("key"), bytes("value"))).status,
+                  protocol::Status::kOk);
+    }
+    RunningServer restarted(temporary.path());
+    auto client = TcpClient::connect("127.0.0.1", restarted.port());
+    const auto response = client.request(request(protocol::Opcode::kGet, 2, bytes("key")));
+    EXPECT_EQ(response.status, protocol::Status::kOk);
+    EXPECT_EQ(response.value, bytes("value"));
+}
+
+TEST(NetworkIntegrationTest, MalformedConnectionClosesAndServerContinues) {
+    TemporaryDirectory temporary;
+    RunningServer server(temporary.path());
+    int fd = connect_raw(server.port());
+    auto malformed = protocol::encode_frame(request(protocol::Opcode::kGet, 1, bytes("key")));
+    malformed[0] = std::byte{'X'};
+    send_raw_all(fd, malformed);
+    std::array<std::byte, 1> byte{};
+    EXPECT_EQ(::recv(fd, byte.data(), byte.size(), 0), 0);
+    ::close(fd);
+
+    auto client = TcpClient::connect("127.0.0.1", server.port());
+    EXPECT_EQ(client.request(request(protocol::Opcode::kPut, 2, bytes("key"), bytes("value"))).status,
+              protocol::Status::kOk);
+}
+
+}  // namespace
+}  // namespace forgekv::network
