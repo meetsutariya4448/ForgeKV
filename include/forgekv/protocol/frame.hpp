@@ -24,6 +24,7 @@ enum class Status : std::uint16_t {
     kInvalidRequest = 2,
     kInternalError = 3,
     kStorageError = 4,
+    kOverloaded = 5,
 };
 
 struct Frame {

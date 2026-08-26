@@ -12,8 +12,10 @@
 #include <filesystem>
 #include <random>
 #include <span>
+#include <string>
 #include <string_view>
 #include <thread>
+#include <vector>
 
 namespace forgekv::network {
 namespace {
@@ -44,7 +46,11 @@ private:
 class RunningServer {
 public:
     explicit RunningServer(const std::filesystem::path& path)
-        : server_(ServerConfig{"127.0.0.1", 0, path, std::chrono::milliseconds{50}}),
+        : RunningServer(ServerConfig{"127.0.0.1", 0, path,
+                                     std::chrono::milliseconds{50}}) {}
+
+    explicit RunningServer(ServerConfig config)
+        : server_(std::move(config)),
           thread_([this](std::stop_token token) {
               try { server_.serve(token); }
               catch (...) { error_ = std::current_exception(); }
@@ -56,12 +62,21 @@ public:
         EXPECT_EQ(error_, nullptr);
     }
     std::uint16_t port() const { return server_.port(); }
+    std::size_t active_connections() const { return server_.active_connections(); }
 
 private:
     TcpServer server_;
     std::exception_ptr error_;
     std::jthread thread_;
 };
+
+bool wait_for_connection_count(const RunningServer& server, std::size_t expected) {
+    for (int attempt = 0; attempt < 100; ++attempt) {
+        if (server.active_connections() == expected) return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds{5});
+    }
+    return false;
+}
 
 protocol::Frame request(protocol::Opcode opcode, std::uint64_t id, protocol::Bytes key,
                         protocol::Bytes value = {}) {
@@ -176,6 +191,71 @@ TEST(NetworkIntegrationTest, MalformedConnectionClosesAndServerContinues) {
     auto client = TcpClient::connect("127.0.0.1", server.port());
     EXPECT_EQ(client.request(request(protocol::Opcode::kPut, 2, bytes("key"), bytes("value"))).status,
               protocol::Status::kOk);
+}
+
+TEST(NetworkIntegrationTest, ServesConcurrentClientsWithoutLosingWrites) {
+    TemporaryDirectory temporary;
+    ServerConfig config{"127.0.0.1", 0, temporary.path(), std::chrono::milliseconds{100}};
+    config.worker_count = 4;
+    config.queue_capacity = 32;
+    config.max_connections = 16;
+    RunningServer server(std::move(config));
+    std::atomic_int failures = 0;
+    std::vector<std::jthread> clients;
+
+    for (int client_index = 0; client_index < 8; ++client_index) {
+        clients.emplace_back([&, client_index] {
+            try {
+                auto client = TcpClient::connect("127.0.0.1", server.port());
+                const std::string key = "key-" + std::to_string(client_index);
+                const std::string value = "value-" + std::to_string(client_index);
+                if (client.request(request(protocol::Opcode::kPut,
+                                           static_cast<std::uint64_t>(client_index + 1),
+                                           bytes(key), bytes(value))).status !=
+                    protocol::Status::kOk) {
+                    failures.fetch_add(1);
+                    return;
+                }
+                const auto response = client.request(
+                    request(protocol::Opcode::kGet,
+                            static_cast<std::uint64_t>(client_index + 100), bytes(key)));
+                if (response.status != protocol::Status::kOk || response.value != bytes(value)) {
+                    failures.fetch_add(1);
+                }
+            } catch (...) {
+                failures.fetch_add(1);
+            }
+        });
+    }
+    clients.clear();
+    EXPECT_EQ(failures.load(), 0);
+}
+
+TEST(NetworkIntegrationTest, EnforcesConfiguredConnectionLimit) {
+    TemporaryDirectory temporary;
+    ServerConfig config{"127.0.0.1", 0, temporary.path(), std::chrono::milliseconds{50}};
+    config.max_connections = 1;
+    RunningServer server(std::move(config));
+    const int first = connect_raw(server.port());
+    ASSERT_TRUE(wait_for_connection_count(server, 1));
+
+    auto rejected = TcpClient::connect("127.0.0.1", server.port(),
+                                       std::chrono::milliseconds{250});
+    EXPECT_THROW(static_cast<void>(rejected.request(
+                     request(protocol::Opcode::kGet, 1, bytes("key")))), NetworkError);
+    ::close(first);
+}
+
+TEST(NetworkIntegrationTest, ShutdownInterruptsIdleConnections) {
+    TemporaryDirectory temporary;
+    int idle = -1;
+    {
+        ServerConfig config{"127.0.0.1", 0, temporary.path(), std::chrono::milliseconds{25}};
+        RunningServer server(std::move(config));
+        idle = connect_raw(server.port());
+        ASSERT_TRUE(wait_for_connection_count(server, 1));
+    }
+    ::close(idle);
 }
 
 }  // namespace

@@ -71,7 +71,7 @@ Opcode parse_opcode(std::uint8_t value) {
 }
 
 Status parse_status(std::uint16_t value) {
-    if (value <= 4) return static_cast<Status>(value);
+    if (value <= 5) return static_cast<Status>(value);
     fail(ProtocolErrorCode::kUnknownStatus, "unknown status");
 }
 

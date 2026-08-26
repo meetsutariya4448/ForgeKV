@@ -29,6 +29,14 @@ TEST(FrameCodecTest, RoundTripsBinaryPut) {
     EXPECT_EQ(decoded.value, original.value);
 }
 
+TEST(FrameCodecTest, RoundTripsOverloadedResponse) {
+    const Frame original{FrameKind::kResponse, Opcode::kGet, Status::kOverloaded, 7, {},
+                         bytes("request queue is full")};
+    const Frame decoded = decode_frame(encode_frame(original));
+    EXPECT_EQ(decoded.status, Status::kOverloaded);
+    EXPECT_EQ(decoded.value, original.value);
+}
+
 TEST(FrameCodecTest, RejectsZeroRequestIdAndOversizedPayload) {
     Frame frame = request(Opcode::kGet);
     frame.request_id = 0;

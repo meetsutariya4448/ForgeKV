@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <array>
+#include <future>
 #include <limits>
 #include <string_view>
 
@@ -84,7 +85,12 @@ protocol::Frame response_for(const protocol::Frame& request, protocol::Status st
 
 TcpServer::TcpServer(ServerConfig config)
     : config_(std::move(config)),
-      storage_(storage::StorageEngine::open(config_.database_directory)) {
+      storage_(storage::StorageEngine::open(config_.database_directory, config_.index_shards)),
+      worker_pool_(config_.worker_count, config_.queue_capacity) {
+    if (config_.max_connections == 0) {
+        throw std::invalid_argument("max connections must be positive");
+    }
+    connections_.reserve(config_.max_connections);
     open_listener();
 }
 
@@ -92,6 +98,7 @@ TcpServer::~TcpServer() { close_socket(listener_fd_); }
 
 void TcpServer::serve(std::stop_token stop_token) {
     while (!stop_token.stop_requested()) {
+        reap_connections();
         pollfd descriptor{listener_fd_, POLLIN, 0};
         const int result = ::poll(&descriptor, 1, 100);
         if (result == 0) continue;
@@ -102,17 +109,42 @@ void TcpServer::serve(std::stop_token stop_token) {
         int client_fd = ::accept(listener_fd_, nullptr, nullptr);
         if (client_fd < 0 && errno == EINTR) continue;
         if (client_fd < 0) throw_errno("accept");
+        if (active_connections_.load() >= config_.max_connections) {
+            close_socket(client_fd);
+            continue;
+        }
         try {
             set_timeouts(client_fd, config_.io_timeout);
-            handle_connection(client_fd, stop_token);
-        } catch (const NetworkError&) {
-            // A connection-local reset or timeout does not terminate the listening server.
+        } catch (...) {
+            close_socket(client_fd);
+            throw;
         }
-        close_socket(client_fd);
+        auto done = std::make_shared<std::atomic_bool>(false);
+        active_connections_.fetch_add(1);
+        try {
+            connections_.push_back(ConnectionWorker{done, std::jthread(
+                [this, client_fd, done](std::stop_token connection_stop) mutable {
+                    int owned_fd = client_fd;
+                    try { handle_connection(owned_fd, connection_stop); }
+                    catch (...) { }
+                    close_socket(owned_fd);
+                    active_connections_.fetch_sub(1);
+                    done->store(true);
+                })});
+        } catch (...) {
+            active_connections_.fetch_sub(1);
+            close_socket(client_fd);
+            throw;
+        }
     }
+    for (auto& connection : connections_) connection.thread.request_stop();
+    connections_.clear();
+    worker_pool_.shutdown();
 }
 
 std::uint16_t TcpServer::port() const noexcept { return bound_port_; }
+std::size_t TcpServer::active_connections() const noexcept { return active_connections_.load(); }
+std::size_t TcpServer::queued_requests() const { return worker_pool_.queued_tasks(); }
 
 void TcpServer::open_listener() {
     addrinfo hints{};
@@ -164,11 +196,32 @@ void TcpServer::handle_connection(int client_fd, std::stop_token stop_token) {
         try {
             const auto frames = parser.feed(
                 std::span<const std::byte>(buffer).first(static_cast<std::size_t>(received)));
-            for (const auto& frame : frames) send_all(client_fd, protocol::encode_frame(dispatch(frame)));
+            for (const auto& frame : frames) {
+                send_all(client_fd, protocol::encode_frame(dispatch_via_pool(frame)));
+            }
         } catch (const protocol::ProtocolError&) {
             return;
         }
     }
+}
+
+protocol::Frame TcpServer::dispatch_via_pool(const protocol::Frame& request) {
+    auto promise = std::make_shared<std::promise<protocol::Frame>>();
+    auto result = promise->get_future();
+    if (!worker_pool_.try_submit([this, request, promise] {
+            try { promise->set_value(dispatch(request)); }
+            catch (...) { promise->set_exception(std::current_exception()); }
+        })) {
+        return response_for(request, protocol::Status::kOverloaded,
+                            message_bytes("request queue is full"));
+    }
+    return result.get();
+}
+
+void TcpServer::reap_connections() {
+    std::erase_if(connections_, [](const ConnectionWorker& connection) {
+        return connection.done->load();
+    });
 }
 
 protocol::Frame TcpServer::dispatch(const protocol::Frame& request) {
