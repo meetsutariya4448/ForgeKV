@@ -54,4 +54,13 @@ if(FORGEKV_BUILD_FUZZERS)
         fuzz_record_decoder
         PRIVATE ForgeKV::forgekv forgekv_warnings forgekv_sanitizers
     )
+
+    add_executable(fuzz_frame_parser fuzz/frame_parser_fuzz.cpp)
+    target_compile_features(fuzz_frame_parser PRIVATE cxx_std_20)
+    target_compile_options(fuzz_frame_parser PRIVATE -fsanitize=fuzzer)
+    target_link_options(fuzz_frame_parser PRIVATE -fsanitize=fuzzer)
+    target_link_libraries(
+        fuzz_frame_parser
+        PRIVATE ForgeKV::forgekv forgekv_warnings forgekv_sanitizers
+    )
 endif()
