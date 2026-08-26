@@ -38,3 +38,18 @@ gtest_discover_tests(
     DISCOVERY_MODE PRE_TEST
     DISCOVERY_TIMEOUT 15
 )
+
+if(FORGEKV_BUILD_FUZZERS)
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "AppleClang|Clang")
+        message(FATAL_ERROR "ForgeKV fuzz targets currently require Clang and libFuzzer")
+    endif()
+
+    add_executable(fuzz_record_decoder fuzz/record_decoder_fuzz.cpp)
+    target_compile_features(fuzz_record_decoder PRIVATE cxx_std_20)
+    target_compile_options(fuzz_record_decoder PRIVATE -fsanitize=fuzzer)
+    target_link_options(fuzz_record_decoder PRIVATE -fsanitize=fuzzer)
+    target_link_libraries(
+        fuzz_record_decoder
+        PRIVATE ForgeKV::forgekv forgekv_warnings forgekv_sanitizers
+    )
+endif()

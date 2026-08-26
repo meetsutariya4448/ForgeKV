@@ -1,6 +1,7 @@
 option(FORGEKV_ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(FORGEKV_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 option(FORGEKV_ENABLE_TSAN "Enable ThreadSanitizer" OFF)
+option(FORGEKV_BUILD_FUZZERS "Build libFuzzer targets" OFF)
 
 function(forgekv_configure_sanitizers target)
     if(FORGEKV_ENABLE_TSAN AND (FORGEKV_ENABLE_ASAN OR FORGEKV_ENABLE_UBSAN))
