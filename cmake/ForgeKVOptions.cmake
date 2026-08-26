@@ -1,0 +1,31 @@
+option(FORGEKV_ENABLE_ASAN "Enable AddressSanitizer" OFF)
+option(FORGEKV_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
+option(FORGEKV_ENABLE_TSAN "Enable ThreadSanitizer" OFF)
+
+function(forgekv_configure_sanitizers target)
+    if(FORGEKV_ENABLE_TSAN AND (FORGEKV_ENABLE_ASAN OR FORGEKV_ENABLE_UBSAN))
+        message(FATAL_ERROR "ThreadSanitizer must be enabled in a separate build")
+    endif()
+
+    set(sanitizers "")
+    if(FORGEKV_ENABLE_ASAN)
+        list(APPEND sanitizers "address")
+    endif()
+    if(FORGEKV_ENABLE_UBSAN)
+        list(APPEND sanitizers "undefined")
+    endif()
+    if(FORGEKV_ENABLE_TSAN)
+        list(APPEND sanitizers "thread")
+    endif()
+
+    if(sanitizers)
+        if(NOT CMAKE_CXX_COMPILER_ID MATCHES "AppleClang|Clang|GNU")
+            message(FATAL_ERROR "Requested sanitizers are unsupported by ${CMAKE_CXX_COMPILER_ID}")
+        endif()
+
+        list(JOIN sanitizers "," sanitizer_list)
+        target_compile_options(${target} INTERFACE -fno-omit-frame-pointer "-fsanitize=${sanitizer_list}")
+        target_link_options(${target} INTERFACE "-fsanitize=${sanitizer_list}")
+    endif()
+endfunction()
+

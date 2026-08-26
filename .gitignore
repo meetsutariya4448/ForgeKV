@@ -1,0 +1,23 @@
+# CMake build trees
+/build*/
+/cmake-build-*/
+
+# Generated CMake files
+CMakeCache.txt
+CMakeFiles/
+CTestTestfile.cmake
+Testing/
+_deps/
+compile_commands.json
+
+# Compiler and editor artifacts
+*.dSYM/
+*.o
+*.swp
+.DS_Store
+.idea/
+.vscode/
+
+# Benchmark output is preserved intentionally; only scratch files are ignored.
+/bench/raw/*.tmp
+
