@@ -32,7 +32,7 @@ FORGEKV_BENCH_COMPILE_COMMAND=$(python3 -c '
 import json, pathlib, sys
 commands = json.loads(pathlib.Path(sys.argv[1]).read_text())
 match = next(item for item in commands if item["file"].endswith("apps/forgekv-bench/main.cpp"))
-print(match.get("command", " ".join(match["arguments"])))
+print(match["command"] if "command" in match else " ".join(match["arguments"]))
 ' "$FORGEKV_BENCH_ROOT/build/compile_commands.json")
 
 set -C
