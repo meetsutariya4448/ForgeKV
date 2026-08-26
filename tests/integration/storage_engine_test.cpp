@@ -30,7 +30,10 @@ public:
     TemporaryDirectory(const TemporaryDirectory&) = delete;
     TemporaryDirectory& operator=(const TemporaryDirectory&) = delete;
 
-    ~TemporaryDirectory() { std::filesystem::remove_all(path_); }
+    ~TemporaryDirectory() {
+        std::error_code ignored;
+        std::filesystem::remove_all(path_, ignored);
+    }
 
     [[nodiscard]] const std::filesystem::path& path() const noexcept { return path_; }
 
