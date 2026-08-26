@@ -2,16 +2,16 @@
 
 ## Status legend
 
-- **Implemented:** present and exercised in Milestone 0.
+- **Implemented:** present and exercised through the current milestone.
 - **Planned:** architectural direction that must be validated in its milestone.
 
 ## System context
 
 ```text
-                         planned TCP
+                        implemented TCP
 ┌──────────────┐      ┌──────────────────┐      ┌─────────────────────┐
 │ CLI / bench  │─────>│ network server   │─────>│ bounded dispatcher  │
-│ skeletons    │      │ [planned M2]     │      │ [planned M3]        │
+│ CLI impl. M2 │      │ [implemented M2] │      │ [planned M3]        │
 └──────────────┘      └──────────────────┘      └──────────┬──────────┘
                                                          │
                        ┌─────────────────────────────────┼───────────────┐
@@ -28,19 +28,18 @@
                                               └────────────────┘
 ```
 
-The shared library, versioned record codec, CRC32C, single append-only segment, unsharded in-memory
-index, binary CRUD API, and startup replay are implemented. Network, dispatcher, sharding, TTL,
-rotation, and compaction boxes remain planned. Arrows involving planned components express intended
-control/data flow, not a compatibility promise.
+The shared library, storage engine, versioned network codec, incremental parser, POSIX server/client,
+CLI, and synchronous request dispatch are implemented. The dispatcher currently runs inline on one
+connection; worker queues, sharding, TTL, rotation, and compaction remain planned.
 
-## Planned single-node boundaries
+## Single-node boundaries
 
 ### Protocol and network
 
-The network layer will own listening and connected sockets through RAII wrappers. It will parse a
-versioned, length-delimited binary protocol with bounded key/value/frame sizes. Connection code
-will handle partial reads, partial writes, timeouts, cancellation, and clean shutdown. Protocol
-bytes will not borrow memory beyond the input buffer lifetime.
+The network layer owns listening and connected sockets through RAII classes. It parses a versioned,
+length-delimited binary protocol with bounded key/value/frame sizes. Connection code handles partial
+reads, partial writes, timeouts, cancellation polling, and clean shutdown. Frames own decoded bytes;
+no protocol view outlives its input buffer. See `PROTOCOL.md`.
 
 ### Request dispatch and backpressure
 
@@ -76,11 +75,10 @@ until segment/recovery invariants exist and can be tested.
 
 ## Ownership model
 
-The server process will own one top-level application object. That object will own the network
-server, worker pool, and storage engine. The storage engine will own segment handles, index, and TTL
-state. Work items will own request data until completion. Shared ownership will be introduced only
-when asynchronous lifetime crosses a clearly documented boundary; raw owning pointers and detached
-threads are excluded.
+The server process owns one `TcpServer`, which owns the listening descriptor and `StorageEngine`.
+Each accepted descriptor is closed after its connection loop. The application owns and joins the
+server thread used for signal-driven shutdown. A future worker pool and work items will remain owned
+by the top-level server; raw owning pointers and detached threads remain excluded.
 
 ## Planned distributed boundary
 

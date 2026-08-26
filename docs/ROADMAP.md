@@ -18,7 +18,7 @@ startup replay, and defined partial-tail/corruption behavior. Unit tests cover e
 integration tests cover restart, deletion, truncation, and corruption. Exit only when storage and
 recovery parsers pass sanitizers and their invariants are interview-defensible.
 
-## Milestone 2 — TCP protocol and CLI
+## Milestone 2 — TCP protocol and CLI (complete)
 
 Specify byte order, widths, versioning, maximums, checksums, response errors, and malformed-frame
 behavior in `docs/PROTOCOL.md`. Implement incremental parsing, socket RAII, partial I/O loops,

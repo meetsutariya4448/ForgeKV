@@ -121,8 +121,46 @@ actually exists.
 - **Evidence/benchmark:** Every partial-header boundary, partial payload, complete-final corruption,
   and mid-file corruption behavior is tested.
 
+## DD-010: Use a fixed versioned binary TCP frame
+
+- **Context:** Arbitrary binary keys/values require unambiguous framing, bounded allocation, and
+  incremental parsing across TCP reads.
+- **Alternatives:** Newline-delimited text; HTTP; variable-length integers; a third-party protocol.
+- **Chosen approach:** A 40-byte big-endian header with magic, version, kind, opcode/status, request
+  ID, bounded lengths, and independent CRC32C checksums.
+- **Reason:** Fixed offsets are easy to validate and fuzz, request IDs support future pipelining, and
+  binary payloads need no escaping. HTTP would obscure the intended transport engineering; text
+  lines make arbitrary values awkward.
+- **Tradeoffs:** Forty bytes is substantial overhead for small requests, and checksums consume CPU
+  despite TCP's own integrity mechanisms.
+- **Evidence/benchmark:** Codec/parser and loopback integration tests pass; overhead is unmeasured.
+
+## DD-011: Close on malformed framing; respond to semantic errors
+
+- **Context:** Some invalid requests retain a trustworthy request ID while corrupted headers do not.
+- **Alternatives:** Always respond; always close; scan for the next magic value.
+- **Chosen approach:** Structurally valid but operation-invalid requests receive `INVALID_REQUEST`.
+  Checksum, magic, version, length, or type errors poison the parser and close the connection.
+- **Reason:** It preserves a useful client error path without reflecting untrusted correlation data
+  or guessing where the next frame begins.
+- **Tradeoffs:** One malformed frame discards all later pipelined work on that connection.
+- **Evidence/benchmark:** Tests prove semantic-error connection reuse and malformed-client isolation.
+
+## DD-012: Start with a single-threaded poll/accept loop
+
+- **Context:** Storage is intentionally single-threaded through Milestone 2, while transport
+  correctness must precede concurrency.
+- **Alternatives:** Thread per connection; worker pool now; asynchronous event framework.
+- **Chosen approach:** One listener and one active connection, with blocking partial-I/O loops,
+  socket timeouts, and stop-token cancellation checks.
+- **Reason:** Ownership and failure behavior remain explicit, and no concurrency claims precede the
+  bounded queue/worker-pool milestone.
+- **Tradeoffs:** A slow client blocks every other client; throughput is not representative.
+- **Evidence/benchmark:** Fragmentation, persistent connection, clean restart, and malformed-client
+  loopback tests pass. Concurrency performance is intentionally unmeasured.
+
 ## Pending decisions for later milestones
 
-Protocol framing, durability modes, index shard default, TTL clock semantics, segment rotation, and
-compaction publication are not decided yet. Each will receive a decision record alongside its
-executable specification and tests.
+Durability modes, index shard default, TTL clock semantics, segment rotation, and compaction
+publication are not decided yet. Each will receive a decision record alongside its executable
+specification and tests.

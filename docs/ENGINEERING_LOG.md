@@ -66,7 +66,21 @@ Only problems actually observed during development belong here.
 - **Symptoms:** Apple Clang compiled the harness but the linker reported missing
   `libclang_rt.fuzzer_osx.a`.
 - **Root cause:** The installed Command Line Tools package does not contain the libFuzzer runtime.
-- **Fix:** Kept fuzzing opt-in behind `FORGEKV_BUILD_FUZZERS`; no system package was installed and no
-  fuzz execution is claimed. The target can run on a Clang environment that supplies libFuzzer.
+- **Fix:** Kept storage and protocol fuzzing opt-in behind `FORGEKV_BUILD_FUZZERS`; no system package
+  was installed and no fuzz execution is claimed. Both targets can run where Clang supplies
+  libFuzzer.
 - **Test added:** None; the 32 deterministic tests exercise the same decoder boundaries locally.
 - **Result:** Fuzz target configured and source compiled; local link/run unavailable.
+
+## 2026-08-26: Listener descriptor could leak during constructor failure
+
+- **Problem:** The first listener setup assigned the bound descriptor to the server before querying
+  the selected port.
+- **Symptoms:** Code review found that a rare `getsockname` failure would throw from the constructor,
+  preventing the server destructor from closing the already-owned descriptor.
+- **Root cause:** Descriptor ownership was established before every throwing setup step had a cleanup
+  path.
+- **Fix:** Explicitly close and invalidate the listener before propagating `getsockname` failure.
+- **Test added:** Normal loopback construction/destruction remains covered; deterministic syscall
+  failure injection is not yet available.
+- **Result:** The identified constructor failure path no longer leaks the descriptor.

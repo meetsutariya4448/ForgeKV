@@ -4,20 +4,19 @@ ForgeKV is a systems-engineering project in modern C++ that is planned to become
 key-value store with a log-structured storage engine, concurrent request processing, framed TCP
 networking, crash recovery, TTL expiration, compaction, and measured performance.
 
-The repository currently contains **Milestone 1**: the C++20 foundation plus a single-threaded,
-append-only storage engine with checksummed binary records, PUT/GET/DELETE, tombstones, monotonic
-sequences, an in-memory index, startup replay, and conservative truncated-tail recovery. It does not
-yet accept network connections.
+The repository currently contains **Milestone 2**: the persistent storage engine plus a versioned,
+checksummed binary TCP protocol, bounded incremental parser, single-threaded server, reusable client,
+and functional text CLI. Concurrency and backpressure are not implemented yet.
 
 ## Current targets
 
 | Target | Current behavior |
 |---|---|
 | `forgekv` | Reusable library with record codec, CRC32C, and storage engine API |
-| `forgekv-server` | Prints its version and implementation status |
-| `forgekv-cli` | Prints its version and implementation status |
+| `forgekv-server` | Serves PUT/GET/DELETE/EXISTS over TCP |
+| `forgekv-cli` | Sends text commands through the binary protocol |
 | `forgekv-bench` | Prints its version and implementation status |
-| `forgekv_unit_tests` | Runs storage codec, CRUD/restart/recovery, corruption, and smoke tests |
+| `forgekv_unit_tests` | Runs protocol, loopback network, storage/recovery, corruption, and smoke tests |
 
 ## Build and test
 
@@ -60,11 +59,22 @@ clients -> framed TCP server -> bounded dispatcher -> storage engine
                                 TTL scheduler          recovery/compaction
 ```
 
-The storage engine and current unsharded index are implemented; networking, bounded dispatch, TTL,
-rotation, and compaction remain roadmap work. See
+The storage engine, unsharded index, protocol, TCP server, and CLI are implemented; bounded dispatch,
+concurrency, TTL, rotation, and compaction remain roadmap work. See
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/ROADMAP.md`](docs/ROADMAP.md), and
-[`docs/STORAGE_FORMAT.md`](docs/STORAGE_FORMAT.md) for precise status and intended sequencing. Current
-guarantee boundaries are collected in [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
+[`docs/STORAGE_FORMAT.md`](docs/STORAGE_FORMAT.md) for precise status and intended sequencing. The
+wire contract is in [`docs/PROTOCOL.md`](docs/PROTOCOL.md); current guarantee boundaries are in
+[`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
+
+## Run the server and CLI
+
+```sh
+./build/forgekv-server --host 127.0.0.1 --port 7391 --data ./forgekv-data
+./build/forgekv-cli 127.0.0.1 7391 PUT greeting hello
+./build/forgekv-cli 127.0.0.1 7391 GET greeting
+./build/forgekv-cli 127.0.0.1 7391 EXISTS greeting
+./build/forgekv-cli 127.0.0.1 7391 DELETE greeting
+```
 
 ## Engineering principles
 
@@ -75,4 +85,4 @@ guarantee boundaries are collected in [`docs/LIMITATIONS.md`](docs/LIMITATIONS.m
 - Distributed work starts only after the single-node engine is tested and measured.
 
 No performance, stable-storage durability, availability, or production-readiness claims are made at
-Milestone 1.
+Milestone 2.
