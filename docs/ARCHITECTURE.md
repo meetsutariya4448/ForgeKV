@@ -18,7 +18,7 @@
                        v                                 v               v
               ┌────────────────┐               ┌────────────────┐ ┌─────────────┐
               │ sharded index  │               │ storage engine │ │ TTL heap    │
-              │ [planned M3]   │<─────────────>│ [planned M1]   │ │ [planned M4]│
+              │ [planned M3]   │<─────────────>│ [implemented M1]│ │ [planned M4]│
               └────────────────┘               └───────┬────────┘ └─────────────┘
                                                       v
                                               ┌────────────────┐
@@ -28,9 +28,10 @@
                                               └────────────────┘
 ```
 
-Only the shared `forgekv` library, version API, application entry points, build system, and one
-unit test are implemented now. Arrows between planned components express intended control/data
-flow, not a compatibility promise.
+The shared library, versioned record codec, CRC32C, single append-only segment, unsharded in-memory
+index, binary CRUD API, and startup replay are implemented. Network, dispatcher, sharding, TTL,
+rotation, and compaction boxes remain planned. Arrows involving planned components express intended
+control/data flow, not a compatibility promise.
 
 ## Planned single-node boundaries
 
@@ -49,10 +50,10 @@ explicit and measured; there will be no detached threads and no unbounded task a
 
 ### Storage engine
 
-The first engine will serialize append-only records containing type, lengths, sequence, checksum,
-key, and value. Writes will append to a segment before publishing the new record location in the
-index. Recovery will replay complete valid records, rebuild the index, and treat a partial final
-record according to the storage-format contract written in Milestone 1.
+The current engine explicitly serializes append-only records containing type, lengths, sequence,
+independent header/payload checksums, key, and value. Writes append and flush before publishing a
+new record location. Recovery replays complete valid records, rebuilds the index, truncates a proven
+incomplete final record, and fails loudly on complete-record corruption. See `STORAGE_FORMAT.md`.
 
 ### Index
 

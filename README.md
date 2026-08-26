@@ -4,19 +4,20 @@ ForgeKV is a systems-engineering project in modern C++ that is planned to become
 key-value store with a log-structured storage engine, concurrent request processing, framed TCP
 networking, crash recovery, TTL expiration, compaction, and measured performance.
 
-The repository currently contains **Milestone 0 only**: the C++20 build foundation, reusable
-library target, executable skeletons, GoogleTest integration, warnings, sanitizer options, and
-architecture/roadmap documentation. It does not yet store data or accept network connections.
+The repository currently contains **Milestone 1**: the C++20 foundation plus a single-threaded,
+append-only storage engine with checksummed binary records, PUT/GET/DELETE, tombstones, monotonic
+sequences, an in-memory index, startup replay, and conservative truncated-tail recovery. It does not
+yet accept network connections.
 
 ## Current targets
 
 | Target | Current behavior |
 |---|---|
-| `forgekv` | Reusable library skeleton and version API |
+| `forgekv` | Reusable library with record codec, CRC32C, and storage engine API |
 | `forgekv-server` | Prints its version and implementation status |
 | `forgekv-cli` | Prints its version and implementation status |
 | `forgekv-bench` | Prints its version and implementation status |
-| `forgekv_unit_tests` | Runs the Milestone 0 smoke test |
+| `forgekv_unit_tests` | Runs storage codec, CRUD/restart/recovery, corruption, and smoke tests |
 
 ## Build and test
 
@@ -59,9 +60,11 @@ clients -> framed TCP server -> bounded dispatcher -> storage engine
                                 TTL scheduler          recovery/compaction
 ```
 
-Every box after the executable skeletons is roadmap work, not a current capability. See
+The storage engine and current unsharded index are implemented; networking, bounded dispatch, TTL,
+rotation, and compaction remain roadmap work. See
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/ROADMAP.md`](docs/ROADMAP.md), and
-[`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) for precise status and intended sequencing.
+[`docs/STORAGE_FORMAT.md`](docs/STORAGE_FORMAT.md) for precise status and intended sequencing. Current
+guarantee boundaries are collected in [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
 
 ## Engineering principles
 
@@ -71,4 +74,5 @@ Every box after the executable skeletons is roadmap work, not a current capabili
 - Benchmarks preserve raw results and environment metadata.
 - Distributed work starts only after the single-node engine is tested and measured.
 
-No performance, durability, availability, or production-readiness claims are made at Milestone 0.
+No performance, stable-storage durability, availability, or production-readiness claims are made at
+Milestone 1.

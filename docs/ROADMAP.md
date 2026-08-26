@@ -4,13 +4,13 @@ Milestones are sequential gates. Later work begins only after the preceding mile
 tests, documentation, and review. Each subsystem must document its design, invariants, failure
 behavior, complexity, evidence, and largest known limitation.
 
-## Milestone 0 — Foundation (current)
+## Milestone 0 — Foundation (complete)
 
 Establish C++20/CMake targets, warning and sanitizer configuration, GoogleTest, formatting policy,
 repository hygiene, executable skeletons, architecture documentation, and decision/engineering
 logs. Exit when normal and supported sanitizer builds pass and the repository has focused commits.
 
-## Milestone 1 — Storage format and recovery
+## Milestone 1 — Storage format and recovery (complete)
 
 Specify `docs/STORAGE_FORMAT.md` before implementation. Add bounded binary record encode/decode,
 checksums, tombstones, monotonic sequences, a segment writer, an in-memory index, PUT/GET/DELETE,

@@ -43,3 +43,30 @@ Only problems actually observed during development belong here.
 - **Result:** UBSan passed. ASan runtime remains unavailable locally. A separate TSan-instrumented
   build succeeded, but its test process segfaulted during discovery before project test logic ran;
   TSan is therefore also not reported as passing on this host.
+
+## 2026-08-26: Post-append index failure could reuse a sequence
+
+- **Problem:** The first PUT implementation advanced `last_sequence` only after inserting the new
+  location into the in-memory index.
+- **Symptoms:** Code review showed that an allocation exception during index insertion could occur
+  after a valid record was appended while leaving the engine ready to reuse that record's sequence.
+- **Root cause:** The implementation treated in-memory publication as the commit point even though
+  the append-only segment is authoritative.
+- **Fix:** Prepare owned key capacity before append, advance the sequence immediately after a
+  successful append, and mark the engine unavailable if publication still throws. Reopen/replay
+  reconstructs the authoritative state.
+- **Test added:** Existing restart and deterministic-sequence tests cover normal ordering. Direct
+  allocation-failure injection remains future test infrastructure.
+- **Result:** Normal mutation/recovery tests pass, and the failure path cannot continue with a reused
+  sequence.
+
+## 2026-08-26: Local Apple Clang lacks the libFuzzer runtime
+
+- **Problem:** The optional record-decoder fuzz target could not be linked locally.
+- **Symptoms:** Apple Clang compiled the harness but the linker reported missing
+  `libclang_rt.fuzzer_osx.a`.
+- **Root cause:** The installed Command Line Tools package does not contain the libFuzzer runtime.
+- **Fix:** Kept fuzzing opt-in behind `FORGEKV_BUILD_FUZZERS`; no system package was installed and no
+  fuzz execution is claimed. The target can run on a Clang environment that supplies libFuzzer.
+- **Test added:** None; the 32 deterministic tests exercise the same decoder boundaries locally.
+- **Result:** Fuzz target configured and source compiled; local link/run unavailable.
