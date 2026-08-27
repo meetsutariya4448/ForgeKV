@@ -1,0 +1,1 @@
+ForgeKV listening on 127.0.0.1:17411 using "/var/folders/p5/7n1qqtkd5l767x69mmv1hhwh0000gn/T//forgekv-matrix.H0RM7D/workers-1" (workers=1, queue=4096, connections=2048, shards=16, durability=periodic, sync_ms=1000, segment_bytes=67108864, compaction_threshold=4, background_compaction=true)

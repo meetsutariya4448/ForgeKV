@@ -1,0 +1,2 @@
+timestamp_utc,git_sha,working_tree_dirty,compiler,system,connections,threads,requests,duration_s,read_ratio,key_count,value_size,pipeline_depth,warmup,seed,workers,shards,durability,repetition,operations,seconds,ops_per_second,p50_us,p95_us,p99_us,max_us,errors,connection_errors
+2026-08-26T23:58:47Z,2b719d64435011a670c58fa7a6e8c4f24ee332c4,1,AppleClang-17.0.0.17000603,Darwin 25.5.0 arm64,10,10,2000,0,0.8,1000,1024,4,500,1,4,16,periodic,1,2000,0.0770435,25959.4,1484.29,1832.46,2026.21,2244.17,0,0

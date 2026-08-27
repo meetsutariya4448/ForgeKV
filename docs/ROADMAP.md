@@ -35,57 +35,63 @@ clients, connection rejection, and idle-connection shutdown. A reproducible 1/4/
 contention sweep is preserved under `bench/raw/`. UBSan passes; TSan instrumentation builds, but the
 documented local macOS runtime crashes before GoogleTest discovery, so no TSan pass is claimed.
 
-## Milestone 4 — Durability and TTL
+## Milestone 4 — Durability and TTL (complete)
 
-Add explicit `always`, `periodic`, and `none` synchronization modes and document their true loss
-windows. Implement PUTEX/TTL using a min-heap with stale-entry detection and read-time expiration.
-Persist absolute expiration metadata and define clock/restart semantics. Add abrupt-kill/restart and
-TTL recovery tests.
+Added explicit `always`, `periodic`, and `none` synchronization modes with documented acknowledgement
+and loss boundaries. PUTEX/TTL use a sequence-tagged min-heap plus read-time expiration. Version 2
+records persist absolute deadlines while mixed v1/v2 replay preserves existing data. Tests cover
+stale deadlines, restart, expired replay, periodic/clean-close sync, an always-mode child `_exit`,
+and maintenance-thread shutdown. Normal and UBSan verification pass; the documented local ASan/TSan
+runtime limitations remain.
 
-## Milestone 5 — Segments and compaction
+## Milestone 5 — Segments and compaction (complete)
 
-Add segment rotation and background compaction that preserves concurrent safety. Specify the
-replacement publication protocol, directory sync requirements, and startup cleanup of interrupted
-compactions. Test writes/reads during compaction under TSan and crash at publication boundaries.
-Record bytes before/after, write amplification, and duration.
+Writes rotate at a configurable byte threshold. A background or explicit compactor copies live
+records outside the writer critical section, conditionally republishes locations under the segment
+publication lock, and retires old segments only after replacement publication. `.old`/`.compact`
+startup cleanup rolls an interrupted pre-commit publication back or finishes a visible replacement.
+Tests cover rotation/restart, byte reduction, concurrent reads/writes, and both cleanup states.
 
-## Milestone 6 — Performance engineering
+## Milestone 6 — Performance engineering (complete)
 
-Implement `forgekv-bench` with host, port, connections, threads, request/duration bounds, read
-ratio, key count, value size, and pipeline depth. Export tables, JSON, CSV, and latency p50/p95/p99/
-max without discarding raw samples. Capture environment and Git metadata. Run concurrency, worker,
-shard, value-size, workload-mix, and durability sweeps; preserve all valid and invalidated runs with
-reasons. Profile first, then record before/hypothesis/change/after for optimizations.
+`forgekv-bench network` supports every planned workload bound, persistent connections and client
+pipelining. It prints a table and exports JSON, summary CSV, and every raw latency sample. The matrix
+runner covers connection, worker, shard, value-size, read/write-mix, and durability axes while
+preserving valid and invalid runs. The checked-in quick matrix is explicitly smoke-scale.
 
-## Milestone 7 — Test pyramid completion
+## Milestone 7 — Test pyramid completion (complete)
 
-Expand unit, integration, concurrency, crash, fuzz, and sanitizer coverage. Add a deterministic
-seeded reference-model stress harness for single-thread, multi-thread, and restart-between-batch
-runs. Exit when supported ASan/UBSan/TSan suites pass and every discovered defect has a regression
-test and engineering-log entry.
+The suite adds deterministic seeded reference models for sequential operations, concurrent
+sequence-ordered mutations, and restart-between-batch recovery. Crash, compaction, protocol,
+failure, cluster and replication regressions supplement the two libFuzzer targets. Normal and UBSan
+pass locally. ASan/TSan build but the documented local macOS runtimes fail before test discovery;
+Linux CI is configured to run them, and no unobserved CI pass is claimed.
 
-## Milestone 8 — Distributed sharding
+## Milestone 8 — Distributed sharding (complete library layer)
 
-Only after single-node evidence, implement a deterministic consistent-hash ring with virtual nodes,
-membership changes, routing, and remapping measurements. Test add/remove placement and failure to
-reach a selected node. Document that routing alone provides neither replication nor availability.
+The cluster library provides a deterministic FNV-derived consistent-hash ring, configurable virtual
+nodes, distinct RF placement, membership add/remove, remap fractions, and explicit unreachable-node
+failure. Tests verify deterministic placement and the minimal-movement property. Routing alone is
+not availability and is not yet connected to the TCP server executable.
 
-## Milestone 9 — Replication
+## Milestone 9 — Replication (complete protocol/model layer)
 
-Add configured RF=1/2/3 primary/replica placement, an explicit replication protocol, sequence-gap
-detection, replica recovery, lag metrics, and `primary` versus `all` acknowledgement modes. Test
-timeouts, ordering gaps, restarts, slow/unavailable replicas, and document data-loss/consistency
-windows. Do not claim quorum, consensus, safe failover, or linearizability.
+A checksummed, bounded replication message format carries primary, per-key-stream sequence,
+operation, deadline, key and value. RF=1/2/3 placement supports explicit `primary` and `all`
+acknowledgements, duplicate/gap detection, snapshot restart, history recovery, lag metrics, and
+slow/unavailable endpoint simulation. This is an in-process transport model—not quorum, consensus,
+safe failover, or a deployed multi-process replicated service.
 
-## Milestone 10 — Final benchmark and failure report
+## Milestone 10 — Final benchmark and failure report (complete bounded evidence)
 
-Run reproducible single- and multi-node matrices, resource-use profiling, network failure scenarios,
-and recovery measurements. Preserve raw results and publish methodology, hardware/software context,
-limitations, and only claims directly supported by the data.
+A 14-case quick matrix is preserved with raw samples and zero operation/connection errors. Tests
+measure refusal, reset and response-timeout detection plus restart and abrupt-exit recovery. The
+report deliberately rejects capacity conclusions from one short local repetition and supplies the
+full matrix command for future controlled hosts.
 
-## Milestone 11 — Recruiter-grade finalization
+## Milestone 11 — Recruiter-grade finalization (complete)
 
-Audit every README and resume-safe statement against implementation, tests, and measurements. Add
-clear diagrams, a bounded demo, benchmark summaries linked to raw evidence, an interview guide, and
-an honest limitations section. Ensure builds and documented workflows are reproducible through CI
-before describing CI as passing.
+The README, architecture, format/protocol documents, benchmark/failure reports, demo, interview
+guide and limitations distinguish implemented behavior from models and unsupported claims. GitHub
+Actions workflows encode normal macOS/Linux, Linux sanitizer and fuzz-smoke builds; workflow success
+must be observed remotely before anyone describes CI as passing.

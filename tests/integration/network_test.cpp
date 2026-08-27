@@ -16,6 +16,7 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace forgekv::network {
@@ -96,6 +97,20 @@ int connect_raw(std::uint16_t port) {
     return fd;
 }
 
+std::pair<int, std::uint16_t> listen_for_failure_test() {
+    const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
+    EXPECT_GE(fd, 0);
+    sockaddr_in address{};
+    address.sin_family = AF_INET;
+    address.sin_port = 0;
+    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    EXPECT_EQ(::bind(fd, reinterpret_cast<sockaddr*>(&address), sizeof(address)), 0);
+    EXPECT_EQ(::listen(fd, 1), 0);
+    socklen_t length = sizeof(address);
+    EXPECT_EQ(::getsockname(fd, reinterpret_cast<sockaddr*>(&address), &length), 0);
+    return {fd, ntohs(address.sin_port)};
+}
+
 void send_raw_all(int fd, std::span<const std::byte> data) {
     while (!data.empty()) {
         const ssize_t count = ::send(fd, data.data(), data.size(), 0);
@@ -138,6 +153,41 @@ TEST(NetworkIntegrationTest, BinaryCrudExistsAndPersistentConnectionWork) {
               protocol::Status::kNotFound);
 }
 
+TEST(NetworkIntegrationTest, ClientPipelineMatchesOrderedResponses) {
+    TemporaryDirectory temporary;
+    RunningServer server(temporary.path());
+    auto client = TcpClient::connect("127.0.0.1", server.port());
+    const std::vector<protocol::Frame> requests{
+        request(protocol::Opcode::kPut, 1, bytes("one"), bytes("first")),
+        request(protocol::Opcode::kPut, 2, bytes("two"), bytes("second")),
+        request(protocol::Opcode::kGet, 3, bytes("one")),
+        request(protocol::Opcode::kGet, 4, bytes("two"))};
+
+    const auto responses = client.pipeline(requests);
+    ASSERT_EQ(responses.size(), requests.size());
+    EXPECT_EQ(responses[0].status, protocol::Status::kOk);
+    EXPECT_EQ(responses[1].status, protocol::Status::kOk);
+    EXPECT_EQ(responses[2].value, bytes("first"));
+    EXPECT_EQ(responses[3].value, bytes("second"));
+}
+
+TEST(NetworkIntegrationTest, PingAndStatsExposeBoundedObservability) {
+    TemporaryDirectory temporary;
+    RunningServer server(temporary.path());
+    auto client = TcpClient::connect("127.0.0.1", server.port());
+    const auto ping = client.request(request(protocol::Opcode::kPing, 1, {}));
+    EXPECT_EQ(ping.status, protocol::Status::kOk);
+    EXPECT_EQ(ping.value, bytes("PONG"));
+    static_cast<void>(
+        client.request(request(protocol::Opcode::kPut, 2, bytes("key"), bytes("value"))));
+    const auto stats = client.request(request(protocol::Opcode::kStats, 3, {}));
+    EXPECT_EQ(stats.status, protocol::Status::kOk);
+    const std::string json(reinterpret_cast<const char*>(stats.value.data()), stats.value.size());
+    EXPECT_NE(json.find("\"put\":1"), std::string::npos);
+    EXPECT_NE(json.find("\"segments\":"), std::string::npos);
+    EXPECT_NE(json.find("\"index_entries\":1"), std::string::npos);
+}
+
 TEST(NetworkIntegrationTest, RejectsSemanticErrorWithoutDroppingConnection) {
     TemporaryDirectory temporary;
     RunningServer server(temporary.path());
@@ -146,6 +196,42 @@ TEST(NetworkIntegrationTest, RejectsSemanticErrorWithoutDroppingConnection) {
               protocol::Status::kInvalidRequest);
     EXPECT_EQ(client.request(request(protocol::Opcode::kPut, 2, bytes("key"), bytes("ok"))).status,
               protocol::Status::kOk);
+}
+
+TEST(NetworkIntegrationTest, PutExTtlAndExpirationWork) {
+    TemporaryDirectory temporary;
+    RunningServer server(temporary.path());
+    auto client = TcpClient::connect("127.0.0.1", server.port());
+    const protocol::Bytes key = bytes("ephemeral");
+
+    EXPECT_EQ(client.request(request(protocol::Opcode::kPutEx, 1, key,
+                                     protocol::encode_put_ex_payload(100, bytes("value"))))
+                  .status,
+              protocol::Status::kOk);
+    const auto ttl_response =
+        client.request(request(protocol::Opcode::kTtl, 2, key));
+    EXPECT_EQ(ttl_response.status, protocol::Status::kOk);
+    EXPECT_GT(protocol::decode_ttl_payload(ttl_response.value), 0U);
+    EXPECT_LE(protocol::decode_ttl_payload(ttl_response.value), 100U);
+    EXPECT_EQ(client.request(request(protocol::Opcode::kGet, 3, key)).value,
+              bytes("value"));
+
+    std::this_thread::sleep_for(std::chrono::milliseconds{150});
+    EXPECT_EQ(client.request(request(protocol::Opcode::kGet, 4, key)).status,
+              protocol::Status::kNotFound);
+    EXPECT_EQ(client.request(request(protocol::Opcode::kTtl, 5, key)).status,
+              protocol::Status::kNotFound);
+}
+
+TEST(NetworkIntegrationTest, TtlReportsPersistentKey) {
+    TemporaryDirectory temporary;
+    RunningServer server(temporary.path());
+    auto client = TcpClient::connect("127.0.0.1", server.port());
+    EXPECT_EQ(client.request(request(protocol::Opcode::kPut, 1, bytes("key"), bytes("value")))
+                  .status,
+              protocol::Status::kOk);
+    EXPECT_EQ(client.request(request(protocol::Opcode::kTtl, 2, bytes("key"))).status,
+              protocol::Status::kNoExpiry);
 }
 
 TEST(NetworkIntegrationTest, HandlesByteAtATimeTcpFragmentation) {
@@ -303,6 +389,52 @@ TEST(NetworkIntegrationTest, ShutdownInterruptsIdleConnections) {
         ASSERT_TRUE(wait_for_connection_count(server, 1));
     }
     ::close(idle);
+}
+
+TEST(NetworkFailureTest, ConnectionRefusalIsReportedPromptly) {
+    const auto [listener, port] = listen_for_failure_test();
+    ::close(listener);
+    const auto started = std::chrono::steady_clock::now();
+    EXPECT_THROW(static_cast<void>(TcpClient::connect(
+                     "127.0.0.1", port, std::chrono::milliseconds{100})),
+                 NetworkError);
+    EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds{2});
+}
+
+TEST(NetworkFailureTest, ResponseTimeoutIsReportedWithinConfiguredBound) {
+    const auto [listener, port] = listen_for_failure_test();
+    std::jthread peer([listener] {
+        const int accepted = ::accept(listener, nullptr, nullptr);
+        if (accepted >= 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds{150});
+            ::close(accepted);
+        }
+        ::close(listener);
+    });
+    auto client = TcpClient::connect("127.0.0.1", port, std::chrono::milliseconds{25});
+    const auto started = std::chrono::steady_clock::now();
+    EXPECT_THROW(static_cast<void>(
+                     client.request(request(protocol::Opcode::kGet, 1, bytes("key")))),
+                 NetworkError);
+    EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds{1});
+}
+
+TEST(NetworkFailureTest, ConnectionResetIsReported) {
+    const auto [listener, port] = listen_for_failure_test();
+    std::jthread peer([listener] {
+        const int accepted = ::accept(listener, nullptr, nullptr);
+        if (accepted >= 0) {
+            linger reset{1, 0};
+            static_cast<void>(::setsockopt(accepted, SOL_SOCKET, SO_LINGER, &reset,
+                                           sizeof(reset)));
+            ::close(accepted);
+        }
+        ::close(listener);
+    });
+    auto client = TcpClient::connect("127.0.0.1", port, std::chrono::milliseconds{250});
+    EXPECT_THROW(static_cast<void>(
+                     client.request(request(protocol::Opcode::kGet, 1, bytes("key")))),
+                 NetworkError);
 }
 
 }  // namespace

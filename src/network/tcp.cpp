@@ -13,6 +13,7 @@
 #include <array>
 #include <future>
 #include <limits>
+#include <sstream>
 #include <string_view>
 
 namespace forgekv::network {
@@ -81,11 +82,23 @@ protocol::Frame response_for(const protocol::Frame& request, protocol::Status st
                            request.request_id, {}, std::move(value)};
 }
 
+storage::StorageOptions storage_options(const ServerConfig& config) {
+    storage::StorageOptions options;
+    options.shard_count = config.index_shards;
+    options.durability = config.durability;
+    options.sync_interval = config.sync_interval;
+    options.segment_max_bytes = config.segment_max_bytes;
+    options.compaction_min_segments = config.compaction_min_segments;
+    options.background_compaction = config.background_compaction;
+    return options;
+}
+
 }  // namespace
 
 TcpServer::TcpServer(ServerConfig config)
     : config_(std::move(config)),
-      storage_(storage::StorageEngine::open(config_.database_directory, config_.index_shards)),
+      storage_(storage::StorageEngine::open(config_.database_directory,
+                                            storage_options(config_))),
       worker_pool_(config_.worker_count, config_.queue_capacity) {
     if (config_.max_connections == 0) {
         throw std::invalid_argument("max connections must be positive");
@@ -226,34 +239,83 @@ void TcpServer::reap_connections() {
 
 protocol::Frame TcpServer::dispatch(const protocol::Frame& request) {
     if (!protocol::request_semantics_valid(request)) {
+        request_errors_.fetch_add(1);
         return response_for(request, protocol::Status::kInvalidRequest,
                             message_bytes("invalid request semantics"));
     }
     try {
         switch (request.opcode) {
             case protocol::Opcode::kPut:
+                put_operations_.fetch_add(1);
                 static_cast<void>(storage_.put(request.key, request.value));
                 return response_for(request, protocol::Status::kOk);
             case protocol::Opcode::kGet: {
+                get_operations_.fetch_add(1);
                 auto value = storage_.get(request.key);
                 return value ? response_for(request, protocol::Status::kOk, std::move(*value))
                              : response_for(request, protocol::Status::kNotFound);
             }
             case protocol::Opcode::kDelete: {
+                delete_operations_.fetch_add(1);
                 const auto result = storage_.erase(request.key);
                 return response_for(request, result.existed ? protocol::Status::kOk
                                                             : protocol::Status::kNotFound);
             }
             case protocol::Opcode::kExists: {
+                exists_operations_.fetch_add(1);
                 const bool exists = storage_.get(request.key).has_value();
                 return response_for(request, protocol::Status::kOk,
                                     {exists ? std::byte{1} : std::byte{0}});
             }
+            case protocol::Opcode::kPutEx: {
+                put_ex_operations_.fetch_add(1);
+                auto payload = protocol::decode_put_ex_payload(request.value);
+                static_cast<void>(storage_.put_ex(
+                    request.key, payload.value,
+                    std::chrono::milliseconds{
+                        static_cast<std::chrono::milliseconds::rep>(payload.ttl_ms)}));
+                return response_for(request, protocol::Status::kOk);
+            }
+            case protocol::Opcode::kTtl: {
+                ttl_operations_.fetch_add(1);
+                const auto ttl = storage_.ttl(request.key);
+                if (ttl.state == storage::TtlState::kNotFound) {
+                    return response_for(request, protocol::Status::kNotFound);
+                }
+                if (ttl.state == storage::TtlState::kPersistent) {
+                    return response_for(request, protocol::Status::kNoExpiry);
+                }
+                return response_for(request, protocol::Status::kOk,
+                                    protocol::encode_ttl_payload(ttl.remaining_ms));
+            }
+            case protocol::Opcode::kPing:
+                return response_for(request, protocol::Status::kOk, message_bytes("PONG"));
+            case protocol::Opcode::kStats: {
+                const auto compaction = storage_.last_compaction();
+                std::ostringstream stats;
+                stats << "{\"get\":" << get_operations_.load()
+                      << ",\"put\":" << put_operations_.load()
+                      << ",\"delete\":" << delete_operations_.load()
+                      << ",\"exists\":" << exists_operations_.load()
+                      << ",\"putex\":" << put_ex_operations_.load()
+                      << ",\"ttl\":" << ttl_operations_.load()
+                      << ",\"errors\":" << request_errors_.load()
+                      << ",\"active_connections\":" << active_connections_.load()
+                      << ",\"queue_depth\":" << worker_pool_.queued_tasks()
+                      << ",\"bytes_appended\":" << storage_.bytes_appended()
+                      << ",\"segments\":" << storage_.segment_count()
+                      << ",\"compactions\":" << storage_.compaction_count()
+                      << ",\"last_compaction_ns\":" << compaction.duration.count()
+                      << ",\"index_entries\":" << storage_.size() << '}';
+                return response_for(request, protocol::Status::kOk, message_bytes(stats.str()));
+            }
         }
     } catch (const storage::StorageError&) {
+        request_errors_.fetch_add(1);
         return response_for(request, protocol::Status::kStorageError,
                             message_bytes("storage operation failed"));
     } catch (const std::exception&) {
+        request_errors_.fetch_add(1);
         return response_for(request, protocol::Status::kInternalError,
                             message_bytes("internal server error"));
     }
@@ -304,13 +366,27 @@ TcpClient& TcpClient::operator=(TcpClient&& other) noexcept {
 TcpClient::~TcpClient() { close_socket(socket_fd_); }
 
 protocol::Frame TcpClient::request(const protocol::Frame& request_frame) {
-    if (request_frame.kind != protocol::FrameKind::kRequest) {
-        throw std::invalid_argument("client can only send request frames");
+    const auto responses = pipeline(std::span<const protocol::Frame>(&request_frame, 1));
+    return responses.front();
+}
+
+std::vector<protocol::Frame> TcpClient::pipeline(
+    std::span<const protocol::Frame> requests) {
+    if (requests.empty()) throw std::invalid_argument("pipeline must contain a request");
+    protocol::Bytes encoded;
+    for (const auto& request : requests) {
+        if (request.kind != protocol::FrameKind::kRequest) {
+            throw std::invalid_argument("client can only send request frames");
+        }
+        protocol::Bytes frame = protocol::encode_frame(request);
+        encoded.insert(encoded.end(), frame.begin(), frame.end());
     }
-    send_all(socket_fd_, protocol::encode_frame(request_frame));
+    send_all(socket_fd_, encoded);
     protocol::FrameParser parser;
     std::array<std::byte, 8192> buffer{};
-    for (;;) {
+    std::vector<protocol::Frame> responses;
+    responses.reserve(requests.size());
+    while (responses.size() < requests.size()) {
         const ssize_t received = ::recv(socket_fd_, buffer.data(), buffer.size(), 0);
         if (received == 0) throw NetworkError("server disconnected before response");
         if (received < 0 && errno == EINTR) continue;
@@ -318,18 +394,22 @@ protocol::Frame TcpClient::request(const protocol::Frame& request_frame) {
             throw NetworkError("response read timed out");
         }
         if (received < 0) throw_errno("response read");
-        const auto frames = parser.feed(
+        auto frames = parser.feed(
             std::span<const std::byte>(buffer).first(static_cast<std::size_t>(received)));
-        if (!frames.empty()) {
-            const auto& response = frames.front();
+        for (auto& response : frames) {
+            if (responses.size() >= requests.size()) {
+                throw NetworkError("server returned more responses than requested");
+            }
+            const auto& request = requests[responses.size()];
             if (response.kind != protocol::FrameKind::kResponse ||
-                response.request_id != request_frame.request_id ||
-                response.opcode != request_frame.opcode) {
+                response.request_id != request.request_id ||
+                response.opcode != request.opcode) {
                 throw NetworkError("response does not match request");
             }
-            return response;
+            responses.push_back(std::move(response));
         }
     }
+    return responses;
 }
 
 }  // namespace forgekv::network

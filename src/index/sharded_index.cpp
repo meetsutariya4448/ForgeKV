@@ -36,7 +36,35 @@ bool ShardedIndex::erase(std::string_view key) {
     if (erased) size_.fetch_sub(1);
     return erased;
 }
+bool ShardedIndex::erase_if_sequence(std::string_view key, std::uint64_t sequence) {
+    Shard& shard = *shards_[shard_for(key)];
+    std::unique_lock lock(shard.mutex);
+    const auto iterator = shard.entries.find(std::string(key));
+    if (iterator == shard.entries.end() || iterator->second.sequence != sequence) return false;
+    shard.entries.erase(iterator);
+    size_.fetch_sub(1);
+    return true;
+}
+bool ShardedIndex::replace_if_sequence(std::string_view key, std::uint64_t sequence,
+                                       storage::RecordLocation location) {
+    Shard& shard = *shards_[shard_for(key)];
+    std::unique_lock lock(shard.mutex);
+    const auto iterator = shard.entries.find(std::string(key));
+    if (iterator == shard.entries.end() || iterator->second.sequence != sequence) return false;
+    iterator->second = location;
+    return true;
+}
 bool ShardedIndex::contains(std::string_view key) const { return find(key).has_value(); }
+std::vector<std::pair<std::string, storage::RecordLocation>> ShardedIndex::snapshot() const {
+    std::vector<std::pair<std::string, storage::RecordLocation>> result;
+    result.reserve(size());
+    for (const auto& shard_pointer : shards_) {
+        const Shard& shard = *shard_pointer;
+        std::shared_lock lock(shard.mutex);
+        result.insert(result.end(), shard.entries.begin(), shard.entries.end());
+    }
+    return result;
+}
 std::size_t ShardedIndex::size() const noexcept { return size_.load(); }
 std::size_t ShardedIndex::shard_count() const noexcept { return shards_.size(); }
 }  // namespace forgekv::index

@@ -25,8 +25,43 @@ void write_u32_be(Bytes& target, std::size_t offset, std::uint32_t value) {
     }
 }
 
+void write_u16_be(Bytes& target, std::size_t offset, std::uint16_t value) {
+    target[offset] = static_cast<std::byte>((value >> 8U) & 0xffU);
+    target[offset + 1] = static_cast<std::byte>(value & 0xffU);
+}
+
+void write_u64_be(Bytes& target, std::size_t offset, std::uint64_t value) {
+    for (std::size_t index = 0; index < 8; ++index) {
+        const auto shift = static_cast<unsigned>((7U - index) * 8U);
+        target[offset + index] = static_cast<std::byte>((value >> shift) & 0xffU);
+    }
+}
+
 void refresh_header_checksum(Bytes& encoded) {
+    const std::size_t checksum_offset = encoded[5] == std::byte{1} ? 28 : 36;
+    write_u32_be(encoded, checksum_offset,
+                 crc32c(std::span<const std::byte>(encoded).first(checksum_offset)));
+}
+
+Bytes encode_legacy_v1(std::uint64_t sequence, std::span<const std::byte> key,
+                       std::span<const std::byte> value) {
+    Bytes encoded(kRecordHeaderSizeV1 + key.size() + value.size());
+    encoded[0] = std::byte{'F'};
+    encoded[1] = std::byte{'K'};
+    encoded[2] = std::byte{'V'};
+    encoded[3] = std::byte{'R'};
+    write_u16_be(encoded, 4, 1);
+    write_u16_be(encoded, 6, static_cast<std::uint16_t>(kRecordHeaderSizeV1));
+    encoded[8] = static_cast<std::byte>(Operation::kPut);
+    write_u64_be(encoded, 12, sequence);
+    write_u32_be(encoded, 20, static_cast<std::uint32_t>(key.size()));
+    write_u32_be(encoded, 24, static_cast<std::uint32_t>(value.size()));
     write_u32_be(encoded, 28, crc32c(std::span<const std::byte>(encoded).first(28)));
+    auto payload = std::span<std::byte>(encoded).subspan(kRecordHeaderSizeV1);
+    std::copy(key.begin(), key.end(), payload.begin());
+    std::copy(value.begin(), value.end(), payload.subspan(key.size()).begin());
+    write_u32_be(encoded, 32, crc32c(payload));
+    return encoded;
 }
 
 void expect_decode_error(std::span<const std::byte> encoded, DecodeErrorCode expected) {
@@ -49,9 +84,25 @@ TEST(RecordCodecTest, PutRoundTrips) {
 
     EXPECT_EQ(decoded.record.operation, Operation::kPut);
     EXPECT_EQ(decoded.record.sequence, 42U);
+    EXPECT_EQ(decoded.record.expires_at_unix_ms, 0U);
     EXPECT_EQ(decoded.record.key, key);
     EXPECT_EQ(decoded.record.value, value);
     EXPECT_EQ(decoded.encoded_size, kRecordHeaderSize + key.size() + value.size());
+}
+
+TEST(RecordCodecTest, PutWithExpirationRoundTrips) {
+    const DecodedRecord decoded = decode_record(
+        encode_record(Operation::kPut, 42, bytes("key"), bytes("value"), 1'700'000'000'123ULL));
+    EXPECT_EQ(decoded.record.expires_at_unix_ms, 1'700'000'000'123ULL);
+}
+
+TEST(RecordCodecTest, DecodesLegacyVersionOneAsPersistent) {
+    const DecodedRecord decoded =
+        decode_record(encode_legacy_v1(9, bytes("legacy"), bytes("value")));
+    EXPECT_EQ(decoded.record.sequence, 9U);
+    EXPECT_EQ(decoded.record.expires_at_unix_ms, 0U);
+    EXPECT_EQ(decoded.record.value, bytes("value"));
+    EXPECT_EQ(decoded.encoded_size, kRecordHeaderSizeV1 + 11U);
 }
 
 TEST(RecordCodecTest, DeleteRoundTrips) {
@@ -97,6 +148,8 @@ TEST(RecordCodecTest, RejectsZeroSequenceAndDeleteValue) {
                  std::invalid_argument);
     EXPECT_THROW(static_cast<void>(encode_record(Operation::kDelete, 1, key, bytes("value"))),
                  std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(encode_record(Operation::kDelete, 1, key, {}, 123)),
+                 std::invalid_argument);
 }
 
 TEST(RecordCodecTest, RejectsMalformedMagic) {
@@ -107,7 +160,7 @@ TEST(RecordCodecTest, RejectsMalformedMagic) {
 
 TEST(RecordCodecTest, RejectsUnsupportedVersion) {
     Bytes encoded = encode_record(Operation::kPut, 1, bytes("key"), bytes("value"));
-    encoded[5] = std::byte{0x02};
+    encoded[5] = std::byte{0x03};
     expect_decode_error(encoded, DecodeErrorCode::kUnsupportedVersion);
 }
 

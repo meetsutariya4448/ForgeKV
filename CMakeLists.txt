@@ -24,6 +24,8 @@ forgekv_configure_sanitizers(forgekv_sanitizers)
 
 add_library(
     forgekv
+    src/cluster/hash_ring.cpp
+    src/cluster/replication.cpp
     src/concurrency/worker_pool.cpp
     src/index/sharded_index.cpp
     src/network/tcp.cpp
@@ -52,6 +54,42 @@ endfunction()
 forgekv_add_app(forgekv-server apps/forgekv-server/main.cpp)
 forgekv_add_app(forgekv-cli apps/forgekv-cli/main.cpp)
 forgekv_add_app(forgekv-bench apps/forgekv-bench/main.cpp)
+
+execute_process(
+    COMMAND git rev-parse HEAD
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    OUTPUT_VARIABLE FORGEKV_GIT_SHA
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+if(NOT FORGEKV_GIT_SHA)
+    set(FORGEKV_GIT_SHA unknown)
+endif()
+execute_process(
+    COMMAND git status --porcelain
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    OUTPUT_VARIABLE FORGEKV_GIT_STATUS
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+if(FORGEKV_GIT_STATUS)
+    set(FORGEKV_GIT_DIRTY 1)
+else()
+    set(FORGEKV_GIT_DIRTY 0)
+endif()
+if(CMAKE_BUILD_TYPE)
+    set(FORGEKV_BUILD_DESCRIPTION_VALUE ${CMAKE_BUILD_TYPE})
+else()
+    set(FORGEKV_BUILD_DESCRIPTION_VALUE unspecified)
+endif()
+target_compile_definitions(
+    forgekv-bench
+    PRIVATE
+        FORGEKV_GIT_SHA="${FORGEKV_GIT_SHA}"
+        FORGEKV_GIT_DIRTY=${FORGEKV_GIT_DIRTY}
+        FORGEKV_COMPILER_DESCRIPTION="${CMAKE_CXX_COMPILER_ID}-${CMAKE_CXX_COMPILER_VERSION}"
+        FORGEKV_BUILD_DESCRIPTION="${FORGEKV_BUILD_DESCRIPTION_VALUE}"
+)
 
 include(CTest)
 if(BUILD_TESTING)

@@ -37,6 +37,26 @@ TEST(FrameCodecTest, RoundTripsOverloadedResponse) {
     EXPECT_EQ(decoded.value, original.value);
 }
 
+TEST(FrameCodecTest, RoundTripsTtlOperationsAndPayloads) {
+    const Bytes user_value{std::byte{0}, std::byte{0xff}};
+    const Bytes put_ex_value = encode_put_ex_payload(1'500, user_value);
+    const PutExPayload decoded_payload = decode_put_ex_payload(put_ex_value);
+    EXPECT_EQ(decoded_payload.ttl_ms, 1'500U);
+    EXPECT_EQ(decoded_payload.value, user_value);
+
+    Frame put_ex = request(Opcode::kPutEx, bytes("key"), put_ex_value);
+    EXPECT_EQ(decode_frame(encode_frame(put_ex)).opcode, Opcode::kPutEx);
+    Frame no_expiry{FrameKind::kResponse, Opcode::kTtl, Status::kNoExpiry, 8, {}, {}};
+    EXPECT_EQ(decode_frame(encode_frame(no_expiry)).status, Status::kNoExpiry);
+    EXPECT_EQ(decode_ttl_payload(encode_ttl_payload(987)), 987U);
+}
+
+TEST(FrameCodecTest, RejectsMalformedTtlPayloads) {
+    EXPECT_THROW(static_cast<void>(encode_put_ex_payload(0, {})), std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(decode_put_ex_payload(Bytes(7))), std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(decode_ttl_payload(Bytes(7))), std::invalid_argument);
+}
+
 TEST(FrameCodecTest, RejectsZeroRequestIdAndOversizedPayload) {
     Frame frame = request(Opcode::kGet);
     frame.request_id = 0;
@@ -108,6 +128,14 @@ TEST(RequestSemanticsTest, EnforcesOpcodePayloadRules) {
     EXPECT_TRUE(request_semantics_valid(request(Opcode::kGet)));
     EXPECT_FALSE(request_semantics_valid(request(Opcode::kGet, bytes("key"), bytes("bad"))));
     EXPECT_FALSE(request_semantics_valid(request(Opcode::kDelete, {}, {})));
+    EXPECT_TRUE(request_semantics_valid(
+        request(Opcode::kPutEx, bytes("key"), encode_put_ex_payload(100, bytes("value")))));
+    EXPECT_FALSE(request_semantics_valid(request(Opcode::kPutEx, bytes("key"), Bytes(8))));
+    EXPECT_TRUE(request_semantics_valid(request(Opcode::kTtl)));
+    EXPECT_FALSE(request_semantics_valid(request(Opcode::kTtl, bytes("key"), bytes("bad"))));
+    EXPECT_TRUE(request_semantics_valid(request(Opcode::kPing, {}, {})));
+    EXPECT_TRUE(request_semantics_valid(request(Opcode::kStats, {}, {})));
+    EXPECT_FALSE(request_semantics_valid(request(Opcode::kPing, bytes("key"), {})));
     Frame response{FrameKind::kResponse, Opcode::kGet, Status::kOk, 1, {}, {}};
     EXPECT_FALSE(request_semantics_valid(response));
 }

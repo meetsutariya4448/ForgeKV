@@ -2,6 +2,56 @@
 
 Only problems actually observed during development belong here.
 
+## 2026-08-26: Startup cleanup matched unrelated `.compact` files
+
+- **Problem:** Final destructive-action review found that startup queued every filename ending in
+  `.compact` for deletion, even if it was not a ForgeKV segment artifact.
+- **Root cause:** The cleanup branch checked the suffix but did not parse the stripped base as the
+  exact `segment-%020u.fkv` grammar.
+- **Fix:** Cleanup now removes only a `.compact` file whose base parses as a nonzero ForgeKV segment
+  ID. Unknown files remain untouched.
+- **Test added:** Interrupted-publication recovery now creates `user.compact` and requires it to
+  survive cleanup.
+
+## 2026-08-26: GET could copy an old location immediately before compaction deletion
+
+- **Problem:** Design review found a segment-lifetime race even though the first concurrent
+  compaction stress test passed.
+- **Symptoms:** GET could copy a location under a shard lock, pause, and only then acquire the
+  segment-set lock. Compaction could publish and delete the old file in that gap.
+- **Root cause:** Segment lifetime protection began after location acquisition rather than before it.
+- **Fix:** GET now takes the segment-set shared lock before index lookup and holds it through
+  seek/read/checksum. Compaction publication takes that lock exclusively.
+- **Test added:** Concurrent read/write compaction plus restart remains green; the lock invariant is
+  documented in `CONCURRENCY.md`.
+
+## 2026-08-26: Benchmark SHA alone did not identify an uncommitted binary
+
+- **Problem:** The first quick matrix reported the last commit SHA although later milestones remain
+  deliberately uncommitted at the user's request.
+- **Root cause:** Build metadata embedded `git rev-parse HEAD` but not working-tree state.
+- **Fix:** CMake now embeds `working_tree_dirty`, and JSON/CSV export it beside the SHA. Reports label
+  the first matrix an uncommitted smoke run rather than commit-reproducible evidence.
+- **Test added:** The final matrix is regenerated after the metadata change and inspected for the
+  dirty flag.
+
+## 2026-08-26: Expiration shutdown could wait until a future deadline
+
+- **Problem:** Destroying an engine with a scheduled far-future expiration could block until that
+  deadline instead of stopping promptly.
+- **Symptoms:** A TTL restart test consistently took exactly its five-second TTL and reopened only
+  after the value had expired. A repeated one-hour-deadline shutdown test reproduced the hang; a
+  process sample showed the main thread joining the expiration thread while that thread remained in
+  `condition_variable::wait_for`.
+- **Root cause:** The first shutdown path depended on stop-token notification alone. An observed
+  startup/shutdown race allowed the timed wait to remain asleep after the stop request.
+- **Fix:** Closing now atomically clears the engine-open state before notification. Every maintenance
+  loop and wait predicate observes both its stop token and this persistent closed state, so a missed
+  notification cannot make the predicate false.
+- **Test added:** `ShutdownDoesNotWaitForFutureExpiration` uses a one-hour deadline and requires
+  destruction under 500 ms. It passed 50 consecutive focused repetitions; TTL restart passed ten.
+- **Result:** Normal shutdown no longer depends on waiting for the heap deadline.
+
 ## 2026-08-26: Accepted socket could leak if timeout setup failed
 
 - **Problem:** The first concurrent accept path configured socket options after acceptance without a

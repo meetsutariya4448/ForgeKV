@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <span>
 #include <stdexcept>
 #include <stop_token>
 #include <string>
@@ -31,6 +32,11 @@ struct ServerConfig {
     std::size_t queue_capacity = 256;
     std::size_t max_connections = 128;
     std::size_t index_shards = 16;
+    storage::DurabilityMode durability = storage::DurabilityMode::kPeriodic;
+    std::chrono::milliseconds sync_interval{1000};
+    std::uint64_t segment_max_bytes = 64U * 1024U * 1024U;
+    std::size_t compaction_min_segments = 4;
+    bool background_compaction = true;
 };
 
 class TcpServer {
@@ -62,6 +68,13 @@ private:
     concurrency::WorkerPool worker_pool_;
     std::vector<ConnectionWorker> connections_;
     std::atomic_size_t active_connections_ = 0;
+    std::atomic_uint64_t get_operations_ = 0;
+    std::atomic_uint64_t put_operations_ = 0;
+    std::atomic_uint64_t delete_operations_ = 0;
+    std::atomic_uint64_t exists_operations_ = 0;
+    std::atomic_uint64_t put_ex_operations_ = 0;
+    std::atomic_uint64_t ttl_operations_ = 0;
+    std::atomic_uint64_t request_errors_ = 0;
     int listener_fd_ = -1;
     std::uint16_t bound_port_ = 0;
 };
@@ -78,6 +91,8 @@ public:
     ~TcpClient();
 
     [[nodiscard]] protocol::Frame request(const protocol::Frame& request);
+    [[nodiscard]] std::vector<protocol::Frame> pipeline(
+        std::span<const protocol::Frame> requests);
 
 private:
     explicit TcpClient(int socket_fd);

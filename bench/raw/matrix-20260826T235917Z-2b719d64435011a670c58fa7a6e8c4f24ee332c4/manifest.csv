@@ -1,0 +1,15 @@
+experiment,value,status,reason,output_prefix
+connections,1,valid,none,bench/raw/matrix-20260826T235917Z-2b719d64435011a670c58fa7a6e8c4f24ee332c4/connections-1
+connections,10,valid,none,bench/raw/matrix-20260826T235917Z-2b719d64435011a670c58fa7a6e8c4f24ee332c4/connections-10
+workers,1,valid,none,bench/raw/matrix-20260826T235917Z-2b719d64435011a670c58fa7a6e8c4f24ee332c4/workers-1
+workers,4,valid,none,bench/raw/matrix-20260826T235917Z-2b719d64435011a670c58fa7a6e8c4f24ee332c4/workers-4
+shards,1,valid,none,bench/raw/matrix-20260826T235917Z-2b719d64435011a670c58fa7a6e8c4f24ee332c4/shards-1
+shards,16,valid,none,bench/raw/matrix-20260826T235917Z-2b719d64435011a670c58fa7a6e8c4f24ee332c4/shards-16
+value-size,16,valid,none,bench/raw/matrix-20260826T235917Z-2b719d64435011a670c58fa7a6e8c4f24ee332c4/value-size-16
+value-size,1024,valid,none,bench/raw/matrix-20260826T235917Z-2b719d64435011a670c58fa7a6e8c4f24ee332c4/value-size-1024
+read-ratio,1.0,valid,none,bench/raw/matrix-20260826T235917Z-2b719d64435011a670c58fa7a6e8c4f24ee332c4/read-ratio-1.0
+read-ratio,0.8,valid,none,bench/raw/matrix-20260826T235917Z-2b719d64435011a670c58fa7a6e8c4f24ee332c4/read-ratio-0.8
+read-ratio,0.0,valid,none,bench/raw/matrix-20260826T235917Z-2b719d64435011a670c58fa7a6e8c4f24ee332c4/read-ratio-0.0
+durability,always,valid,none,bench/raw/matrix-20260826T235917Z-2b719d64435011a670c58fa7a6e8c4f24ee332c4/durability-always
+durability,periodic,valid,none,bench/raw/matrix-20260826T235917Z-2b719d64435011a670c58fa7a6e8c4f24ee332c4/durability-periodic
+durability,none,valid,none,bench/raw/matrix-20260826T235917Z-2b719d64435011a670c58fa7a6e8c4f24ee332c4/durability-none

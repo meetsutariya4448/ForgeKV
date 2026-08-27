@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <limits>
 #include <string_view>
 
@@ -66,12 +67,12 @@ FrameKind parse_kind(std::uint8_t value) {
 }
 
 Opcode parse_opcode(std::uint8_t value) {
-    if (value >= 1 && value <= 4) return static_cast<Opcode>(value);
+    if (value >= 1 && value <= 8) return static_cast<Opcode>(value);
     fail(ProtocolErrorCode::kUnknownOpcode, "unknown opcode");
 }
 
 Status parse_status(std::uint16_t value) {
-    if (value <= 5) return static_cast<Status>(value);
+    if (value <= 6) return static_cast<Status>(value);
     fail(ProtocolErrorCode::kUnknownStatus, "unknown status");
 }
 
@@ -205,8 +206,72 @@ std::size_t FrameParser::buffered_bytes() const noexcept { return buffer_.size()
 bool FrameParser::failed() const noexcept { return failed_; }
 
 bool request_semantics_valid(const Frame& frame) noexcept {
-    if (frame.kind != FrameKind::kRequest || frame.status != Status::kOk || frame.key.empty()) return false;
-    return frame.opcode == Opcode::kPut || frame.value.empty();
+    if (frame.kind != FrameKind::kRequest || frame.status != Status::kOk) return false;
+    if (frame.opcode == Opcode::kPing || frame.opcode == Opcode::kStats) {
+        return frame.key.empty() && frame.value.empty();
+    }
+    if (frame.key.empty()) return false;
+    switch (frame.opcode) {
+        case Opcode::kPut:
+            return true;
+        case Opcode::kPutEx: {
+            if (frame.value.size() < kTtlPayloadPrefixSize) return false;
+            const std::uint64_t ttl_ms = read_u64(frame.value, 0);
+            return ttl_ms != 0 &&
+                   ttl_ms <= static_cast<std::uint64_t>(
+                                 std::numeric_limits<std::chrono::milliseconds::rep>::max());
+        }
+        case Opcode::kGet:
+        case Opcode::kDelete:
+        case Opcode::kExists:
+        case Opcode::kTtl:
+            return frame.value.empty();
+        case Opcode::kPing:
+        case Opcode::kStats:
+            return false;
+    }
+    return false;
+}
+
+Bytes encode_put_ex_payload(std::uint64_t ttl_ms, std::span<const std::byte> value) {
+    if (ttl_ms == 0 ||
+        ttl_ms > static_cast<std::uint64_t>(
+                     std::numeric_limits<std::chrono::milliseconds::rep>::max())) {
+        throw std::invalid_argument("TTL milliseconds are outside protocol bounds");
+    }
+    if (value.size() > storage::kMaxValueSize - kTtlPayloadPrefixSize) {
+        throw std::invalid_argument("PUTEX value exceeds protocol limit");
+    }
+    Bytes payload(kTtlPayloadPrefixSize + value.size());
+    write_u64(payload, 0, ttl_ms);
+    std::copy(value.begin(), value.end(), payload.begin() + kTtlPayloadPrefixSize);
+    return payload;
+}
+
+PutExPayload decode_put_ex_payload(std::span<const std::byte> payload) {
+    if (payload.size() < kTtlPayloadPrefixSize) {
+        throw std::invalid_argument("PUTEX payload is missing TTL prefix");
+    }
+    const std::uint64_t ttl_ms = read_u64(payload, 0);
+    if (ttl_ms == 0 ||
+        ttl_ms > static_cast<std::uint64_t>(
+                     std::numeric_limits<std::chrono::milliseconds::rep>::max())) {
+        throw std::invalid_argument("TTL milliseconds are outside protocol bounds");
+    }
+    return PutExPayload{ttl_ms, Bytes(payload.begin() + kTtlPayloadPrefixSize, payload.end())};
+}
+
+Bytes encode_ttl_payload(std::uint64_t remaining_ms) {
+    Bytes payload(kTtlPayloadPrefixSize);
+    write_u64(payload, 0, remaining_ms);
+    return payload;
+}
+
+std::uint64_t decode_ttl_payload(std::span<const std::byte> payload) {
+    if (payload.size() != kTtlPayloadPrefixSize) {
+        throw std::invalid_argument("TTL response payload must contain eight bytes");
+    }
+    return read_u64(payload, 0);
 }
 
 }  // namespace forgekv::protocol

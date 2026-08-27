@@ -1,0 +1,22 @@
+{
+  "timestamp_utc": "2026-08-26T23:40:33Z",
+  "git_sha": "2b719d64435011a670c58fa7a6e8c4f24ee332c4",
+  "compiler": "AppleClang-17.0.0.17000603",
+  "build": "",
+  "system": "Darwin 25.5.0 arm64",
+  "hardware_threads": 8,
+  "ram": "unspecified",
+  "storage_medium": "local-temp",
+  "host": "127.0.0.1", "port": 17400,
+  "connections": 4, "threads": 4,
+  "request_bound": 2000, "duration_bound_s": 0,
+  "read_ratio": 0.8, "key_count": 100,
+  "value_size": 128, "pipeline_depth": 4,
+  "warmup_requests": 100, "seed": 1,
+  "server_workers": 4, "server_shards": 16,
+  "durability": "none", "repetition": 1,
+  "operations": 2000, "seconds": 0.0582346,
+  "operations_per_second": 34343.9,
+  "latency_us": {"p50": 421.167, "p95": 726.917, "p99": 959.375, "max": 1126.42},
+  "errors": 0, "connection_errors": 0
+}

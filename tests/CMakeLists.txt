@@ -20,6 +20,9 @@ add_executable(
     forgekv_unit_tests
     integration/network_test.cpp
     integration/storage_engine_test.cpp
+    stress/reference_model_test.cpp
+    unit/cluster/hash_ring_test.cpp
+    unit/cluster/replication_test.cpp
     unit/concurrency/worker_pool_test.cpp
     unit/index/sharded_index_test.cpp
     unit/protocol/frame_test.cpp
@@ -34,6 +37,18 @@ target_link_libraries(
         GTest::gtest_main
         forgekv_warnings
         forgekv_sanitizers
+)
+
+add_executable(forgekv_crash_writer helpers/crash_writer.cpp)
+target_compile_features(forgekv_crash_writer PRIVATE cxx_std_20)
+target_link_libraries(
+    forgekv_crash_writer
+    PRIVATE ForgeKV::forgekv forgekv_warnings forgekv_sanitizers
+)
+add_dependencies(forgekv_unit_tests forgekv_crash_writer)
+target_compile_definitions(
+    forgekv_unit_tests
+    PRIVATE FORGEKV_CRASH_WRITER_PATH="$<TARGET_FILE:forgekv_crash_writer>"
 )
 
 include(GoogleTest)

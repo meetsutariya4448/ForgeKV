@@ -98,12 +98,13 @@ actually exists.
   after append must not permit sequence reuse.
 - **Alternatives:** Update the index first and roll back on write error; keep full values in memory;
   append and continue after an index-publication exception.
-- **Chosen approach:** Prepare owned inputs, append and flush, advance sequence, then publish a
-  `RecordLocation`. If publication throws after append, reject further operations until reopen.
+- **Chosen approach:** Prepare owned inputs, append through bounded POSIX writes, advance sequence,
+  apply the configured pre-publication sync when required, then publish a `RecordLocation`. If
+  publication throws after append, reject further operations until reopen.
 - **Reason:** Replay can always reconstruct the authoritative state, and a record sequence is never
   reused after its bytes enter the log.
-- **Tradeoffs:** `flush()` per operation is slow and still not an `fsync`; an allocation failure can
-  require reopening the engine.
+- **Tradeoffs:** The `always` mode pays for `fsync` per operation; weaker modes expose documented
+  loss windows. A post-append allocation failure can require reopening the engine.
 - **Evidence/benchmark:** CRUD/restart tests pass. Allocation-failure injection is not implemented.
 
 ## DD-009: Repair only checksum-provable truncated tails
@@ -211,7 +212,100 @@ This was the deliberate Milestone 2 stepping stone and is superseded by DD-013 f
 - **Evidence/benchmark:** Raw 1/4/16/64/256 results and complete run metadata are preserved in
   `bench/raw/m3-contention-20260826T182919Z-ca51e3d30e0efc5af71b2741e525b81c89712b38.csv`.
 
-## Pending decisions for later milestones
+## DD-016: Offer always, periodic, and none fsync policies
 
-Durability modes, TTL clock semantics, segment rotation, and compaction publication are not decided
-yet. Each will receive a decision record alongside its executable specification and tests.
+- **Context:** `write` completion and C++ stream flushing do not establish the same persistence
+  boundary as filesystem synchronization, while workloads need explicit latency/loss tradeoffs.
+- **Alternatives:** Always fsync; never fsync; expose only an opaque “durable” switch; group commit.
+- **Chosen approach:** Use POSIX append writes with `always` fsync before publication, `periodic`
+  background fsync plus final clean-close sync, and `none` with no fsync. Periodic one second is the
+  default. Durable modes sync newly created segment/database directory entries.
+- **Reason:** The names describe observable acknowledgement boundaries and remain small enough to
+  explain and test. Group commit requires batch acknowledgement semantics that do not yet exist.
+- **Tradeoffs:** `always` serializes a costly fsync per mutation. Periodic loss is not strictly
+  bounded by its interval because scheduling and fsync can be delayed. None is not stable-storage
+  durability. Filesystem/hardware behavior still limits what fsync can prove.
+- **Evidence/benchmark:** Tests inspect sync sequence boundaries, periodic advancement/final sync,
+  and recover an `always`-acknowledged record after a child uses `_exit` without destructors.
+
+## DD-017: Add expiration with a backward-readable v2 record header
+
+- **Context:** TTL must survive restart without a side file becoming inconsistent with the append
+  log, while existing v1 databases must remain readable.
+- **Alternatives:** Prefix metadata to stored values; add a separate expiration log; reinterpret v1
+  reserved bytes; reject old databases; introduce a versioned header.
+- **Chosen approach:** Writers emit a 44-byte v2 header with a big-endian absolute Unix-millisecond
+  expiration and checksum it as header metadata. Recovery dispatches each record independently and
+  accepts mixed 36-byte v1 and 44-byte v2 records; v1 means persistent.
+- **Reason:** The authoritative mutation and its deadline remain atomic at record granularity, and
+  the existing version/header-size fields serve their intended compatibility role.
+- **Tradeoffs:** Every new record costs eight additional bytes. Absolute wall-clock deadlines inherit
+  wall-clock adjustments. The codec and replay path must support two layouts.
+- **Evidence/benchmark:** Codec tests cover expiration and legacy decoding; integration tests replay
+  mixed versions and suppress expired records after restart.
+
+## DD-018: Use a stale-safe min-heap for expiration
+
+- **Context:** Expiration must not scan every key, and an old deadline must not delete a newer value.
+- **Alternatives:** Periodic full-map scan; hierarchical timing wheel; one timer/thread per key;
+  eagerly remove old heap entries through an auxiliary locator map.
+- **Chosen approach:** Push `(absolute deadline, sequence, owned key)` into one protected min-heap.
+  The expiration thread conditionally erases only an index location with the same sequence. GET
+  checks the deadline before and after disk I/O; replay filters already-expired PUTs.
+- **Reason:** Heap operations are `O(log n)`, implementation and ownership remain interview-
+  defensible, and global unique sequences make stale-entry validation simple.
+- **Tradeoffs:** Repeated far-future updates can retain stale heap entries until their deadlines;
+  system-clock jumps affect apparent TTL and cleanup timing. A timing wheel is deferred until
+  profiling justifies its complexity.
+- **Evidence/benchmark:** Tests cover normal expiry, invalid TTL, persistent/later overwrites, stale
+  entries, restart, persistent TTL status, and repeated far-future shutdown.
+
+## DD-019: Publish compaction with rename artifacts and conditional index replacement
+
+- **Context:** Copying must not block active writes, and a crash must not leave an ambiguous mix of
+  replacement and input segments.
+- **Chosen approach:** Copy inactive live records to `.compact`, rename inputs to `.old`, atomically
+  publish the first-ID replacement, conditionally update equal-sequence index entries, then delete
+  old files. Startup rolls back when no replacement exists and finishes cleanup when it does.
+- **Tradeoffs:** Publication briefly excludes segment readers/writers and assumes same-filesystem
+  rename. All inactive segments are selected rather than a cost-based subset.
+- **Evidence:** Rotation/restart, size reduction, concurrent mutation, and both artifact states are
+  regression tested. Exact protocol is in `COMPACTION.md`.
+
+## DD-020: Measure the actual framed TCP path and retain every latency sample
+
+- **Context:** An index microbenchmark cannot support server performance claims.
+- **Chosen approach:** Add persistent connections, ordered pipelines, deterministic workload
+  selection, request/time bounds, nearest-rank percentiles, JSON/CSV and raw latency output.
+- **Tradeoffs:** Pipeline latency is batch completion; client and server share a host in the checked-
+  in smoke run. Raw samples cost memory until export.
+- **Evidence:** A 14-case quick matrix is preserved with a manifest and zero client-reported errors.
+
+## DD-021: Use a deterministic virtual-node ring, not implementation-defined `std::hash`
+
+- **Context:** Placement must agree across processes and membership orderings.
+- **Chosen approach:** Sort stable node IDs and hash node/vnode identities plus keys with a fixed
+  64-bit FNV-derived mixer. RF placement walks to distinct nodes.
+- **Tradeoffs:** Membership rebuild is `O(NV log(NV))`; there is no incremental control plane or
+  weighted capacity.
+- **Evidence:** Independent rings agree; add/remove tests verify minimal-movement direction and
+  report remap fraction.
+
+## DD-022: Detect replication gaps per primary/key stream
+
+- **Context:** A node legitimately does not receive mutations for unrelated keys, so one global
+  sequence would report false gaps.
+- **Chosen approach:** Each `(primary ID, binary key)` stream has its own monotonic sequence.
+  Replicas classify applied, duplicate and gap; retained history and snapshots restore lagging state.
+- **Tradeoffs:** Membership changes create a new primary stream and require higher-level conflict
+  rules that the current model does not provide.
+- **Evidence:** Codec, corruption, gap, duplicate, snapshot restart, lag and recovery tests pass.
+
+## DD-023: Keep replication semantics explicit and stop before consensus
+
+- **Context:** RF placement alone does not define acknowledgement, failover or consistency.
+- **Chosen approach:** Support only `primary` and `all`, expose unavailable/timeout/ack counts, and
+  fail an unavailable primary without implicit promotion.
+- **Tradeoffs:** `primary` can acknowledge with lag; `all` can fail after partial application. The
+  transport is an in-process model and offers no availability claim.
+- **Evidence:** Slow/unavailable primary/replica tests exercise both acknowledgement boundaries.

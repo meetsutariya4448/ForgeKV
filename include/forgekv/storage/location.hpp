@@ -9,5 +9,7 @@ struct RecordLocation {
     std::uint32_t value_length;
     std::uint64_t sequence;
     std::uint32_t payload_checksum;
+    std::uint64_t expires_at_unix_ms = 0;
+    std::uint16_t header_size = 0;
 };
 }  // namespace forgekv::storage

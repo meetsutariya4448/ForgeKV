@@ -1,0 +1,62 @@
+name: ForgeKV CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --parallel 4
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  sanitizers:
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer:
+          - name: asan-ubsan
+            options: -DFORGEKV_ENABLE_ASAN=ON -DFORGEKV_ENABLE_UBSAN=ON
+          - name: tsan
+            options: -DFORGEKV_ENABLE_TSAN=ON
+    runs-on: ubuntu-24.04
+    env:
+      CC: clang
+      CXX: clang++
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure ${{ matrix.sanitizer.name }}
+        run: cmake -S . -B build-${{ matrix.sanitizer.name }} -DCMAKE_BUILD_TYPE=Debug ${{ matrix.sanitizer.options }}
+      - name: Build ${{ matrix.sanitizer.name }}
+        run: cmake --build build-${{ matrix.sanitizer.name }} --parallel 4
+      - name: Test ${{ matrix.sanitizer.name }}
+        run: ctest --test-dir build-${{ matrix.sanitizer.name }} --output-on-failure
+
+  fuzz-smoke:
+    runs-on: ubuntu-24.04
+    env:
+      CC: clang
+      CXX: clang++
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure fuzzers
+        run: cmake -S . -B build-fuzz -DCMAKE_BUILD_TYPE=Debug -DFORGEKV_BUILD_FUZZERS=ON -DFORGEKV_ENABLE_ASAN=ON -DFORGEKV_ENABLE_UBSAN=ON
+      - name: Build fuzzers
+        run: cmake --build build-fuzz --parallel 4
+      - name: Fuzz record decoder
+        run: ./build-fuzz/tests/fuzz_record_decoder -runs=10000
+      - name: Fuzz frame parser
+        run: ./build-fuzz/tests/fuzz_frame_parser -runs=10000

@@ -18,20 +18,20 @@
                        v                                 v               v
               ┌────────────────┐               ┌────────────────┐ ┌─────────────┐
               │ sharded index  │               │ storage engine │ │ TTL heap    │
-              │ [impl. M3]     │<─────────────>│ [impl. M1/M3]  │ │ [planned M4]│
+              │ [impl. M3/M4]  │<─────────────>│ [impl. M1-M4]  │ │ [impl. M4]  │
               └────────────────┘               └───────┬────────┘ └─────────────┘
                                                       v
                                               ┌────────────────┐
                                               │ segment files  │
                                               │ recovery       │
-                                              │ compaction M5  │
+                                              │ compaction     │
                                               └────────────────┘
 ```
 
-The shared library, storage engine, sharded index, versioned network codec, incremental parser,
-bounded concurrent POSIX server/client, fixed worker pool, CLI, and focused contention benchmark are
-implemented. TTL, durability modes, rotation, compaction, and the full workload benchmark remain
-planned.
+The shared library, rotating/compacting storage engine, TTL scheduler, sharded index, versioned
+network codec, bounded concurrent POSIX server/client, worker pool, CLI, observability and pipelined
+TCP benchmark are implemented. The same library contains cluster routing and replication state
+machines that are intentionally separate from the single-node executable.
 
 ## Single-node boundaries
 
@@ -52,12 +52,13 @@ The server admits no detached threads or unbounded task accumulation.
 
 ### Storage engine
 
-The engine uses a global mutation mutex to serialize the active append stream and sequence. Records
-contain type, lengths, sequence, independent header/payload checksums, key, and value. Writes append
-and flush before publishing a new sharded-index location. Concurrent reads copy a location and then
-read the append-only segment without holding an index lock. Recovery replays complete valid records,
-rebuilds the index, truncates a proven incomplete final record, and fails loudly on complete-record
-corruption. See `STORAGE_FORMAT.md`.
+The engine uses a global mutation mutex to serialize the active append stream, sequence, and fsync.
+Version 2 records add an absolute expiration to type, lengths, sequence, checksums, key, and value;
+mixed v1/v2 replay preserves older databases. Writes use POSIX append loops and the selected
+`always`/`periodic`/`none` synchronization boundary before or after publication as documented.
+Concurrent reads copy a location and then read the append-only segment without holding an index
+lock. Recovery rebuilds the index, filters expired values, truncates a proven incomplete final
+record, and fails loudly on complete-record corruption. See `STORAGE_FORMAT.md`.
 
 ### Index
 
@@ -69,26 +70,42 @@ configurable; the provisional default is 16 and its evidence boundary is documen
 
 ### Expiration
 
-A min-heap is the initial planned expiration structure. Heap entries will carry enough identity
-to recognize stale entries after a key update. Reads must also reject expired values, so scheduler
-delay cannot make expired data visible.
+One maintenance `std::jthread` owns no data directly; it waits on a mutex-protected min-heap of
+absolute deadlines. Entries carry key and sequence so an old deadline cannot delete an overwritten
+value. PUTEX inserts in `O(log n)`, expiration pops in `O(log n)`, and TTL/GET use average `O(1)`
+index lookup. GET checks expiration before and after file I/O, so scheduler or wall-clock wakeup delay
+does not expose an expired value. Expiration is logical and does not append tombstones.
 
-### Compaction
+### Rotation and compaction
 
-Compaction will copy only records that remain current, then durably publish replacement segment
-metadata before retiring old files. The detailed synchronization and crash protocol are deferred
-until segment/recovery invariants exist and can be tested.
+The active log rotates at a configurable soft byte target. Compaction snapshots current locations,
+copies live records from inactive segments while writes continue, then briefly takes mutation and
+segment-set publication locks. Conditional sequence replacement prevents a stale copy from winning
+over a concurrent write. GET holds the shared segment-set lock from lookup through read so old files
+cannot disappear under a copied location. Rename artifacts make interrupted publication detectable;
+see `COMPACTION.md`.
 
 ## Ownership model
 
 The server process owns one `TcpServer`, which owns the listener, `StorageEngine`, `WorkerPool`,
 accepted connection threads, and their descriptors. The pool owns worker threads and queued tasks.
+The storage engine owns periodic-sync, expiration and compaction `std::jthread`s plus its active
+segment descriptor.
 The application owns and joins the server thread used for signal-driven shutdown. Shutdown joins
-connections, drains and joins workers, then releases storage. Raw owning pointers and detached
-threads remain excluded.
+connections, drains workers, stops storage maintenance, applies the configured final sync, and closes
+the segment. Raw owning pointers and detached threads remain excluded.
 
-## Planned distributed boundary
+## Distributed library boundary
 
-Milestones 8 and 9 may add an explicit cluster router, consistent-hash ring, and primary/replica
-protocol after single-node correctness and benchmarks. No consensus, leader election,
-linearizability, automatic safe failover, or split-brain prevention is implied by that roadmap.
+```text
+binary key -> consistent-hash ring -> primary + clockwise distinct replicas
+                                      |
+                                      v
+                         replication message/state model
+                         sequence gap + lag + recovery
+```
+
+The deterministic ring and replication protocol/model are implemented and tested as library
+components. They are not wired to `forgekv-server` or independent processes. No consensus, leader
+election, linearizability, automatic safe failover, split-brain prevention, durable replica journal,
+or membership control plane is implied. See `CLUSTER.md` and `REPLICATION.md`.

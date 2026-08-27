@@ -16,12 +16,12 @@ value bytes.
 | 4 | version | 2 | `uint16`, value `1` |
 | 6 | header size | 2 | `uint16`, value `40` |
 | 8 | kind | 1 | `1=request`, `2=response` |
-| 9 | opcode | 1 | `1=PUT`, `2=GET`, `3=DELETE`, `4=EXISTS` |
+| 9 | opcode | 1 | `1=PUT`, `2=GET`, `3=DELETE`, `4=EXISTS`, `5=PUTEX`, `6=TTL`, `7=PING`, `8=STATS` |
 | 10 | status | 2 | Status table below; requests use `0` |
 | 12 | flags | 2 | Zero in version 1 |
 | 14 | reserved | 2 | Zero in version 1 |
 | 16 | request ID | 8 | Nonzero `uint64`; response echoes request |
-| 24 | key length | 4 | `0..65,536`; requests semantically require nonempty key |
+| 24 | key length | 4 | `0..65,536`; data operations require a key, PING/STATS require none |
 | 28 | value length | 4 | `0..16,777,216` |
 | 32 | header CRC32C | 4 | CRC32C over bytes `[0, 32)` |
 | 36 | payload CRC32C | 4 | CRC32C over key bytes followed by value bytes |
@@ -40,6 +40,15 @@ convention specified in `STORAGE_FORMAT.md`; it detects accidental corruption, n
 | GET | Required | Must be empty |
 | DELETE | Required | Must be empty |
 | EXISTS | Required | Must be empty |
+| PUTEX | Required | 8-byte TTL-millisecond prefix followed by `0..16,777,208` value bytes |
+| TTL | Required | Must be empty |
+| PING | Must be empty | Must be empty |
+| STATS | Must be empty | Must be empty |
+
+The PUTEX prefix is one nonzero big-endian `uint64` duration in milliseconds and must not exceed
+`INT64_MAX`. It is a duration supplied by the client; the server converts it to an absolute system-
+clock deadline for storage. The eight prefix bytes count against the protocol's 16 MiB value limit,
+so the largest user value accepted through PUTEX is eight bytes smaller than a PUT value.
 
 Structurally valid frames with invalid operation semantics receive `INVALID_REQUEST`; the
 connection remains usable. Unknown opcode/kind, invalid checksum, bad magic/version/header size,
@@ -58,6 +67,7 @@ Responses use kind `2`, echo opcode and request ID, and currently have an empty 
 | 3 | INTERNAL_ERROR | Unexpected server failure |
 | 4 | STORAGE_ERROR | Storage operation failed |
 | 5 | OVERLOADED | Valid request was rejected because the worker queue was full or stopping |
+| 6 | NO_EXPIRY | TTL key exists but is persistent |
 
 Payloads by operation/status:
 
@@ -65,13 +75,20 @@ Payloads by operation/status:
 - GET/OK: stored value bytes, including a possible empty value.
 - GET/NOT_FOUND and DELETE/NOT_FOUND: empty value.
 - EXISTS/OK: exactly one byte, `00=false` or `01=true`.
+- PUTEX/OK: empty value.
+- TTL/OK: exactly eight big-endian bytes containing positive remaining milliseconds.
+- TTL/NO_EXPIRY and TTL/NOT_FOUND: empty value.
+- PING/OK: ASCII `PONG`.
+- STATS/OK: bounded JSON containing operation/error counters, active connections, queue depth,
+  appended bytes, segment/compaction counts, last compaction duration and index entries.
 - Error status: bounded diagnostic text may be placed in the value. Clients must use status, not
   diagnostic wording, for control flow.
 
 Request IDs correlate responses; they are not transactions, deduplication keys, or replay
 protection. Each connection dispatches one request at a time and therefore responds in request order.
-Pipelined frames are parsed but executed sequentially on that connection; the current client sends
-one request and waits for its response.
+Pipelined frames are parsed and executed sequentially on that connection. `TcpClient::pipeline`
+sends a bounded caller-owned batch and verifies each ordered response; the benchmark uses it to
+control pipeline depth.
 
 ## Incremental parser
 
@@ -115,8 +132,10 @@ strict cross-platform connection-attempt deadline; that remains a documented lim
 ## Forward compatibility
 
 Version and header size are explicit. Version 1 rejects unknown versions, header sizes, flags,
-kinds, opcodes, and statuses rather than guessing. A future version may define new fields or
-operations, but negotiation and mixed-version compatibility are not implemented.
+kinds, opcodes, and statuses rather than guessing. PUTEX, TTL, PING, STATS and NO_EXPIRY extend the
+set of values under protocol version 1 during this pre-release project; an older peer rejects them
+rather than silently misinterpreting them. Negotiation and mixed-capability compatibility are not
+implemented. The independent `FKRP` replication format is specified in `REPLICATION.md`.
 
 ## Example exchange
 

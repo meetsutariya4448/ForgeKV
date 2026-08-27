@@ -58,35 +58,51 @@ one `std::unordered_map<std::string, RecordLocation>` and one `std::shared_mutex
 
 The map owns key strings. Locations contain segment ID, offsets, lengths, sequence, and payload
 checksum; they never borrow request or map storage. GET releases the shard lock before file I/O, so
-a slow read does not block index publication. The append-only segment keeps a copied old location
-readable while a newer location is published.
+a slow read does not block index publication, but holds the segment-set shared lock through the read
+so compaction cannot retire its copied location's file.
 
 ## Storage ordering and linearization points
 
-One `write_mutex` serializes PUT and DELETE because the active segment and global sequence are
-single append streams. Shards improve lookup concurrency but do not make log appends parallel.
+One `write_mutex` serializes PUT, PUTEX, DELETE, periodic synchronization, and close because the
+active segment and global sequence are single append streams. Shards improve lookup concurrency but
+do not make log appends parallel.
 
-- PUT prepares owned data, appends and flushes the record, advances the sequence, then publishes the
-  new location under the shard's exclusive lock. Publication is the in-process linearization point.
-- DELETE observes existence while holding `write_mutex`, appends and flushes its tombstone, advances
-  the sequence, then removes the index entry. Removal is the in-process linearization point.
+- PUT prepares owned data, appends the record, advances the sequence, applies any pre-publication
+  `always` sync, then publishes the new location under the shard's exclusive lock. Publication is the
+  in-process linearization point.
+- PUTEX follows PUT ordering, publishes an absolute deadline with the location, then adds a
+  sequence-tagged heap entry. A rare post-append publication/scheduling allocation failure makes the
+  engine unavailable until replay, preserving the authoritative log sequence.
+- DELETE observes existence while holding `write_mutex`, appends its tombstone, advances the
+  sequence, applies any `always` sync, then removes the index entry. Removal is the in-process
+  linearization point.
 - GET copies the current location under the shard's shared lock. That lookup is its linearization
   point; it may return the previous complete value if a concurrent mutation has appended but not yet
   published.
 
-This is per-operation single-process linearization, not a claim of stable-storage durability. Stream
-`flush()` is not `fsync`, and process/power failure guarantees remain those in `STORAGE_FORMAT.md`.
+This is per-operation single-process linearization, distinct from stable-storage durability. The
+selected fsync mode determines whether synchronization occurs before or after publication; exact
+process/power failure guarantees remain those in `STORAGE_FORMAT.md`.
 
-Lock order for mutations is always `write_mutex` then one shard mutex. GET never takes
-`write_mutex`. Engine shutdown is only safe after request producers and workers are quiesced; the
-server enforces that ownership order.
+Lock order for mutations is always `write_mutex`, then one shard mutex, then (for PUTEX) the
+expiration-heap mutex. The expiration thread releases the heap mutex before acquiring a shard, so it
+cannot invert that order. GET never takes `write_mutex`. Engine shutdown is only safe after request
+producers and workers are quiesced; the server enforces that ownership order.
+
+Compaction has a separate single-run mutex. Its copy phase holds the segment-set lock shared without
+`write_mutex`, so active-segment writes continue. Publication takes `write_mutex`, then the
+segment-set lock exclusive, then one shard at a time for conditional sequence replacement. GET
+takes the segment-set lock shared before its shard lookup and holds it through file verification.
+Compaction never waits for the mutation mutex while holding a shard lock.
 
 ## Shutdown
 
 On a normal stop request, the accept loop stops admitting connections, requests cancellation on all
 connection threads, and joins them. Socket timeouts let idle receive loops observe cancellation.
 Connections already waiting for a worker result are allowed to finish. The worker queue is then
-closed, queued tasks drain, workers join, and only afterward can storage be destroyed.
+closed, queued tasks drain, and workers join. Storage atomically closes admission, stops and joins its
+periodic-sync, expiration, and compaction threads, performs the durability mode's final sync policy,
+and closes the descriptor.
 
 Shutdown is graceful, not instantaneous. Its upper bound includes the socket timeout and the duration
 of accepted storage operations. There is no forced cancellation in the middle of an append.
