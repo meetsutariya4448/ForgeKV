@@ -219,16 +219,21 @@ std::vector<ReplicationMessage> ReplicaState::snapshot() const {
 }
 
 void ReplicaState::install_snapshot(std::span<const ReplicationMessage> messages) {
-    std::lock_guard lock(mutex_);
-    values_.clear();
-    stream_sequences_.clear();
+    std::unordered_map<std::string, StoredValue> replacement_values;
+    std::unordered_map<std::string, std::uint64_t> replacement_sequences;
     for (const auto& message : messages) {
         static_cast<void>(encode_replication_message(message));
+        if (message.operation != storage::Operation::kPut) {
+            throw std::invalid_argument("replica snapshot contains a non-value operation");
+        }
         const std::string key = bytes_string(message.key);
-        values_[key] = StoredValue{message.primary_id, message.sequence,
-                                   message.expires_at_unix_ms, message.value};
-        stream_sequences_[stream_key(message.primary_id, message.key)] = message.sequence;
+        replacement_values[key] = StoredValue{message.primary_id, message.sequence,
+                                              message.expires_at_unix_ms, message.value};
+        replacement_sequences[stream_key(message.primary_id, message.key)] = message.sequence;
     }
+    std::lock_guard lock(mutex_);
+    values_.swap(replacement_values);
+    stream_sequences_.swap(replacement_sequences);
 }
 
 ReplicatedCluster::ReplicatedCluster(std::vector<Node> nodes, std::size_t replication_factor,
