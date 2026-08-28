@@ -164,6 +164,9 @@ Bytes encode_frame(const Frame& frame) {
 Frame decode_frame(std::span<const std::byte> bytes) {
     const Header header = decode_header(bytes);
     if (bytes.size() < header.encoded_size) fail(ProtocolErrorCode::kTruncatedPayload, "truncated payload");
+    if (bytes.size() != header.encoded_size) {
+        fail(ProtocolErrorCode::kInvalidFrameSize, "frame contains trailing bytes");
+    }
     const std::size_t payload_size = static_cast<std::size_t>(header.key_length) + header.value_length;
     const auto payload = bytes.subspan(kFrameHeaderSize, payload_size);
     if (storage::crc32c(payload) != header.payload_checksum) {

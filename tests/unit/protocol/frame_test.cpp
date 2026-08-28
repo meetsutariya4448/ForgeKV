@@ -86,6 +86,18 @@ TEST(FrameCodecTest, ReportsTruncatedHeaderAndPayload) {
                  ProtocolError);
 }
 
+TEST(FrameCodecTest, RejectsTrailingBytes) {
+    Bytes encoded = encode_frame(request(Opcode::kGet));
+    encoded.push_back(std::byte{0});
+
+    try {
+        static_cast<void>(decode_frame(encoded));
+        FAIL() << "expected ProtocolError";
+    } catch (const ProtocolError& error) {
+        EXPECT_EQ(error.code(), ProtocolErrorCode::kInvalidFrameSize);
+    }
+}
+
 TEST(FrameParserTest, HandlesEveryTwoPartSplit) {
     const Bytes encoded = encode_frame(request(Opcode::kPut, bytes("key"), bytes("value")));
     for (std::size_t split = 0; split <= encoded.size(); ++split) {
