@@ -83,5 +83,15 @@ TEST(ConsistentHashRingTest, UnreachableSelectedNodeFailsWithoutImplicitFailover
                  RoutingError);
 }
 
+TEST(ConsistentHashRingTest, RejectsUnusableNodeEndpoints) {
+    ConsistentHashRing ring(32);
+    EXPECT_THROW(ring.set_nodes({{"node-a", "", 7001}}), std::invalid_argument);
+    EXPECT_THROW(ring.set_nodes({{"node-a", "127.0.0.1", 0}}), std::invalid_argument);
+
+    ring.set_nodes(three_nodes());
+    EXPECT_THROW(ring.add_node({"node-d", "", 7004}), std::invalid_argument);
+    EXPECT_EQ(ring.node_count(), 3U);
+}
+
 }  // namespace
 }  // namespace forgekv::cluster

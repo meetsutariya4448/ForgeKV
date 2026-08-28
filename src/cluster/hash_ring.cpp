@@ -11,6 +11,12 @@ std::span<const std::byte> as_bytes(std::string_view value) {
     return {reinterpret_cast<const std::byte*>(value.data()), value.size()};
 }
 
+void validate_node(const Node& node) {
+    if (node.id.empty()) throw std::invalid_argument("node id must not be empty");
+    if (node.host.empty()) throw std::invalid_argument("node host must not be empty");
+    if (node.port == 0) throw std::invalid_argument("node port must be nonzero");
+}
+
 }  // namespace
 
 ConsistentHashRing::ConsistentHashRing(std::size_t virtual_nodes)
@@ -23,7 +29,7 @@ void ConsistentHashRing::set_nodes(std::vector<Node> nodes) {
         return left.id < right.id;
     });
     for (std::size_t index = 0; index < nodes.size(); ++index) {
-        if (nodes[index].id.empty()) throw std::invalid_argument("node id must not be empty");
+        validate_node(nodes[index]);
         if (index != 0 && nodes[index - 1].id == nodes[index].id) {
             throw std::invalid_argument("node ids must be unique");
         }
@@ -33,7 +39,7 @@ void ConsistentHashRing::set_nodes(std::vector<Node> nodes) {
 }
 
 void ConsistentHashRing::add_node(Node node) {
-    if (node.id.empty()) throw std::invalid_argument("node id must not be empty");
+    validate_node(node);
     if (std::any_of(nodes_.begin(), nodes_.end(), [&](const Node& existing) {
             return existing.id == node.id;
         })) {
