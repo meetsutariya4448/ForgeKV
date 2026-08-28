@@ -110,5 +110,18 @@ TEST(ReplicatedClusterTest, SlowReplicaTimesOutAndUnavailablePrimaryRejects) {
     EXPECT_EQ(unavailable.unavailable, 1U);
 }
 
+TEST(ReplicatedClusterTest, OversizedMutationDoesNotConsumeSequence) {
+    ReplicatedCluster cluster(replica_nodes(), 3, 64);
+    const storage::Bytes oversized_key(storage::kMaxKeySize + 1, std::byte{0x6b});
+    EXPECT_THROW(static_cast<void>(cluster.put(oversized_key, replica_bytes("rejected"),
+                                               AcknowledgementMode::kAll)),
+                 std::invalid_argument);
+
+    const auto accepted = cluster.put(replica_bytes("valid"), replica_bytes("value"),
+                                      AcknowledgementMode::kAll);
+    EXPECT_TRUE(accepted.acknowledged);
+    EXPECT_EQ(accepted.sequence, 1U);
+}
+
 }  // namespace
 }  // namespace forgekv::cluster

@@ -261,8 +261,10 @@ ReplicationResult ReplicatedCluster::mutate(storage::Operation operation,
                                             std::span<const std::byte> value,
                                             AcknowledgementMode mode,
                                             std::chrono::milliseconds timeout) {
-    if (key.empty() || timeout < std::chrono::milliseconds::zero()) {
-        throw std::invalid_argument("replication key/timeout is invalid");
+    if (key.empty() || key.size() > storage::kMaxKeySize ||
+        value.size() > storage::kMaxValueSize ||
+        timeout < std::chrono::milliseconds::zero()) {
+        throw std::invalid_argument("replication key/value/timeout is invalid");
     }
     std::lock_guard lock(mutex_);
     const auto placement = ring_.placement(key, replication_factor_);
