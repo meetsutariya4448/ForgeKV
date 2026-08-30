@@ -265,6 +265,9 @@ PutExPayload decode_put_ex_payload(std::span<const std::byte> payload) {
     if (payload.size() < kTtlPayloadPrefixSize) {
         throw std::invalid_argument("PUTEX payload is missing TTL prefix");
     }
+    if (payload.size() > storage::kMaxValueSize) {
+        throw std::invalid_argument("PUTEX payload exceeds protocol limit");
+    }
     const std::uint64_t ttl_ms = read_u64(payload, 0);
     if (ttl_ms == 0 ||
         ttl_ms > static_cast<std::uint64_t>(

@@ -54,6 +54,9 @@ TEST(FrameCodecTest, RoundTripsTtlOperationsAndPayloads) {
 TEST(FrameCodecTest, RejectsMalformedTtlPayloads) {
     EXPECT_THROW(static_cast<void>(encode_put_ex_payload(0, {})), std::invalid_argument);
     EXPECT_THROW(static_cast<void>(decode_put_ex_payload(Bytes(7))), std::invalid_argument);
+    Bytes oversized(storage::kMaxValueSize + 1, std::byte{0});
+    oversized[7] = std::byte{1};
+    EXPECT_THROW(static_cast<void>(decode_put_ex_payload(oversized)), std::invalid_argument);
     EXPECT_THROW(static_cast<void>(decode_ttl_payload(Bytes(7))), std::invalid_argument);
 }
 
