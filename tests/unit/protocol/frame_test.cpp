@@ -66,6 +66,20 @@ TEST(FrameCodecTest, RejectsZeroRequestIdAndOversizedPayload) {
     EXPECT_THROW(static_cast<void>(encode_frame(frame)), std::invalid_argument);
 }
 
+TEST(FrameCodecTest, RejectsUnknownEnumValuesDuringEncoding) {
+    Frame frame = request(Opcode::kGet);
+    frame.kind = static_cast<FrameKind>(0xff);
+    EXPECT_THROW(static_cast<void>(encode_frame(frame)), std::invalid_argument);
+
+    frame = request(Opcode::kGet);
+    frame.opcode = static_cast<Opcode>(0xff);
+    EXPECT_THROW(static_cast<void>(encode_frame(frame)), std::invalid_argument);
+
+    frame = request(Opcode::kGet);
+    frame.status = static_cast<Status>(0xffff);
+    EXPECT_THROW(static_cast<void>(encode_frame(frame)), std::invalid_argument);
+}
+
 TEST(FrameCodecTest, DetectsHeaderAndPayloadCorruption) {
     Bytes encoded = encode_frame(request(Opcode::kPut, bytes("key"), bytes("value")));
     encoded[16] ^= std::byte{1};

@@ -136,6 +136,16 @@ ProtocolErrorCode ProtocolError::code() const noexcept { return code_; }
 
 Bytes encode_frame(const Frame& frame) {
     if (frame.request_id == 0) throw std::invalid_argument("request id must be nonzero");
+    const auto kind = static_cast<std::uint8_t>(frame.kind);
+    const auto opcode = static_cast<std::uint8_t>(frame.opcode);
+    const auto status = static_cast<std::uint16_t>(frame.status);
+    if ((kind != static_cast<std::uint8_t>(FrameKind::kRequest) &&
+         kind != static_cast<std::uint8_t>(FrameKind::kResponse)) ||
+        opcode < static_cast<std::uint8_t>(Opcode::kPut) ||
+        opcode > static_cast<std::uint8_t>(Opcode::kStats) ||
+        status > static_cast<std::uint16_t>(Status::kNoExpiry)) {
+        throw std::invalid_argument("frame contains an unknown enum value");
+    }
     if (frame.key.size() > storage::kMaxKeySize || frame.value.size() > storage::kMaxValueSize) {
         throw std::invalid_argument("frame payload exceeds protocol limits");
     }
@@ -145,9 +155,9 @@ Bytes encode_frame(const Frame& frame) {
     std::copy(kMagic.begin(), kMagic.end(), encoded.begin());
     write_u16(encoded, 4, kProtocolVersion);
     write_u16(encoded, 6, static_cast<std::uint16_t>(kFrameHeaderSize));
-    encoded[8] = static_cast<std::byte>(static_cast<std::uint8_t>(frame.kind));
-    encoded[9] = static_cast<std::byte>(static_cast<std::uint8_t>(frame.opcode));
-    write_u16(encoded, 10, static_cast<std::uint16_t>(frame.status));
+    encoded[8] = static_cast<std::byte>(kind);
+    encoded[9] = static_cast<std::byte>(opcode);
+    write_u16(encoded, 10, status);
     write_u16(encoded, 12, 0);
     write_u16(encoded, 14, 0);
     write_u64(encoded, 16, frame.request_id);
