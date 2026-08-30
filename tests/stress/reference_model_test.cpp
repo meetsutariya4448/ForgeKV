@@ -1,5 +1,7 @@
 #include "forgekv/storage/engine.hpp"
 
+#include <unistd.h>
+
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -24,7 +26,9 @@ public:
     StressDirectory() {
         static std::atomic_uint64_t counter = 0;
         path_ = std::filesystem::temp_directory_path() /
-                ("forgekv-model-stress-" + std::to_string(++counter));
+                ("forgekv-model-stress-" +
+                 std::to_string(static_cast<long long>(::getpid())) + "-" +
+                 std::to_string(++counter));
         std::filesystem::remove_all(path_);
     }
     ~StressDirectory() {
