@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <optional>
@@ -106,6 +107,25 @@ TEST(ReplicatedClusterTest, ReplicaLagAndRecoveryAreMeasuredPerKeyStream) {
     EXPECT_EQ(cluster.replica_lag(lagging, key), 0U);
     EXPECT_EQ(cluster.get_from(lagging, key),
               std::optional<storage::Bytes>(replica_bytes("two")));
+}
+
+TEST(ReplicatedClusterTest, ReplicaLagRejectsNodesOutsideKeyPlacement) {
+    ReplicatedCluster cluster(replica_nodes(), 2, 64);
+    const auto key = replica_bytes("placement-bound-lag");
+    const auto placement = cluster.ring().placement(key, 2);
+    const auto nodes = replica_nodes();
+    const auto outside = std::find_if(nodes.begin(), nodes.end(), [&](const Node& node) {
+        return std::none_of(placement.begin(), placement.end(), [&](const Node& replica) {
+            return replica.id == node.id;
+        });
+    });
+    ASSERT_NE(outside, nodes.end());
+
+    EXPECT_EQ(cluster.replica_lag(placement.front().id, key), 0U);
+    EXPECT_THROW(static_cast<void>(cluster.replica_lag(outside->id, key)),
+                 std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(cluster.replica_lag("unknown-node", key)),
+                 std::invalid_argument);
 }
 
 TEST(ReplicatedClusterTest, SlowReplicaTimesOutAndUnavailablePrimaryRejects) {

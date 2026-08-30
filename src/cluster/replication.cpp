@@ -336,11 +336,17 @@ void ReplicatedCluster::set_delay(std::string_view node_id, std::chrono::millise
 std::uint64_t ReplicatedCluster::replica_lag(std::string_view node_id,
                                              std::span<const std::byte> key) const {
     std::lock_guard lock(mutex_);
+    const Endpoint& target = endpoint(node_id);
     const auto placement = ring_.placement(key, replication_factor_);
+    if (std::none_of(placement.begin(), placement.end(), [&](const Node& node) {
+            return node.id == node_id;
+        })) {
+        throw std::invalid_argument("node is not a replica for the key");
+    }
     const std::string stream = placement.front().id + std::string("\0", 1) + key_string(key);
     const auto latest = next_sequences_.find(stream);
     if (latest == next_sequences_.end()) return 0;
-    const std::uint64_t applied = endpoint(node_id).state->last_sequence(placement.front().id, key);
+    const std::uint64_t applied = target.state->last_sequence(placement.front().id, key);
     return latest->second - std::min(latest->second, applied);
 }
 
