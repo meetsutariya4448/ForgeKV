@@ -133,6 +133,19 @@ protocol::Frame receive_frame(int fd) {
     }
 }
 
+TEST(NetworkConfigurationTest, RejectsNonpositiveTimeoutsBeforeOpeningResources) {
+    TemporaryDirectory temporary;
+    ServerConfig config;
+    config.database_directory = temporary.path();
+    config.io_timeout = std::chrono::milliseconds::zero();
+
+    EXPECT_THROW(static_cast<void>(TcpServer(config)), std::invalid_argument);
+    EXPECT_FALSE(std::filesystem::exists(temporary.path()));
+    EXPECT_THROW(static_cast<void>(TcpClient::connect(
+                     "127.0.0.1", 7391, std::chrono::milliseconds::zero())),
+                 std::invalid_argument);
+}
+
 TEST(NetworkIntegrationTest, BinaryCrudExistsAndPersistentConnectionWork) {
     TemporaryDirectory temporary;
     RunningServer server(temporary.path());

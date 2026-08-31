@@ -82,6 +82,13 @@ protocol::Frame response_for(const protocol::Frame& request, protocol::Status st
                            request.request_id, {}, std::move(value)};
 }
 
+ServerConfig validate_server_config(ServerConfig config) {
+    if (config.io_timeout <= std::chrono::milliseconds::zero()) {
+        throw std::invalid_argument("server I/O timeout must be positive");
+    }
+    return config;
+}
+
 storage::StorageOptions storage_options(const ServerConfig& config) {
     storage::StorageOptions options;
     options.shard_count = config.index_shards;
@@ -96,7 +103,7 @@ storage::StorageOptions storage_options(const ServerConfig& config) {
 }  // namespace
 
 TcpServer::TcpServer(ServerConfig config)
-    : config_(std::move(config)),
+    : config_(validate_server_config(std::move(config))),
       storage_(storage::StorageEngine::open(config_.database_directory,
                                             storage_options(config_))),
       worker_pool_(config_.worker_count, config_.queue_capacity) {
@@ -324,6 +331,9 @@ protocol::Frame TcpServer::dispatch(const protocol::Frame& request) {
 
 TcpClient TcpClient::connect(const std::string& host, std::uint16_t port,
                              std::chrono::milliseconds timeout) {
+    if (timeout <= std::chrono::milliseconds::zero()) {
+        throw std::invalid_argument("client I/O timeout must be positive");
+    }
     addrinfo hints{};
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
