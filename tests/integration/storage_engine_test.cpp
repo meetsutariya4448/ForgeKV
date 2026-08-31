@@ -129,6 +129,16 @@ TEST(StorageEngineTest, CreatesAndOpensEmptyDatabase) {
     EXPECT_EQ(reopened.size(), 0U);
 }
 
+TEST(StorageEngineTest, RejectsUnknownDurabilityModeBeforeCreatingDatabase) {
+    TemporaryDirectory temporary;
+    StorageOptions options;
+    options.durability = static_cast<DurabilityMode>(255);
+
+    EXPECT_THROW(static_cast<void>(StorageEngine::open(temporary.path(), options)),
+                 std::invalid_argument);
+    EXPECT_FALSE(std::filesystem::exists(temporary.path()));
+}
+
 TEST(StorageEngineTest, PutsAndGetsBinaryKeyValue) {
     TemporaryDirectory temporary;
     StorageEngine engine = StorageEngine::open(temporary.path());

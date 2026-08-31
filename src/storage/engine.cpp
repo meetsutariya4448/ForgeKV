@@ -126,6 +126,11 @@ StorageEngine::StorageEngine(std::filesystem::path database_directory, StorageOp
       database_directory_(std::move(database_directory)),
       active_segment_path_(segment_path_for_id(database_directory_, kInitialSegmentId)),
       index_(options_.shard_count) {
+    if (options_.durability != DurabilityMode::kAlways &&
+        options_.durability != DurabilityMode::kPeriodic &&
+        options_.durability != DurabilityMode::kNone) {
+        throw std::invalid_argument("durability mode is unsupported");
+    }
     if (options_.durability == DurabilityMode::kPeriodic &&
         options_.sync_interval <= std::chrono::milliseconds::zero()) {
         throw std::invalid_argument("periodic sync interval must be positive");
