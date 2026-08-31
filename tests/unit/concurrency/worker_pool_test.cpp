@@ -45,5 +45,11 @@ TEST(WorkerPoolTest, ShutdownDrainsAndRejectsNewWork) {
     EXPECT_TRUE(pool.stopping());
     EXPECT_FALSE(pool.try_submit([] {}));
 }
+TEST(WorkerPoolTest, ReportsWorkersSafelyAcrossShutdown) {
+    WorkerPool pool(2, 4);
+    EXPECT_EQ(pool.worker_count(), 2U);
+    pool.shutdown();
+    EXPECT_EQ(pool.worker_count(), 0U);
+}
 }  // namespace
 }  // namespace forgekv::concurrency

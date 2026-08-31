@@ -23,6 +23,7 @@ private:
     void run_worker();
     BoundedQueue<Task> queue_;
     std::vector<std::jthread> workers_;
+    std::atomic_size_t worker_count_ = 0;
     std::atomic_bool stopping_ = false;
 };
 }  // namespace forgekv::concurrency
