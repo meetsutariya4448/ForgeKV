@@ -87,6 +87,10 @@ TEST(ConsistentHashRingTest, RejectsUnusableNodeEndpoints) {
     ConsistentHashRing ring(32);
     EXPECT_THROW(ring.set_nodes({{"node-a", "", 7001}}), std::invalid_argument);
     EXPECT_THROW(ring.set_nodes({{"node-a", "127.0.0.1", 0}}), std::invalid_argument);
+    EXPECT_THROW(ring.set_nodes({{std::string("node\0a", 6), "127.0.0.1", 7001}}),
+                 std::invalid_argument);
+    EXPECT_THROW(ring.set_nodes({{"node-a", std::string("127.0.0.1\0ignored", 17), 7001}}),
+                 std::invalid_argument);
 
     ring.set_nodes(three_nodes());
     EXPECT_THROW(ring.add_node({"node-d", "", 7004}), std::invalid_argument);

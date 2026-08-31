@@ -39,6 +39,15 @@ TEST(ReplicationProtocolTest, RoundTripsAndDetectsCorruption) {
     EXPECT_THROW(static_cast<void>(decode_replication_message(encoded)), std::invalid_argument);
 }
 
+TEST(ReplicationProtocolTest, RejectsAmbiguousPrimaryIdentifiers) {
+    const ReplicationMessage message{std::string("node\0a", 6), 1,
+                                     storage::Operation::kPut, 0,
+                                     replica_bytes("key"), replica_bytes("value")};
+
+    EXPECT_THROW(static_cast<void>(encode_replication_message(message)),
+                 std::invalid_argument);
+}
+
 TEST(ReplicaStateTest, DetectsGapsDuplicatesAndRestoresSnapshot) {
     ReplicaState state;
     const auto key = replica_bytes("key");

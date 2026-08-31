@@ -13,7 +13,13 @@ std::span<const std::byte> as_bytes(std::string_view value) {
 
 void validate_node(const Node& node) {
     if (node.id.empty()) throw std::invalid_argument("node id must not be empty");
+    if (node.id.find('\0') != std::string::npos) {
+        throw std::invalid_argument("node id must not contain a null byte");
+    }
     if (node.host.empty()) throw std::invalid_argument("node host must not be empty");
+    if (node.host.find('\0') != std::string::npos) {
+        throw std::invalid_argument("node host must not contain a null byte");
+    }
     if (node.port == 0) throw std::invalid_argument("node port must be nonzero");
 }
 

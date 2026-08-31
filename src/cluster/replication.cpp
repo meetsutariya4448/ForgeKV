@@ -67,7 +67,8 @@ std::uint64_t now_unix_ms() {
 }  // namespace
 
 storage::Bytes encode_replication_message(const ReplicationMessage& message) {
-    if (message.primary_id.empty() || message.primary_id.size() > kMaxPrimaryId) {
+    if (message.primary_id.empty() || message.primary_id.size() > kMaxPrimaryId ||
+        message.primary_id.find('\0') != std::string::npos) {
         throw std::invalid_argument("replication primary id is outside bounds");
     }
     if (message.sequence == 0 || message.key.empty() ||
