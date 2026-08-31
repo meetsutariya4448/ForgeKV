@@ -90,6 +90,19 @@ TEST(ReplicatedClusterTest, PrimaryAndAllAcknowledgementModesAreExplicit) {
     EXPECT_EQ(all.unavailable, 1U);
 }
 
+TEST(ReplicatedClusterTest, RejectsUnknownAcknowledgementModeWithoutConsumingSequence) {
+    ReplicatedCluster cluster(replica_nodes(), 3, 64);
+    const auto key = replica_bytes("account");
+
+    EXPECT_THROW(static_cast<void>(cluster.put(
+                     key, replica_bytes("rejected"), static_cast<AcknowledgementMode>(255))),
+                 std::invalid_argument);
+    const auto accepted =
+        cluster.put(key, replica_bytes("accepted"), AcknowledgementMode::kAll);
+    EXPECT_TRUE(accepted.acknowledged);
+    EXPECT_EQ(accepted.sequence, 1U);
+}
+
 TEST(ReplicatedClusterTest, ReplicaLagAndRecoveryAreMeasuredPerKeyStream) {
     ReplicatedCluster cluster(replica_nodes(), 3, 64);
     const auto key = replica_bytes("recoverable");

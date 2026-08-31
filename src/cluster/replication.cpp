@@ -266,6 +266,9 @@ ReplicationResult ReplicatedCluster::mutate(storage::Operation operation,
                                             std::span<const std::byte> value,
                                             AcknowledgementMode mode,
                                             std::chrono::milliseconds timeout) {
+    if (mode != AcknowledgementMode::kPrimary && mode != AcknowledgementMode::kAll) {
+        throw std::invalid_argument("acknowledgement mode is unsupported");
+    }
     if (key.empty() || key.size() > storage::kMaxKeySize ||
         value.size() > storage::kMaxValueSize ||
         timeout < std::chrono::milliseconds::zero()) {
