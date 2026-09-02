@@ -363,6 +363,9 @@ std::uint64_t ReplicatedCluster::replica_lag(std::string_view node_id,
 void ReplicatedCluster::recover_node(std::string_view node_id) {
     std::lock_guard lock(mutex_);
     Endpoint& target = endpoint(node_id);
+    if (!target.available) {
+        throw RoutingError("replica is unavailable: " + std::string(node_id));
+    }
     for (const auto& [stream, messages] : history_) {
         static_cast<void>(stream);
         for (const auto& message : messages) {

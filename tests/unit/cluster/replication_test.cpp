@@ -147,6 +147,24 @@ TEST(ReplicatedClusterTest, ReplicaLagAndRecoveryAreMeasuredPerKeyStream) {
               std::optional<storage::Bytes>(replica_bytes("two")));
 }
 
+TEST(ReplicatedClusterTest, RecoveryCannotMutateUnavailableReplica) {
+    ReplicatedCluster cluster(replica_nodes(), 3, 64);
+    const auto key = replica_bytes("recover-availability");
+    const auto placement = cluster.ring().placement(key, 3);
+    const std::string lagging = placement[1].id;
+    cluster.set_available(lagging, false);
+    ASSERT_TRUE(cluster.put(key, replica_bytes("value"),
+                            AcknowledgementMode::kPrimary).acknowledged);
+    ASSERT_EQ(cluster.replica_lag(lagging, key), 1U);
+
+    EXPECT_THROW(cluster.recover_node(lagging), RoutingError);
+    EXPECT_EQ(cluster.replica_lag(lagging, key), 1U);
+
+    cluster.set_available(lagging, true);
+    cluster.recover_node(lagging);
+    EXPECT_EQ(cluster.replica_lag(lagging, key), 0U);
+}
+
 TEST(ReplicatedClusterTest, ReplicaLagRejectsNodesOutsideKeyPlacement) {
     ReplicatedCluster cluster(replica_nodes(), 2, 64);
     const auto key = replica_bytes("placement-bound-lag");
