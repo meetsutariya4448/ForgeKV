@@ -475,5 +475,25 @@ TEST(NetworkFailureTest, ConnectionResetIsReported) {
                  NetworkError);
 }
 
+TEST(NetworkFailureTest, InvalidResponseSemanticsAreRejected) {
+    const auto [listener, port] = listen_for_failure_test();
+    std::jthread peer([listener] {
+        int accepted = ::accept(listener, nullptr, nullptr);
+        if (accepted >= 0) {
+            const auto malformed = protocol::encode_frame(protocol::Frame{
+                protocol::FrameKind::kResponse, protocol::Opcode::kExists,
+                protocol::Status::kOk, 1, {}, {std::byte{2}}});
+            send_raw_all(accepted, malformed);
+            ::close(accepted);
+        }
+        ::close(listener);
+    });
+    auto client = TcpClient::connect("127.0.0.1", port, std::chrono::milliseconds{250});
+
+    EXPECT_THROW(static_cast<void>(client.request(
+                     request(protocol::Opcode::kExists, 1, bytes("key")))),
+                 NetworkError);
+}
+
 }  // namespace
 }  // namespace forgekv::network

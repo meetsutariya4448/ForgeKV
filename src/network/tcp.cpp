@@ -428,6 +428,9 @@ std::vector<protocol::Frame> TcpClient::pipeline(
                 response.opcode != request.opcode) {
                 throw NetworkError("response does not match request");
             }
+            if (!protocol::response_semantics_valid(response)) {
+                throw NetworkError("response has invalid operation semantics");
+            }
             responses.push_back(std::move(response));
         }
     }

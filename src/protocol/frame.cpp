@@ -246,6 +246,44 @@ bool request_semantics_valid(const Frame& frame) noexcept {
     return false;
 }
 
+bool response_semantics_valid(const Frame& frame) noexcept {
+    if (frame.kind != FrameKind::kResponse || !frame.key.empty()) return false;
+    if (frame.status == Status::kInvalidRequest || frame.status == Status::kInternalError ||
+        frame.status == Status::kStorageError || frame.status == Status::kOverloaded) {
+        return true;
+    }
+    if (frame.status == Status::kNotFound) {
+        return frame.value.empty() &&
+               (frame.opcode == Opcode::kGet || frame.opcode == Opcode::kDelete ||
+                frame.opcode == Opcode::kTtl);
+    }
+    if (frame.status == Status::kNoExpiry) {
+        return frame.opcode == Opcode::kTtl && frame.value.empty();
+    }
+    if (frame.status != Status::kOk) return false;
+    switch (frame.opcode) {
+        case Opcode::kPut:
+        case Opcode::kDelete:
+        case Opcode::kPutEx:
+            return frame.value.empty();
+        case Opcode::kGet:
+        case Opcode::kStats:
+            return true;
+        case Opcode::kExists:
+            return frame.value.size() == 1 &&
+                   (frame.value.front() == std::byte{0} ||
+                    frame.value.front() == std::byte{1});
+        case Opcode::kTtl:
+            return frame.value.size() == kTtlPayloadPrefixSize &&
+                   read_u64(frame.value, 0) != 0;
+        case Opcode::kPing:
+            return frame.value.size() == 4 && frame.value[0] == std::byte{'P'} &&
+                   frame.value[1] == std::byte{'O'} && frame.value[2] == std::byte{'N'} &&
+                   frame.value[3] == std::byte{'G'};
+    }
+    return false;
+}
+
 Bytes encode_put_ex_payload(std::uint64_t ttl_ms, std::span<const std::byte> value) {
     if (ttl_ms == 0 ||
         ttl_ms > static_cast<std::uint64_t>(

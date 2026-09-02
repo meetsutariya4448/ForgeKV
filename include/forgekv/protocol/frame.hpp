@@ -85,6 +85,7 @@ private:
 [[nodiscard]] Bytes encode_frame(const Frame& frame);
 [[nodiscard]] Frame decode_frame(std::span<const std::byte> bytes);
 [[nodiscard]] bool request_semantics_valid(const Frame& frame) noexcept;
+[[nodiscard]] bool response_semantics_valid(const Frame& frame) noexcept;
 [[nodiscard]] Bytes encode_put_ex_payload(std::uint64_t ttl_ms,
                                           std::span<const std::byte> value);
 [[nodiscard]] PutExPayload decode_put_ex_payload(std::span<const std::byte> payload);

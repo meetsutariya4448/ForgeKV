@@ -169,5 +169,38 @@ TEST(RequestSemanticsTest, EnforcesOpcodePayloadRules) {
     EXPECT_FALSE(request_semantics_valid(response));
 }
 
+TEST(ResponseSemanticsTest, EnforcesStatusAndPayloadRules) {
+    auto response = [](Opcode opcode, Status status = Status::kOk, Bytes value = {}) {
+        return Frame{FrameKind::kResponse, opcode, status, 42, {}, std::move(value)};
+    };
+
+    EXPECT_TRUE(response_semantics_valid(response(Opcode::kGet, Status::kOk, {})));
+    EXPECT_TRUE(response_semantics_valid(
+        response(Opcode::kExists, Status::kOk, {std::byte{1}})));
+    EXPECT_TRUE(response_semantics_valid(
+        response(Opcode::kTtl, Status::kOk, encode_ttl_payload(1))));
+    EXPECT_TRUE(response_semantics_valid(
+        response(Opcode::kPing, Status::kOk, bytes("PONG"))));
+    EXPECT_TRUE(response_semantics_valid(
+        response(Opcode::kGet, Status::kOverloaded, bytes("busy"))));
+    EXPECT_TRUE(response_semantics_valid(
+        response(Opcode::kTtl, Status::kNotFound)));
+
+    EXPECT_FALSE(response_semantics_valid(
+        Frame{FrameKind::kResponse, Opcode::kGet, Status::kOk, 42, bytes("key"), {}}));
+    EXPECT_FALSE(response_semantics_valid(
+        response(Opcode::kPut, Status::kOk, bytes("unexpected"))));
+    EXPECT_FALSE(response_semantics_valid(
+        response(Opcode::kExists, Status::kOk, {std::byte{2}})));
+    EXPECT_FALSE(response_semantics_valid(
+        response(Opcode::kTtl, Status::kOk, encode_ttl_payload(0))));
+    EXPECT_FALSE(response_semantics_valid(
+        response(Opcode::kPing, Status::kOk, bytes("NOPE"))));
+    EXPECT_FALSE(response_semantics_valid(
+        response(Opcode::kPut, Status::kNotFound)));
+    EXPECT_FALSE(response_semantics_valid(
+        response(Opcode::kGet, Status::kNoExpiry)));
+}
+
 }  // namespace
 }  // namespace forgekv::protocol
