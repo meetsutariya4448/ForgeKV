@@ -162,6 +162,15 @@ TEST(NetworkConfigurationTest, RejectsInvalidCapacityBeforeOpeningStorage) {
     }
 }
 
+TEST(NetworkConfigurationTest, RejectsInvalidClientEndpointsBeforeResolution) {
+    EXPECT_THROW(static_cast<void>(TcpClient::connect("", 7391)), std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(TcpClient::connect(std::string("localhost\0ignored", 17),
+                                                      7391)),
+                 std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(TcpClient::connect("127.0.0.1", 0)),
+                 std::invalid_argument);
+}
+
 TEST(NetworkIntegrationTest, BinaryCrudExistsAndPersistentConnectionWork) {
     TemporaryDirectory temporary;
     RunningServer server(temporary.path());

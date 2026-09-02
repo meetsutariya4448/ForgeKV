@@ -337,6 +337,12 @@ protocol::Frame TcpServer::dispatch(const protocol::Frame& request) {
 
 TcpClient TcpClient::connect(const std::string& host, std::uint16_t port,
                              std::chrono::milliseconds timeout) {
+    if (host.empty() || host.find('\0') != std::string::npos) {
+        throw std::invalid_argument("client host must be nonempty and unambiguous");
+    }
+    if (port == 0) {
+        throw std::invalid_argument("client port must be nonzero");
+    }
     if (timeout <= std::chrono::milliseconds::zero()) {
         throw std::invalid_argument("client I/O timeout must be positive");
     }
