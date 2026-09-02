@@ -433,6 +433,9 @@ std::vector<protocol::Frame> TcpClient::pipeline(
             }
             responses.push_back(std::move(response));
         }
+        if (responses.size() == requests.size() && parser.buffered_bytes() != 0) {
+            throw NetworkError("server returned trailing response bytes");
+        }
     }
     return responses;
 }

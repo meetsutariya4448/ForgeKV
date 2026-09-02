@@ -495,5 +495,30 @@ TEST(NetworkFailureTest, InvalidResponseSemanticsAreRejected) {
                  NetworkError);
 }
 
+TEST(NetworkFailureTest, PartialUnsolicitedResponseIsRejected) {
+    const auto [listener, port] = listen_for_failure_test();
+    std::jthread peer([listener] {
+        int accepted = ::accept(listener, nullptr, nullptr);
+        if (accepted >= 0) {
+            auto bytes_to_send = protocol::encode_frame(protocol::Frame{
+                protocol::FrameKind::kResponse, protocol::Opcode::kGet,
+                protocol::Status::kOk, 1, {}, bytes("value")});
+            const auto unsolicited = protocol::encode_frame(protocol::Frame{
+                protocol::FrameKind::kResponse, protocol::Opcode::kGet,
+                protocol::Status::kOk, 2, {}, bytes("other")});
+            bytes_to_send.insert(bytes_to_send.end(), unsolicited.begin(),
+                                 unsolicited.begin() + 8);
+            send_raw_all(accepted, bytes_to_send);
+            ::close(accepted);
+        }
+        ::close(listener);
+    });
+    auto client = TcpClient::connect("127.0.0.1", port, std::chrono::milliseconds{250});
+
+    EXPECT_THROW(static_cast<void>(client.request(
+                     request(protocol::Opcode::kGet, 1, bytes("key")))),
+                 NetworkError);
+}
+
 }  // namespace
 }  // namespace forgekv::network
