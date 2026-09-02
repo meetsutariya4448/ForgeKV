@@ -228,9 +228,15 @@ void ReplicaState::install_snapshot(std::span<const ReplicationMessage> messages
             throw std::invalid_argument("replica snapshot contains a non-value operation");
         }
         const std::string key = bytes_string(message.key);
-        replacement_values[key] = StoredValue{message.primary_id, message.sequence,
-                                              message.expires_at_unix_ms, message.value};
-        replacement_sequences[stream_key(message.primary_id, message.key)] = message.sequence;
+        const auto [value_iterator, value_inserted] = replacement_values.emplace(
+            key, StoredValue{message.primary_id, message.sequence,
+                             message.expires_at_unix_ms, message.value});
+        static_cast<void>(value_iterator);
+        if (!value_inserted) {
+            throw std::invalid_argument("replica snapshot contains a duplicate key");
+        }
+        replacement_sequences.emplace(stream_key(message.primary_id, message.key),
+                                      message.sequence);
     }
     std::lock_guard lock(mutex_);
     values_.swap(replacement_values);

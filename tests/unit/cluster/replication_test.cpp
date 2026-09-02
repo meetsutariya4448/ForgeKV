@@ -84,6 +84,22 @@ TEST(ReplicaStateTest, InvalidSnapshotLeavesExistingStateIntact) {
     EXPECT_EQ(state.last_sequence("node-a", key), 1U);
 }
 
+TEST(ReplicaStateTest, DuplicateSnapshotKeysLeaveExistingStateIntact) {
+    ReplicaState state;
+    const auto key = replica_bytes("key");
+    ASSERT_EQ(state.apply({"node-a", 1, storage::Operation::kPut, 0, key,
+                           replica_bytes("original")}),
+              ReplicaApplyResult::kApplied);
+    const std::vector<ReplicationMessage> ambiguous_snapshot = {
+        {"node-a", 2, storage::Operation::kPut, 0, key, replica_bytes("first")},
+        {"node-b", 3, storage::Operation::kPut, 0, key, replica_bytes("second")},
+    };
+
+    EXPECT_THROW(state.install_snapshot(ambiguous_snapshot), std::invalid_argument);
+    EXPECT_EQ(state.get(key), std::optional<storage::Bytes>(replica_bytes("original")));
+    EXPECT_EQ(state.last_sequence("node-a", key), 1U);
+}
+
 TEST(ReplicatedClusterTest, PrimaryAndAllAcknowledgementModesAreExplicit) {
     ReplicatedCluster cluster(replica_nodes(), 3, 64);
     const auto key = replica_bytes("account");
