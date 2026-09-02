@@ -146,6 +146,22 @@ TEST(NetworkConfigurationTest, RejectsNonpositiveTimeoutsBeforeOpeningResources)
                  std::invalid_argument);
 }
 
+TEST(NetworkConfigurationTest, RejectsInvalidCapacityBeforeOpeningStorage) {
+    TemporaryDirectory temporary;
+    for (void (*configure_invalid)(ServerConfig&) : {
+             +[](ServerConfig& config) { config.worker_count = 0; },
+             +[](ServerConfig& config) { config.queue_capacity = 0; },
+             +[](ServerConfig& config) { config.max_connections = 0; },
+         }) {
+        ServerConfig config;
+        config.database_directory = temporary.path();
+        configure_invalid(config);
+
+        EXPECT_THROW(static_cast<void>(TcpServer(config)), std::invalid_argument);
+        EXPECT_FALSE(std::filesystem::exists(temporary.path()));
+    }
+}
+
 TEST(NetworkIntegrationTest, BinaryCrudExistsAndPersistentConnectionWork) {
     TemporaryDirectory temporary;
     RunningServer server(temporary.path());

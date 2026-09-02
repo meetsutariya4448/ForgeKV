@@ -86,6 +86,15 @@ ServerConfig validate_server_config(ServerConfig config) {
     if (config.io_timeout <= std::chrono::milliseconds::zero()) {
         throw std::invalid_argument("server I/O timeout must be positive");
     }
+    if (config.worker_count == 0) {
+        throw std::invalid_argument("worker count must be positive");
+    }
+    if (config.queue_capacity == 0) {
+        throw std::invalid_argument("queue capacity must be positive");
+    }
+    if (config.max_connections == 0) {
+        throw std::invalid_argument("max connections must be positive");
+    }
     return config;
 }
 
@@ -107,9 +116,6 @@ TcpServer::TcpServer(ServerConfig config)
       storage_(storage::StorageEngine::open(config_.database_directory,
                                             storage_options(config_))),
       worker_pool_(config_.worker_count, config_.queue_capacity) {
-    if (config_.max_connections == 0) {
-        throw std::invalid_argument("max connections must be positive");
-    }
     connections_.reserve(config_.max_connections);
     open_listener();
 }
