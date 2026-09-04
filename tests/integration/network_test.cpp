@@ -10,6 +10,7 @@
 #include <barrier>
 #include <chrono>
 #include <cstddef>
+#include <exception>
 #include <filesystem>
 #include <random>
 #include <span>
