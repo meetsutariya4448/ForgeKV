@@ -216,6 +216,21 @@ TEST(ReplicatedClusterTest, ReplicaLagRejectsNodesOutsideKeyPlacement) {
                  std::invalid_argument);
 }
 
+TEST(ReplicatedClusterTest, RejectsInvalidKeysFromReadApis) {
+    ReplicatedCluster cluster(replica_nodes(), 3, 64);
+    const storage::Bytes empty;
+    const storage::Bytes oversized(storage::kMaxKeySize + 1, std::byte{'k'});
+
+    EXPECT_THROW(static_cast<void>(cluster.get_from("node-a", empty)),
+                 std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(cluster.replica_lag("node-a", empty)),
+                 std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(cluster.get_from("node-a", oversized)),
+                 std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(cluster.replica_lag("node-a", oversized)),
+                 std::invalid_argument);
+}
+
 TEST(ReplicatedClusterTest, SlowReplicaTimesOutAndUnavailablePrimaryRejects) {
     ReplicatedCluster cluster(replica_nodes(), 2, 64);
     const auto key = replica_bytes("timed");

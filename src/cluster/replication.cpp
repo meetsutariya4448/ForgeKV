@@ -64,6 +64,12 @@ std::uint64_t now_unix_ms() {
     return count <= 0 ? 0 : static_cast<std::uint64_t>(count);
 }
 
+void validate_replication_key(std::span<const std::byte> key) {
+    if (key.empty() || key.size() > storage::kMaxKeySize) {
+        throw std::invalid_argument("replication key is outside bounds");
+    }
+}
+
 }  // namespace
 
 storage::Bytes encode_replication_message(const ReplicationMessage& message) {
@@ -292,10 +298,10 @@ ReplicationResult ReplicatedCluster::mutate(storage::Operation operation,
     if (mode != AcknowledgementMode::kPrimary && mode != AcknowledgementMode::kAll) {
         throw std::invalid_argument("acknowledgement mode is unsupported");
     }
-    if (key.empty() || key.size() > storage::kMaxKeySize ||
-        value.size() > storage::kMaxValueSize ||
+    validate_replication_key(key);
+    if (value.size() > storage::kMaxValueSize ||
         timeout < std::chrono::milliseconds::zero()) {
-        throw std::invalid_argument("replication key/value/timeout is invalid");
+        throw std::invalid_argument("replication value/timeout is invalid");
     }
     std::lock_guard lock(mutex_);
     const auto placement = ring_.placement(key, replication_factor_);
@@ -342,6 +348,7 @@ ReplicationResult ReplicatedCluster::mutate(storage::Operation operation,
 
 std::optional<storage::Bytes> ReplicatedCluster::get_from(
     std::string_view node_id, std::span<const std::byte> key) const {
+    validate_replication_key(key);
     std::lock_guard lock(mutex_);
     const Endpoint& target = endpoint(node_id);
     if (!target.available) throw RoutingError("replica is unavailable: " + std::string(node_id));
@@ -361,6 +368,7 @@ void ReplicatedCluster::set_delay(std::string_view node_id, std::chrono::millise
 
 std::uint64_t ReplicatedCluster::replica_lag(std::string_view node_id,
                                              std::span<const std::byte> key) const {
+    validate_replication_key(key);
     std::lock_guard lock(mutex_);
     const Endpoint& target = endpoint(node_id);
     const auto placement = ring_.placement(key, replication_factor_);
