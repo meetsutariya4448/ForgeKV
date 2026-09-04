@@ -138,6 +138,15 @@ TEST(ReplicatedClusterTest, PrimaryAndAllAcknowledgementModesAreExplicit) {
     EXPECT_EQ(all.unavailable, 1U);
 }
 
+TEST(ReplicatedClusterTest, RejectsNodeIdsOutsideProtocolBounds) {
+    const std::vector<Node> nodes{
+        {std::string(256, 'n'), "127.0.0.1", 7101},
+    };
+
+    EXPECT_THROW(static_cast<void>(ReplicatedCluster(nodes, 1, 64)),
+                 std::invalid_argument);
+}
+
 TEST(ReplicatedClusterTest, RejectsUnknownAcknowledgementModeWithoutConsumingSequence) {
     ReplicatedCluster cluster(replica_nodes(), 3, 64);
     const auto key = replica_bytes("account");

@@ -260,6 +260,11 @@ ReplicatedCluster::ReplicatedCluster(std::vector<Node> nodes, std::size_t replic
     if (replication_factor_ == 0 || replication_factor_ > 3 || nodes.size() < replication_factor_) {
         throw std::invalid_argument("replication factor must be 1..3 and fit membership");
     }
+    if (std::any_of(nodes.begin(), nodes.end(), [](const Node& node) {
+            return node.id.size() > kMaxPrimaryId;
+        })) {
+        throw std::invalid_argument("node id exceeds replication protocol limit");
+    }
     ring_.set_nodes(nodes);
     for (const auto& node : nodes) {
         endpoints_.emplace(node.id, Endpoint{std::make_unique<ReplicaState>()});
