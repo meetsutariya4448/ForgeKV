@@ -83,6 +83,9 @@ protocol::Frame response_for(const protocol::Frame& request, protocol::Status st
 }
 
 ServerConfig validate_server_config(ServerConfig config) {
+    if (config.bind_address.empty() || config.bind_address.find('\0') != std::string::npos) {
+        throw std::invalid_argument("server bind address must be nonempty and unambiguous");
+    }
     if (config.io_timeout <= std::chrono::milliseconds::zero()) {
         throw std::invalid_argument("server I/O timeout must be positive");
     }

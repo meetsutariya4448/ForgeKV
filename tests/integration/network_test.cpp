@@ -171,6 +171,20 @@ TEST(NetworkConfigurationTest, RejectsInvalidClientEndpointsBeforeResolution) {
                  std::invalid_argument);
 }
 
+TEST(NetworkConfigurationTest, RejectsInvalidBindAddressesBeforeOpeningStorage) {
+    TemporaryDirectory temporary;
+    for (const std::string& bind_address : {
+             std::string{}, std::string("127.0.0.1\0ignored", 17),
+         }) {
+        ServerConfig config;
+        config.bind_address = bind_address;
+        config.database_directory = temporary.path();
+
+        EXPECT_THROW(static_cast<void>(TcpServer(config)), std::invalid_argument);
+        EXPECT_FALSE(std::filesystem::exists(temporary.path()));
+    }
+}
+
 TEST(NetworkIntegrationTest, BinaryCrudExistsAndPersistentConnectionWork) {
     TemporaryDirectory temporary;
     RunningServer server(temporary.path());
