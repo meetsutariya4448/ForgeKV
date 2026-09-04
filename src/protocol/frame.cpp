@@ -316,6 +316,9 @@ PutExPayload decode_put_ex_payload(std::span<const std::byte> payload) {
 }
 
 Bytes encode_ttl_payload(std::uint64_t remaining_ms) {
+    if (remaining_ms == 0) {
+        throw std::invalid_argument("TTL response must be positive");
+    }
     Bytes payload(kTtlPayloadPrefixSize);
     write_u64(payload, 0, remaining_ms);
     return payload;
@@ -325,7 +328,11 @@ std::uint64_t decode_ttl_payload(std::span<const std::byte> payload) {
     if (payload.size() != kTtlPayloadPrefixSize) {
         throw std::invalid_argument("TTL response payload must contain eight bytes");
     }
-    return read_u64(payload, 0);
+    const std::uint64_t remaining_ms = read_u64(payload, 0);
+    if (remaining_ms == 0) {
+        throw std::invalid_argument("TTL response must be positive");
+    }
+    return remaining_ms;
 }
 
 }  // namespace forgekv::protocol

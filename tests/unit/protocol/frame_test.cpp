@@ -58,6 +58,8 @@ TEST(FrameCodecTest, RejectsMalformedTtlPayloads) {
     oversized[7] = std::byte{1};
     EXPECT_THROW(static_cast<void>(decode_put_ex_payload(oversized)), std::invalid_argument);
     EXPECT_THROW(static_cast<void>(decode_ttl_payload(Bytes(7))), std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(encode_ttl_payload(0)), std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(decode_ttl_payload(Bytes(8))), std::invalid_argument);
 }
 
 TEST(FrameCodecTest, RejectsZeroRequestIdAndOversizedPayload) {
@@ -193,7 +195,7 @@ TEST(ResponseSemanticsTest, EnforcesStatusAndPayloadRules) {
     EXPECT_FALSE(response_semantics_valid(
         response(Opcode::kExists, Status::kOk, {std::byte{2}})));
     EXPECT_FALSE(response_semantics_valid(
-        response(Opcode::kTtl, Status::kOk, encode_ttl_payload(0))));
+        response(Opcode::kTtl, Status::kOk, Bytes(8))));
     EXPECT_FALSE(response_semantics_valid(
         response(Opcode::kPing, Status::kOk, bytes("NOPE"))));
     EXPECT_FALSE(response_semantics_valid(
