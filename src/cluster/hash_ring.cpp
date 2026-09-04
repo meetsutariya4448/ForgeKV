@@ -40,8 +40,9 @@ void ConsistentHashRing::set_nodes(std::vector<Node> nodes) {
             throw std::invalid_argument("node ids must be unique");
         }
     }
+    auto tokens = build_tokens(nodes);
     nodes_ = std::move(nodes);
-    rebuild();
+    tokens_ = std::move(tokens);
 }
 
 void ConsistentHashRing::add_node(Node node) {
@@ -51,18 +52,24 @@ void ConsistentHashRing::add_node(Node node) {
         })) {
         throw std::invalid_argument("node id already exists");
     }
-    nodes_.push_back(std::move(node));
-    std::sort(nodes_.begin(), nodes_.end(), [](const Node& left, const Node& right) {
+    auto nodes = nodes_;
+    nodes.push_back(std::move(node));
+    std::sort(nodes.begin(), nodes.end(), [](const Node& left, const Node& right) {
         return left.id < right.id;
     });
-    rebuild();
+    auto tokens = build_tokens(nodes);
+    nodes_ = std::move(nodes);
+    tokens_ = std::move(tokens);
 }
 
 bool ConsistentHashRing::remove_node(std::string_view node_id) {
-    const auto old_size = nodes_.size();
-    std::erase_if(nodes_, [&](const Node& node) { return node.id == node_id; });
-    if (nodes_.size() == old_size) return false;
-    rebuild();
+    auto nodes = nodes_;
+    const auto old_size = nodes.size();
+    std::erase_if(nodes, [&](const Node& node) { return node.id == node_id; });
+    if (nodes.size() == old_size) return false;
+    auto tokens = build_tokens(nodes);
+    nodes_ = std::move(nodes);
+    tokens_ = std::move(tokens);
     return true;
 }
 
@@ -124,24 +131,26 @@ double ConsistentHashRing::remap_fraction(const ConsistentHashRing& before,
     return static_cast<double>(changed) / static_cast<double>(keys.size());
 }
 
-void ConsistentHashRing::rebuild() {
-    tokens_.clear();
-    if (nodes_.empty()) return;
-    if (virtual_nodes_ > std::numeric_limits<std::size_t>::max() / nodes_.size()) {
+std::vector<ConsistentHashRing::Token> ConsistentHashRing::build_tokens(
+    const std::vector<Node>& nodes) const {
+    std::vector<Token> tokens;
+    if (nodes.empty()) return tokens;
+    if (virtual_nodes_ > std::numeric_limits<std::size_t>::max() / nodes.size()) {
         throw std::length_error("hash ring token count is not representable");
     }
-    tokens_.reserve(virtual_nodes_ * nodes_.size());
-    for (std::size_t node_index = 0; node_index < nodes_.size(); ++node_index) {
+    tokens.reserve(virtual_nodes_ * nodes.size());
+    for (std::size_t node_index = 0; node_index < nodes.size(); ++node_index) {
         for (std::size_t virtual_node = 0; virtual_node < virtual_nodes_; ++virtual_node) {
             const std::string identity =
-                nodes_[node_index].id + "#" + std::to_string(virtual_node);
-            tokens_.push_back(Token{hash(as_bytes(identity)), node_index});
+                nodes[node_index].id + "#" + std::to_string(virtual_node);
+            tokens.push_back(Token{hash(as_bytes(identity)), node_index});
         }
     }
-    std::sort(tokens_.begin(), tokens_.end(), [](const Token& left, const Token& right) {
+    std::sort(tokens.begin(), tokens.end(), [](const Token& left, const Token& right) {
         if (left.value != right.value) return left.value < right.value;
         return left.node_index < right.node_index;
     });
+    return tokens;
 }
 
 std::size_t ConsistentHashRing::first_token(std::span<const std::byte> key) const {

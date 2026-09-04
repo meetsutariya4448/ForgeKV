@@ -51,7 +51,7 @@ private:
         std::size_t node_index;
     };
 
-    void rebuild();
+    [[nodiscard]] std::vector<Token> build_tokens(const std::vector<Node>& nodes) const;
     [[nodiscard]] std::size_t first_token(std::span<const std::byte> key) const;
 
     std::size_t virtual_nodes_;

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -95,6 +96,16 @@ TEST(ConsistentHashRingTest, RejectsUnusableNodeEndpoints) {
     ring.set_nodes(three_nodes());
     EXPECT_THROW(ring.add_node({"node-d", "", 7004}), std::invalid_argument);
     EXPECT_EQ(ring.node_count(), 3U);
+}
+
+TEST(ConsistentHashRingTest, FailedTokenBuildLeavesMembershipUnchanged) {
+    ConsistentHashRing ring(std::numeric_limits<std::size_t>::max());
+
+    EXPECT_THROW(ring.set_nodes({{"node-a", "127.0.0.1", 7001},
+                                 {"node-b", "127.0.0.1", 7002}}),
+                 std::length_error);
+    EXPECT_EQ(ring.node_count(), 0U);
+    EXPECT_THROW(static_cast<void>(ring.primary(key_bytes("key"))), RoutingError);
 }
 
 }  // namespace
