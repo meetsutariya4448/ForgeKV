@@ -76,12 +76,35 @@ TEST(ReplicaStateTest, InvalidSnapshotLeavesExistingStateIntact) {
               ReplicaApplyResult::kApplied);
     const std::vector<ReplicationMessage> invalid_snapshot = {
         {"node-a", 2, storage::Operation::kPut, 0, key, replica_bytes("replacement")},
-        {"node-a", 3, storage::Operation::kDelete, 0, key, {}},
+        {"node-a", 3, static_cast<storage::Operation>(255), 0, key, {}},
     };
 
     EXPECT_THROW(state.install_snapshot(invalid_snapshot), std::invalid_argument);
     EXPECT_EQ(state.get(key), std::optional<storage::Bytes>(replica_bytes("original")));
     EXPECT_EQ(state.last_sequence("node-a", key), 1U);
+}
+
+TEST(ReplicaStateTest, SnapshotPreservesDeletedStreamWatermarks) {
+    ReplicaState state;
+    const auto key = replica_bytes("deleted-key");
+    ASSERT_EQ(state.apply({"node-a", 1, storage::Operation::kPut, 0, key,
+                           replica_bytes("value")}),
+              ReplicaApplyResult::kApplied);
+    ASSERT_EQ(state.apply({"node-a", 2, storage::Operation::kDelete, 0, key, {}}),
+              ReplicaApplyResult::kApplied);
+
+    ReplicaState restarted;
+    const auto snapshot = state.snapshot();
+    ASSERT_EQ(snapshot.size(), 1U);
+    EXPECT_EQ(snapshot.front().operation, storage::Operation::kDelete);
+    restarted.install_snapshot(snapshot);
+
+    EXPECT_EQ(restarted.last_sequence("node-a", key), 2U);
+    EXPECT_EQ(restarted.apply({"node-a", 3, storage::Operation::kPut, 0, key,
+                               replica_bytes("restored")}),
+              ReplicaApplyResult::kApplied);
+    EXPECT_EQ(restarted.get(key),
+              std::optional<storage::Bytes>(replica_bytes("restored")));
 }
 
 TEST(ReplicaStateTest, DuplicateSnapshotKeysLeaveExistingStateIntact) {

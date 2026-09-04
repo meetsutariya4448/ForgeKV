@@ -207,14 +207,22 @@ std::uint64_t ReplicaState::last_sequence(std::string_view primary_id,
 std::vector<ReplicationMessage> ReplicaState::snapshot() const {
     std::lock_guard lock(mutex_);
     std::vector<ReplicationMessage> messages;
-    messages.reserve(values_.size());
-    for (const auto& [key, stored] : values_) {
-        messages.push_back(ReplicationMessage{stored.primary_id, stored.sequence,
-                                              storage::Operation::kPut,
-                                              stored.expires_at_unix_ms,
-                                              storage::Bytes(reinterpret_cast<const std::byte*>(key.data()),
-                                                             reinterpret_cast<const std::byte*>(key.data()) + key.size()),
-                                              stored.value});
+    messages.reserve(stream_sequences_.size());
+    for (const auto& [stream, sequence] : stream_sequences_) {
+        const auto separator = stream.find('\0');
+        const std::string primary_id = stream.substr(0, separator);
+        const std::string key = stream.substr(separator + 1);
+        const auto stored = values_.find(key);
+        const bool has_current_value =
+            stored != values_.end() && stored->second.primary_id == primary_id &&
+            stored->second.sequence == sequence;
+        const auto* key_begin = reinterpret_cast<const std::byte*>(key.data());
+        messages.push_back(ReplicationMessage{
+            primary_id, sequence,
+            has_current_value ? storage::Operation::kPut : storage::Operation::kDelete,
+            has_current_value ? stored->second.expires_at_unix_ms : 0,
+            storage::Bytes(key_begin, key_begin + key.size()),
+            has_current_value ? stored->second.value : storage::Bytes{}});
     }
     return messages;
 }
@@ -224,9 +232,14 @@ void ReplicaState::install_snapshot(std::span<const ReplicationMessage> messages
     std::unordered_map<std::string, std::uint64_t> replacement_sequences;
     for (const auto& message : messages) {
         static_cast<void>(encode_replication_message(message));
-        if (message.operation != storage::Operation::kPut) {
-            throw std::invalid_argument("replica snapshot contains a non-value operation");
+        const auto [sequence_iterator, sequence_inserted] =
+            replacement_sequences.emplace(
+                stream_key(message.primary_id, message.key), message.sequence);
+        static_cast<void>(sequence_iterator);
+        if (!sequence_inserted) {
+            throw std::invalid_argument("replica snapshot contains a duplicate stream");
         }
+        if (message.operation == storage::Operation::kDelete) continue;
         const std::string key = bytes_string(message.key);
         const auto [value_iterator, value_inserted] = replacement_values.emplace(
             key, StoredValue{message.primary_id, message.sequence,
@@ -235,8 +248,6 @@ void ReplicaState::install_snapshot(std::span<const ReplicationMessage> messages
         if (!value_inserted) {
             throw std::invalid_argument("replica snapshot contains a duplicate key");
         }
-        replacement_sequences.emplace(stream_key(message.primary_id, message.key),
-                                      message.sequence);
     }
     std::lock_guard lock(mutex_);
     values_.swap(replacement_values);
