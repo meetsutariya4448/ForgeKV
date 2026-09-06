@@ -120,6 +120,8 @@ private:
     StorageEngine(std::filesystem::path database_directory, StorageOptions options);
 
     void initialize();
+    void acquire_directory_lock();
+    void release_directory_lock_noexcept() noexcept;
     void start_maintenance_threads();
     void recover_compaction_artifacts();
     [[nodiscard]] std::vector<std::uint64_t> discover_segment_ids() const;
@@ -169,6 +171,7 @@ private:
     std::jthread sync_thread_;
     std::jthread expiration_thread_;
     std::jthread compaction_thread_;
+    int directory_lock_fd_ = -1;
     int writer_fd_ = -1;
     std::uint64_t active_segment_id_ = kInitialSegmentId;
     std::uint64_t segment_size_ = 0;

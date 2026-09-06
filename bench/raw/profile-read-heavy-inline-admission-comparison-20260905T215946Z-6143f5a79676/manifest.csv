@@ -1,0 +1,11 @@
+variant,trial,seed,output_prefix
+baseline,1,201,baseline-1
+inline-admission,1,201,inline-admission-1
+baseline,2,202,baseline-2
+inline-admission,2,202,inline-admission-2
+baseline,3,203,baseline-3
+inline-admission,3,203,inline-admission-3
+baseline,4,204,baseline-4
+inline-admission,4,204,inline-admission-4
+baseline,5,205,baseline-5
+inline-admission,5,205,inline-admission-5

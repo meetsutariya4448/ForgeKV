@@ -57,6 +57,7 @@ void print_usage() {
     std::cerr << "usage: forgekv-server [--host ADDRESS] [--port PORT] [--data PATH] "
                  "[--workers COUNT] [--queue-capacity COUNT] "
                  "[--max-connections COUNT] [--index-shards COUNT] "
+                 "[--io-timeout-ms COUNT] "
                  "[--durability always|periodic|none] [--sync-interval-ms COUNT] "
                  "[--segment-max-bytes COUNT] [--compaction-min-segments COUNT] "
                  "[--no-background-compaction]\n";
@@ -79,6 +80,15 @@ int main(int argc, char** argv) {
                 config.max_connections = parse_positive_size(argv[++index], "connection limit");
             } else if (argument == "--index-shards" && index + 1 < argc) {
                 config.index_shards = parse_positive_size(argv[++index], "index shard count");
+            } else if (argument == "--io-timeout-ms" && index + 1 < argc) {
+                const std::size_t milliseconds =
+                    parse_positive_size(argv[++index], "I/O timeout");
+                if (milliseconds > static_cast<std::size_t>(
+                                       std::numeric_limits<std::chrono::milliseconds::rep>::max())) {
+                    throw std::invalid_argument("I/O timeout is too large");
+                }
+                config.io_timeout = std::chrono::milliseconds{
+                    static_cast<std::chrono::milliseconds::rep>(milliseconds)};
             } else if (argument == "--durability" && index + 1 < argc) {
                 config.durability = parse_durability(argv[++index]);
             } else if (argument == "--sync-interval-ms" && index + 1 < argc) {
@@ -108,6 +118,7 @@ int main(int argc, char** argv) {
                   << ", queue=" << config.queue_capacity
                   << ", connections=" << config.max_connections
                   << ", shards=" << config.index_shards
+                  << ", io_timeout_ms=" << config.io_timeout.count()
                   << ", durability=" << durability_name(config.durability)
                   << ", sync_ms=" << config.sync_interval.count()
                   << ", segment_bytes=" << config.segment_max_bytes

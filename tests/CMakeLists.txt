@@ -46,9 +46,19 @@ target_link_libraries(
     PRIVATE ForgeKV::forgekv forgekv_warnings forgekv_sanitizers
 )
 add_dependencies(forgekv_unit_tests forgekv_crash_writer)
+
+add_executable(forgekv_lock_holder helpers/lock_holder.cpp)
+target_compile_features(forgekv_lock_holder PRIVATE cxx_std_20)
+target_link_libraries(
+    forgekv_lock_holder
+    PRIVATE ForgeKV::forgekv forgekv_warnings forgekv_sanitizers
+)
+add_dependencies(forgekv_unit_tests forgekv_lock_holder)
 target_compile_definitions(
     forgekv_unit_tests
-    PRIVATE FORGEKV_CRASH_WRITER_PATH="$<TARGET_FILE:forgekv_crash_writer>"
+    PRIVATE
+        FORGEKV_CRASH_WRITER_PATH="$<TARGET_FILE:forgekv_crash_writer>"
+        FORGEKV_LOCK_HOLDER_PATH="$<TARGET_FILE:forgekv_lock_holder>"
 )
 
 include(GoogleTest)

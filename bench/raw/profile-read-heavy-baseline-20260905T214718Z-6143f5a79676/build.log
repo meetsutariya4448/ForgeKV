@@ -1,0 +1,40 @@
+[1/40] Building CXX object CMakeFiles/forgekv.dir/src/cluster/hash_ring.cpp.o
+[2/40] Building CXX object CMakeFiles/forgekv.dir/src/concurrency/worker_pool.cpp.o
+[3/40] Building CXX object CMakeFiles/forgekv.dir/src/cluster/replication.cpp.o
+[4/40] Building CXX object CMakeFiles/forgekv.dir/src/index/sharded_index.cpp.o
+[5/40] Building CXX object CMakeFiles/forgekv.dir/src/protocol/frame.cpp.o
+[6/40] Building CXX object CMakeFiles/forgekv.dir/src/storage/crc32c.cpp.o
+[7/40] Building CXX object CMakeFiles/forgekv.dir/src/network/tcp.cpp.o
+[8/40] Building CXX object CMakeFiles/forgekv.dir/src/storage/record.cpp.o
+[9/40] Building CXX object CMakeFiles/forgekv.dir/src/version.cpp.o
+[10/40] Building CXX object CMakeFiles/forgekv-server.dir/apps/forgekv-server/main.cpp.o
+[11/40] Building CXX object CMakeFiles/forgekv.dir/src/storage/engine.cpp.o
+[12/40] Linking CXX static library libforgekv.a
+[13/40] Linking CXX executable forgekv-server
+[14/40] Building CXX object CMakeFiles/forgekv-cli.dir/apps/forgekv-cli/main.cpp.o
+[15/40] Linking CXX executable forgekv-cli
+[16/40] Building CXX object tests/CMakeFiles/forgekv_crash_writer.dir/helpers/crash_writer.cpp.o
+[17/40] Linking CXX executable tests/forgekv_crash_writer
+[18/40] Building CXX object tests/CMakeFiles/forgekv_lock_holder.dir/helpers/lock_holder.cpp.o
+[19/40] Building CXX object CMakeFiles/forgekv-bench.dir/apps/forgekv-bench/main.cpp.o
+[20/40] Linking CXX executable tests/forgekv_lock_holder
+[21/40] Linking CXX executable forgekv-bench
+[22/40] Building CXX object tests/CMakeFiles/forgekv_unit_tests.dir/integration/network_test.cpp.o
+[23/40] Building CXX object tests/CMakeFiles/forgekv_unit_tests.dir/integration/storage_engine_test.cpp.o
+[24/40] Building CXX object tests/CMakeFiles/forgekv_unit_tests.dir/unit/cluster/hash_ring_test.cpp.o
+[25/40] Building CXX object tests/CMakeFiles/forgekv_unit_tests.dir/stress/reference_model_test.cpp.o
+[26/40] Building CXX object tests/CMakeFiles/forgekv_unit_tests.dir/unit/concurrency/worker_pool_test.cpp.o
+[27/40] Building CXX object tests/CMakeFiles/forgekv_unit_tests.dir/unit/cluster/replication_test.cpp.o
+[28/40] Building CXX object tests/CMakeFiles/forgekv_unit_tests.dir/unit/index/sharded_index_test.cpp.o
+[29/40] Building CXX object tests/CMakeFiles/forgekv_unit_tests.dir/unit/protocol/frame_test.cpp.o
+[30/40] Building CXX object tests/CMakeFiles/forgekv_unit_tests.dir/unit/storage/record_test.cpp.o
+[31/40] Building CXX object tests/CMakeFiles/forgekv_unit_tests.dir/unit/version_test.cpp.o
+[32/40] Building CXX object _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/src/gmock_main.cc.o
+[33/40] Building CXX object _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/src/gmock-all.cc.o
+[34/40] Building CXX object _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o
+[35/40] Building CXX object _deps/googletest-build/googletest/CMakeFiles/gtest.dir/src/gtest-all.cc.o
+[36/40] Linking CXX static library lib/libgtest.a
+[37/40] Linking CXX static library lib/libgtest_main.a
+[38/40] Linking CXX static library lib/libgmock.a
+[39/40] Linking CXX static library lib/libgmock_main.a
+[40/40] Linking CXX executable tests/forgekv_unit_tests

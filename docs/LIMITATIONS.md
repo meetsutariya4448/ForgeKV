@@ -8,8 +8,16 @@ boundaries. It is not production-ready, highly available, consensus-backed, or p
 Only `always` waits for segment and pending directory fsync before acknowledging a mutation.
 `periodic` acknowledgements can be lost until a successful sync, and its configured interval is not
 a hard loss bound. `none` never fsyncs. There are no transactions, batches, compare-and-swap,
-multi-record atomicity, process-level database locks, encryption, authentication, or online repair
+multi-record atomicity, encryption, authentication, or online repair
 for a complete bad checksum. The `_exit` test is not a power-cut/controller-cache simulator.
+
+One process owns a database directory at a time through a nonblocking advisory lock on the persistent
+`.forgekv.lock` file. A second process fails before recovery or segment mutation, and the kernel
+releases ownership when the holder closes or exits. This protects cooperating ForgeKV processes on
+local POSIX filesystems; it is not a lease, fencing token, or guarantee for filesystems whose lock
+semantics differ. A child created with `fork()` inherits the open lock description until it closes
+or executes (the descriptor is close-on-exec), so such children can intentionally or accidentally
+extend the ownership lifetime.
 
 Segment rotation has one active writer. All PUT/PUTEX/DELETE, rotation, fsync and compaction
 publication still serialize on the mutation mutex. Compaction copies outside that mutex but briefly
@@ -39,24 +47,32 @@ connection limit can still consume substantial memory. Excess connections close 
 response; queue saturation returns `OVERLOADED`. There is no admission fairness, TLS, authentication,
 authorization, rate limiting, tenant isolation, or latency SLA. Pipelined requests execute in order
 on one connection; they are not parallel within that connection. Blocking `connect()` has no strict
-portable deadline. CLI arguments are textual even though library and wire values are binary.
+portable deadline. Established sockets use `TCP_NODELAY`, favoring small request/response latency at
+the possible cost of additional packets. CLI arguments are textual even though library and wire
+values are binary. The per-call receive timeout lets shutdown be observed but is not a total idle
+deadline: an incomplete-frame client can retain its bounded connection slot until it disconnects,
+and enough such clients cause new connections to be closed.
 
 STATS is a point-in-time JSON snapshot, not a stable schema or metrics endpoint. Counters reset on
 restart and are not persisted.
 
 ## Compilers, fuzzers and sanitizers
 
-Normal and UBSan suites run locally. ASan and TSan builds compile/link, but the local macOS sanitizer
-runtimes fail before GoogleTest discovery; no local pass is claimed. The local Apple Clang lacks the
-libFuzzer runtime. Linux CI jobs are configured for ASan+UBSan, TSan and fuzz smoke tests, but until a
-commit is pushed and observed, CI must be described as configured—not passing.
+The local Apple Clang environment is not the sanitizer evidence source. GitHub Actions run
+`33884876502` passed ASan+UBSan, TSan and both 10,000-iteration fuzz smoke jobs on Ubuntu 24.04 for
+named commit `6143f5a796760b818e30f907a3f2dd87373b7d3c`. That claim does not automatically transfer to
+later uncommitted changes. The current working tree separately passed 122/122 ASan+UBSan tests,
+122/122 TSan tests and both 10,000-run fuzz targets in a local Ubuntu 24.04/Clang 18.1.3 container;
+it still needs a new named CI commit before the hosted result can be updated.
 
 ## Benchmark evidence
 
-The preserved quick matrix is one short, ordered repetition per case on an uncommitted local working
-tree. It validates the harness and raw-output contract, not capacity or comparative superiority.
-Pipeline latency is batch completion. CPU, RSS, disk bandwidth, syscalls, thermal state and energy
-were not captured. The full matrix script exists but has not been run on a dedicated controlled host.
+The current quick smoke matrix uses three repeated trials, but it remains short and runs on an
+uncommitted local working tree. It validates the harness and raw-output contract, not capacity or
+comparative superiority. Pipeline latency is batch completion. The Linux runner captures RSS,
+virtual memory, threads, descriptors and process I/O; the profiler adds task-clock samples and
+syscall attribution. Thermal state, energy and controlled native storage are still absent, and the
+full matrix has not run on a dedicated host.
 
 ## Distributed layer
 

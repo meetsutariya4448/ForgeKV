@@ -309,3 +309,25 @@ This was the deliberate Milestone 2 stepping stone and is superseded by DD-013 f
 - **Tradeoffs:** `primary` can acknowledge with lag; `all` can fail after partial application. The
   transport is an in-process model and offers no availability claim.
 - **Evidence:** Slow/unavailable primary/replica tests exercise both acknowledgement boundaries.
+
+## DD-024: Exclude a second process before touching database state
+
+- **Context:** C++ mutexes coordinate threads in one process and cannot protect one directory from
+  two independent writers.
+- **Chosen approach:** Open a persistent `.forgekv.lock` without following symlinks and hold a
+  nonblocking exclusive advisory `flock` for the complete engine lifetime, before recovery begins.
+- **Tradeoffs:** This is cooperative local-POSIX ownership, not a lease or distributed fencing token.
+- **Evidence:** A fork/exec integration test observes second-writer rejection, kills the owner, and
+  verifies that the kernel releases ownership so recovery can reopen the directory.
+
+## DD-025: Disable Nagle buffering on request/response sockets
+
+- **Context:** Linux profiling of the pipelined read workload showed consistent 40--50 ms batch
+  latency. Opening the segment per GET was visible, but a bounded descriptor-cache experiment did
+  not improve the end-to-end distribution.
+- **Chosen approach:** Set `TCP_NODELAY` on established server and client sockets while preserving
+  the blocking bounded-connection architecture.
+- **Tradeoffs:** Small responses can produce more packets. This is not an epoll or transport rewrite.
+- **Evidence:** Five alternating Linux-container trials improved median throughput from 1,478.52 to
+  137,599 operations/s and median p99 batch latency from 49,162.4 to 985.708 us, with zero errors.
+  Raw samples and profiler artifacts are retained under `bench/raw/profile-read-heavy-*`.

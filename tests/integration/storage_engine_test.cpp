@@ -3,12 +3,15 @@
 #include "forgekv/storage/record.hpp"
 
 #include <sys/wait.h>
+#include <poll.h>
+#include <signal.h>
 #include <unistd.h>
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
 #include <atomic>
+#include <cerrno>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -112,6 +115,53 @@ Bytes encode_legacy_v1(std::uint64_t sequence, std::span<const std::byte> key,
     return encoded;
 }
 
+pid_t start_lock_holder(const std::filesystem::path& database_directory, int& ready_fd) {
+    int ready_pipe[2] = {-1, -1};
+    if (::pipe(ready_pipe) != 0) return -1;
+    const pid_t child = ::fork();
+    if (child < 0) {
+        static_cast<void>(::close(ready_pipe[0]));
+        static_cast<void>(::close(ready_pipe[1]));
+        return -1;
+    }
+    if (child == 0) {
+        static_cast<void>(::close(ready_pipe[0]));
+        if (::dup2(ready_pipe[1], STDOUT_FILENO) < 0) ::_exit(126);
+        static_cast<void>(::close(ready_pipe[1]));
+        ::execl(FORGEKV_LOCK_HOLDER_PATH, FORGEKV_LOCK_HOLDER_PATH,
+                database_directory.c_str(), static_cast<char*>(nullptr));
+        ::_exit(127);
+    }
+    static_cast<void>(::close(ready_pipe[1]));
+    ready_fd = ready_pipe[0];
+    return child;
+}
+
+bool wait_until_lock_holder_ready(int ready_fd) {
+    pollfd descriptor{ready_fd, POLLIN, 0};
+    if (::poll(&descriptor, 1, 5000) != 1 || (descriptor.revents & POLLIN) == 0) return false;
+    std::byte ready{};
+    return ::read(ready_fd, &ready, 1) == 1 && ready == std::byte{'R'};
+}
+
+class ChildProcessGuard {
+public:
+    explicit ChildProcessGuard(pid_t child) : child_(child) {}
+    ChildProcessGuard(const ChildProcessGuard&) = delete;
+    ChildProcessGuard& operator=(const ChildProcessGuard&) = delete;
+    ~ChildProcessGuard() {
+        if (child_ <= 0) return;
+        static_cast<void>(::kill(child_, SIGKILL));
+        int ignored = 0;
+        while (::waitpid(child_, &ignored, 0) < 0 && errno == EINTR) {}
+    }
+
+    void release() noexcept { child_ = -1; }
+
+private:
+    pid_t child_;
+};
+
 TEST(StorageEngineTest, CreatesAndOpensEmptyDatabase) {
     TemporaryDirectory temporary;
     {
@@ -127,6 +177,28 @@ TEST(StorageEngineTest, CreatesAndOpensEmptyDatabase) {
 
     StorageEngine reopened = StorageEngine::open(temporary.path());
     EXPECT_EQ(reopened.size(), 0U);
+}
+
+TEST(StorageEngineTest, RejectsSecondWriterProcessAndReleasesOwnershipAfterCrash) {
+    TemporaryDirectory temporary;
+    int ready_fd = -1;
+    const pid_t child = start_lock_holder(temporary.path(), ready_fd);
+    ASSERT_GT(child, 0);
+    ChildProcessGuard child_guard(child);
+    ASSERT_TRUE(wait_until_lock_holder_ready(ready_fd));
+    static_cast<void>(::close(ready_fd));
+
+    EXPECT_THROW(static_cast<void>(StorageEngine::open(temporary.path())), StorageError);
+
+    ASSERT_EQ(::kill(child, SIGKILL), 0);
+    int status = 0;
+    ASSERT_EQ(::waitpid(child, &status, 0), child);
+    ASSERT_TRUE(WIFSIGNALED(status));
+    ASSERT_EQ(WTERMSIG(status), SIGKILL);
+    child_guard.release();
+
+    StorageEngine recovered = StorageEngine::open(temporary.path());
+    EXPECT_EQ(recovered.size(), 0U);
 }
 
 TEST(StorageEngineTest, RejectsUnknownDurabilityModeBeforeCreatingDatabase) {

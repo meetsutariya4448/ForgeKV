@@ -1,0 +1,62 @@
+{
+  "captured_utc": "2026-09-05T22:23:08.824639+00:00",
+  "git_sha": "6143f5a796760b818e30f907a3f2dd87373b7d3c",
+  "working_tree_dirty": true,
+  "system": "Linux 6.12.76-linuxkit aarch64",
+  "scenario": "partial-frame slow clients fill the connection limit; excess PINGs are rejected",
+  "server": "/tmp/build-current/forgekv-server",
+  "server_pid": 16608,
+  "host": "127.0.0.1",
+  "port": 45533,
+  "max_connections": 32,
+  "excess_connections": 16,
+  "io_timeout_ms": 2000,
+  "resource_bounds": {
+    "threads": 41,
+    "open_fds": 40
+  },
+  "resources": {
+    "baseline": {
+      "VmPeak": 260260,
+      "VmHWM": 3800,
+      "VmRSS": 3800,
+      "Threads": 7,
+      "open_fds": 6
+    },
+    "saturated": {
+      "VmPeak": 2613348,
+      "VmHWM": 4436,
+      "VmRSS": 4436,
+      "Threads": 39,
+      "open_fds": 38
+    },
+    "after_excess_attempts": {
+      "VmPeak": 2613348,
+      "VmHWM": 4436,
+      "VmRSS": 4436,
+      "Threads": 39,
+      "open_fds": 38
+    },
+    "after_recovery": {
+      "VmPeak": 2613348,
+      "VmHWM": 4404,
+      "VmRSS": 4404,
+      "Threads": 7,
+      "open_fds": 6
+    }
+  },
+  "excess_results": {
+    "rejected": 16,
+    "unexpectedly_served": 0
+  },
+  "checks": {
+    "all_excess_connections_rejected": true,
+    "no_excess_request_served": true,
+    "threads_bounded": true,
+    "file_descriptors_bounded": true,
+    "server_recovers_after_slow_clients_close": true,
+    "threads_return_near_baseline": true,
+    "file_descriptors_return_near_baseline": true
+  },
+  "passed": true
+}

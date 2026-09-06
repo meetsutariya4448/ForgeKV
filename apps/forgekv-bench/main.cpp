@@ -61,6 +61,7 @@ struct NetworkOptions {
     std::size_t value_size = 128;
     std::size_t pipeline_depth = 1;
     std::size_t warmup_requests = 1'000;
+    bool preload = true;
     std::uint64_t seed = 1;
     std::size_t repetition = 1;
     std::size_t server_workers = 0;
@@ -68,6 +69,9 @@ struct NetworkOptions {
     std::string durability = "unspecified";
     std::string ram_description = "unspecified";
     std::string storage_medium = "unspecified";
+    std::string run_id = "unspecified";
+    std::string experiment = "unspecified";
+    std::string variant = "unspecified";
     std::string output_prefix;
 };
 
@@ -133,7 +137,8 @@ void print_usage() {
         << "usage: forgekv-bench network [--host HOST] [--port PORT] [--connections N] "
            "[--threads N] [--requests N] [--duration SECONDS] [--read-ratio 0..1] "
            "[--key-count N] [--value-size BYTES] [--pipeline-depth N] "
-           "[--warmup-requests N] [--seed N] [--output-prefix PATH]\n"
+           "[--warmup-requests N] [--skip-preload] [--seed N] [--run-id ID] "
+           "[--experiment NAME] [--variant VALUE] [--output-prefix PATH]\n"
            "       forgekv-bench contention [--threads N] [--operations-per-thread N] "
            "[--keys N] [--repetitions N] [--shards 1,4,16,64,256]\n";
 }
@@ -189,6 +194,7 @@ NetworkOptions parse_network_options(int argc, char** argv) {
         else if (argument == "--value-size") options.value_size = parse_positive_size(next(), "value size");
         else if (argument == "--pipeline-depth") options.pipeline_depth = parse_positive_size(next(), "pipeline depth");
         else if (argument == "--warmup-requests") options.warmup_requests = static_cast<std::size_t>(parse_u64(next(), "warmup requests"));
+        else if (argument == "--skip-preload") options.preload = false;
         else if (argument == "--seed") options.seed = parse_u64(next(), "seed");
         else if (argument == "--repetition") options.repetition = parse_positive_size(next(), "repetition");
         else if (argument == "--server-workers") options.server_workers = parse_positive_size(next(), "server workers");
@@ -196,6 +202,9 @@ NetworkOptions parse_network_options(int argc, char** argv) {
         else if (argument == "--durability") options.durability = next();
         else if (argument == "--ram-description") options.ram_description = next();
         else if (argument == "--storage-medium") options.storage_medium = next();
+        else if (argument == "--run-id") options.run_id = next();
+        else if (argument == "--experiment") options.experiment = next();
+        else if (argument == "--variant") options.variant = next();
         else if (argument == "--output-prefix") options.output_prefix = next();
         else throw std::invalid_argument("unknown or incomplete network option: " + std::string(argument));
     }
@@ -258,7 +267,8 @@ void run_contention(const ContentionOptions& options) {
                 const std::size_t operations = options.threads * options.operations_per_thread;
                 std::cout << (same_key ? "same-key" : "distributed-key") << ',' << shards << ','
                           << options.threads << ',' << options.key_count << ',' << operations << ','
-                          << repetition << ',' << seconds << ',' << operations / seconds << ','
+                          << repetition << ',' << seconds << ','
+                          << static_cast<double>(operations) / seconds << ','
                           << checksum << '\n';
             }
         }
@@ -276,7 +286,7 @@ NetworkResult run_network(const NetworkOptions& options) {
     const std::string value_text(options.value_size, 'v');
     const auto value = bytes(value_text);
     std::uint64_t request_id = 1;
-    {
+    if (options.preload) {
         auto client = forgekv::network::TcpClient::connect(options.host, options.port);
         for (std::size_t index = 0; index < options.key_count; ++index) {
             const auto key = bytes(key_for(index));
@@ -443,12 +453,16 @@ void write_outputs(const NetworkOptions& options, const NetworkResult& result) {
          << "  \"hardware_threads\": " << std::thread::hardware_concurrency() << ",\n"
          << "  \"ram\": \"" << json_escape(options.ram_description) << "\",\n"
          << "  \"storage_medium\": \"" << json_escape(options.storage_medium) << "\",\n"
+         << "  \"run_id\": \"" << json_escape(options.run_id) << "\",\n"
+         << "  \"experiment\": \"" << json_escape(options.experiment) << "\",\n"
+         << "  \"variant\": \"" << json_escape(options.variant) << "\",\n"
          << "  \"host\": \"" << json_escape(options.host) << "\", \"port\": " << options.port << ",\n"
          << "  \"connections\": " << options.connections << ", \"threads\": " << options.threads << ",\n"
          << "  \"request_bound\": " << options.requests << ", \"duration_bound_s\": " << options.duration.count() << ",\n"
          << "  \"read_ratio\": " << options.read_ratio << ", \"key_count\": " << options.key_count << ",\n"
          << "  \"value_size\": " << options.value_size << ", \"pipeline_depth\": " << options.pipeline_depth << ",\n"
          << "  \"warmup_requests\": " << options.warmup_requests << ", \"seed\": " << options.seed << ",\n"
+         << "  \"preload\": " << (options.preload ? "true" : "false") << ",\n"
          << "  \"server_workers\": " << options.server_workers << ", \"server_shards\": " << options.server_shards << ",\n"
          << "  \"durability\": \"" << json_escape(options.durability) << "\", \"repetition\": " << options.repetition << ",\n"
          << "  \"operations\": " << result.operations << ", \"seconds\": " << result.seconds << ",\n"
@@ -456,12 +470,17 @@ void write_outputs(const NetworkOptions& options, const NetworkResult& result) {
          << "  \"latency_us\": {\"p50\": " << result.p50_us << ", \"p95\": " << result.p95_us
          << ", \"p99\": " << result.p99_us << ", \"max\": " << result.max_us << "},\n"
          << "  \"errors\": " << result.errors << ", \"connection_errors\": " << result.connection_errors << "\n}\n";
-    csv << "timestamp_utc,git_sha,working_tree_dirty,compiler,system,connections,threads,requests,duration_s,read_ratio,key_count,value_size,pipeline_depth,warmup,seed,workers,shards,durability,repetition,operations,seconds,ops_per_second,p50_us,p95_us,p99_us,max_us,errors,connection_errors\n"
-        << csv_escape(timestamp) << ',' << csv_escape(FORGEKV_GIT_SHA) << ',' << FORGEKV_GIT_DIRTY << ','
-        << csv_escape(FORGEKV_COMPILER_DESCRIPTION) << ',' << csv_escape(system) << ','
+    csv << "timestamp_utc,run_id,experiment,variant,git_sha,working_tree_dirty,compiler,build,system,ram,storage_medium,connections,threads,requests,duration_s,read_ratio,key_count,value_size,pipeline_depth,warmup,preload,seed,workers,shards,durability,repetition,operations,seconds,ops_per_second,p50_us,p95_us,p99_us,max_us,errors,connection_errors\n"
+        << csv_escape(timestamp) << ',' << csv_escape(options.run_id) << ','
+        << csv_escape(options.experiment) << ',' << csv_escape(options.variant) << ','
+        << csv_escape(FORGEKV_GIT_SHA) << ',' << FORGEKV_GIT_DIRTY << ','
+        << csv_escape(FORGEKV_COMPILER_DESCRIPTION) << ','
+        << csv_escape(FORGEKV_BUILD_DESCRIPTION) << ',' << csv_escape(system) << ','
+        << csv_escape(options.ram_description) << ',' << csv_escape(options.storage_medium) << ','
         << options.connections << ',' << options.threads << ',' << options.requests << ',' << options.duration.count() << ','
         << options.read_ratio << ',' << options.key_count << ',' << options.value_size << ',' << options.pipeline_depth << ','
-        << options.warmup_requests << ',' << options.seed << ',' << options.server_workers << ',' << options.server_shards << ','
+        << options.warmup_requests << ',' << (options.preload ? 1 : 0) << ',' << options.seed << ','
+        << options.server_workers << ',' << options.server_shards << ','
         << csv_escape(options.durability) << ',' << options.repetition << ',' << result.operations << ',' << result.seconds << ','
         << result.operations_per_second << ',' << result.p50_us << ',' << result.p95_us << ',' << result.p99_us << ','
         << result.max_us << ',' << result.errors << ',' << result.connection_errors << '\n';

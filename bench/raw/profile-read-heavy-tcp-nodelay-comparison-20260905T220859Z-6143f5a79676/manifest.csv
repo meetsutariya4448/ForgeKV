@@ -1,0 +1,11 @@
+variant,trial,seed,output_prefix
+baseline,1,501,baseline-1
+tcp-nodelay,1,501,tcp-nodelay-1
+baseline,2,502,baseline-2
+tcp-nodelay,2,502,tcp-nodelay-2
+baseline,3,503,baseline-3
+tcp-nodelay,3,503,tcp-nodelay-3
+baseline,4,504,baseline-4
+tcp-nodelay,4,504,tcp-nodelay-4
+baseline,5,505,baseline-5
+tcp-nodelay,5,505,tcp-nodelay-5

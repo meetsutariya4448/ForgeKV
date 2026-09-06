@@ -1,0 +1,5 @@
+VmPeak:	 1563856 kB
+VmHWM:	    4268 kB
+VmRSS:	    4268 kB
+Threads:	7
+open_fds=6

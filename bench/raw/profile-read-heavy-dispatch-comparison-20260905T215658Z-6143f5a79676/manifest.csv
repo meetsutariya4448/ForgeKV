@@ -1,0 +1,11 @@
+variant,trial,seed,output_prefix
+baseline,1,101,baseline-1
+batched-dispatch,1,101,batched-dispatch-1
+baseline,2,102,baseline-2
+batched-dispatch,2,102,batched-dispatch-2
+baseline,3,103,baseline-3
+batched-dispatch,3,103,batched-dispatch-3
+baseline,4,104,baseline-4
+batched-dispatch,4,104,batched-dispatch-4
+baseline,5,105,baseline-5
+batched-dispatch,5,105,batched-dispatch-5

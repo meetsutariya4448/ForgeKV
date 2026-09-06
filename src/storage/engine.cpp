@@ -3,6 +3,7 @@
 #include "forgekv/storage/crc32c.hpp"
 
 #include <fcntl.h>
+#include <sys/file.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -147,6 +148,7 @@ StorageEngine::StorageEngine(std::filesystem::path database_directory, StorageOp
     } catch (...) {
         open_.store(false);
         close_fd_noexcept(writer_fd_);
+        release_directory_lock_noexcept();
         throw;
     }
 }
@@ -342,6 +344,7 @@ void StorageEngine::close() {
         }
         writer_fd_ = -1;
     }
+    release_directory_lock_noexcept();
     if (close_error) std::rethrow_exception(close_error);
 }
 
@@ -398,6 +401,7 @@ void StorageEngine::initialize() {
         parent_directory_sync_pending_ = created;
     }
 
+    acquire_directory_lock();
     recover_compaction_artifacts();
     auto segment_ids = discover_segment_ids();
     if (segment_ids.empty()) {
@@ -418,6 +422,31 @@ void StorageEngine::initialize() {
     last_synced_sequence_.store(last_sequence_.load());
     open_writer();
     open_.store(true);
+}
+
+void StorageEngine::acquire_directory_lock() {
+    const auto lock_path = database_directory_ / ".forgekv.lock";
+    const int lock_fd = ::open(lock_path.c_str(), O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0644);
+    if (lock_fd < 0) throw_system_error("failed to open database ownership lock");
+
+    if (::flock(lock_fd, LOCK_EX | LOCK_NB) != 0) {
+        const int lock_error = errno;
+        int owned_fd = lock_fd;
+        close_fd_noexcept(owned_fd);
+        if (lock_error == EWOULDBLOCK || lock_error == EAGAIN) {
+            throw StorageError("database directory is already open by another process: " +
+                               database_directory_.string());
+        }
+        errno = lock_error;
+        throw_system_error("failed to acquire database ownership lock");
+    }
+    directory_lock_fd_ = lock_fd;
+}
+
+void StorageEngine::release_directory_lock_noexcept() noexcept {
+    if (directory_lock_fd_ < 0) return;
+    static_cast<void>(::flock(directory_lock_fd_, LOCK_UN));
+    close_fd_noexcept(directory_lock_fd_);
 }
 
 void StorageEngine::start_maintenance_threads() {
@@ -625,6 +654,7 @@ void StorageEngine::close_noexcept() noexcept {
     } catch (...) {
         write_failed_.store(true);
         close_fd_noexcept(writer_fd_);
+        release_directory_lock_noexcept();
     }
 }
 

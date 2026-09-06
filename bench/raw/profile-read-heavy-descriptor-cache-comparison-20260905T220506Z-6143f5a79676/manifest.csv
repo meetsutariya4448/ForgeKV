@@ -1,0 +1,11 @@
+variant,trial,seed,output_prefix
+baseline,1,301,baseline-1
+descriptor-cache,1,301,descriptor-cache-1
+baseline,2,302,baseline-2
+descriptor-cache,2,302,descriptor-cache-2
+baseline,3,303,baseline-3
+descriptor-cache,3,303,descriptor-cache-3
+baseline,4,304,baseline-4
+descriptor-cache,4,304,descriptor-cache-4
+baseline,5,305,baseline-5
+descriptor-cache,5,305,descriptor-cache-5

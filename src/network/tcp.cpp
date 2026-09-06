@@ -4,6 +4,7 @@
 #include <cerrno>
 #include <cstring>
 #include <netdb.h>
+#include <netinet/tcp.h>
 #include <poll.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -40,6 +41,10 @@ void set_timeouts(int fd, std::chrono::milliseconds timeout) {
     if (::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &value, sizeof(value)) != 0 ||
         ::setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &value, sizeof(value)) != 0) {
         throw_errno("setsockopt timeout");
+    }
+    int no_delay = 1;
+    if (::setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &no_delay, sizeof(no_delay)) != 0) {
+        throw_errno("setsockopt TCP_NODELAY");
     }
 #ifdef SO_NOSIGPIPE
     int enabled = 1;

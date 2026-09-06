@@ -96,6 +96,15 @@ Run a bounded TCP benchmark and preserve summary plus raw latency evidence:
 ./scripts/run-benchmark-matrix.sh quick
 ```
 
+On Linux, reproduce the read-heavy profile (and an SVG flame graph when `FLAMEGRAPH_DIR` points to
+the standard FlameGraph scripts), then run the connection-saturation/slow-client check:
+
+```sh
+FORGEKV_PROFILE_BUILD_DIR=build-release ./scripts/profile-read-heavy.sh
+./scripts/run-overload-scenario.py --server build-release/forgekv-server \
+  --output bench/raw/overload-slow-clients.json
+```
+
 The full required sweep values are available with `./scripts/run-benchmark-matrix.sh full`. Runs are
 never overwritten; failures remain in each matrix manifest. Methodology and the bounded local
 evidence are in [`docs/BENCHMARKING.md`](docs/BENCHMARKING.md) and

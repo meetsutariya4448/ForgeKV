@@ -142,5 +142,6 @@ explicit sync boundary.
 The abrupt-exit integration test verifies that an `always` acknowledgement can be replayed after a
 child calls `_exit` without destructors. It is not a simulated power failure or proof about every
 filesystem/hardware stack. ForgeKV still has no transactions, batches, rollback, multi-record
-atomicity, process-level database lock, or guarantee for filesystems that do not honor ordinary
-`fsync` semantics.
+atomicity, or guarantee for filesystems that do not honor ordinary `fsync` semantics. A persistent
+`.forgekv.lock` file is held with a nonblocking process-level advisory lock for the lifetime of an
+open engine; this is local ownership protection, not distributed fencing.

@@ -53,6 +53,9 @@ The server admits no detached threads or unbounded task accumulation.
 ### Storage engine
 
 The engine uses a global mutation mutex to serialize the active append stream, sequence, and fsync.
+Before recovery or segment mutation, it takes a nonblocking exclusive advisory lock on the
+database-local `.forgekv.lock` file and holds its descriptor for the engine lifetime. This excludes a
+second cooperating process while allowing the kernel to release ownership after a crash.
 Version 2 records add an absolute expiration to type, lengths, sequence, checksums, key, and value;
 mixed v1/v2 replay preserves older databases. Writes use POSIX append loops and the selected
 `always`/`periodic`/`none` synchronization boundary before or after publication as documented.

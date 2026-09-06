@@ -1,0 +1,2 @@
+operations  ops/s       p50-us    p95-us    p99-us    max-us    errors  conn-errors
+      9104      1506.9    42044.2    47340.4    50014.6    55502.8       0  0

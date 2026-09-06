@@ -118,6 +118,9 @@ The POSIX socket layer owns descriptors through `TcpServer`/`TcpClient` destruct
 continue after partial writes and `EINTR`; receive loops accept arbitrary partial reads. SIGPIPE is
 suppressed. Accepted sockets use bounded receive/send timeouts so the server can observe stop
 requests and a client cannot block one I/O call indefinitely. EOF is a clean disconnect.
+Established client and server sockets enable `TCP_NODELAY`. This avoids the measured interaction
+between Nagle buffering and delayed acknowledgements when a pipeline produces several small ordered
+responses; it trades possible extra packets for predictable request/response latency.
 
 The listening loop uses `poll` with a bounded interval for cancellation. It admits at most the
 configured connection count, with one owned `std::jthread` per active connection. An excess accepted
@@ -128,6 +131,9 @@ different and deterministic.
 
 Client response-read timeouts are enforced. The current blocking `connect()` path does not provide a
 strict cross-platform connection-attempt deadline; that remains a documented limitation.
+`scripts/run-overload-scenario.py` fills the connection limit with incomplete-frame clients, checks
+that excess requests are rejected, samples Linux `/proc` resource counts, closes the slow clients,
+and verifies recovery.
 
 ## Forward compatibility
 
