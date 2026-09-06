@@ -20,6 +20,22 @@ TEST(ShardedIndexTest, InsertsFindsReplacesAndErases) {
     EXPECT_TRUE(index.erase("key"));
     EXPECT_FALSE(index.find("key"));
 }
+TEST(ShardedIndexTest, ConditionalMutationsRejectStaleSequences) {
+    ShardedIndex index(4);
+    index.insert_or_assign("key", location(2));
+
+    EXPECT_FALSE(index.replace_if_sequence("key", 1, location(3)));
+    ASSERT_TRUE(index.find("key"));
+    EXPECT_EQ(index.find("key")->sequence, 2U);
+    EXPECT_FALSE(index.erase_if_sequence("key", 1));
+    EXPECT_EQ(index.size(), 1U);
+
+    EXPECT_TRUE(index.replace_if_sequence("key", 2, location(3)));
+    EXPECT_EQ(index.find("key")->sequence, 3U);
+    EXPECT_FALSE(index.erase_if_sequence("key", 2));
+    EXPECT_TRUE(index.erase_if_sequence("key", 3));
+    EXPECT_EQ(index.size(), 0U);
+}
 TEST(ShardedIndexTest, ConcurrentDifferentKeysRemainVisible) {
     ShardedIndex index(16);
     std::vector<std::jthread> threads;
