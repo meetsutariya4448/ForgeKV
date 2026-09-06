@@ -127,6 +127,9 @@ StorageEngine::StorageEngine(std::filesystem::path database_directory, StorageOp
       database_directory_(std::move(database_directory)),
       active_segment_path_(segment_path_for_id(database_directory_, kInitialSegmentId)),
       index_(options_.shard_count) {
+    if (database_directory_.empty()) {
+        throw std::invalid_argument("database directory must not be empty");
+    }
     if (options_.durability != DurabilityMode::kAlways &&
         options_.durability != DurabilityMode::kPeriodic &&
         options_.durability != DurabilityMode::kNone) {

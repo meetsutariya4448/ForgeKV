@@ -179,6 +179,11 @@ TEST(StorageEngineTest, CreatesAndOpensEmptyDatabase) {
     EXPECT_EQ(reopened.size(), 0U);
 }
 
+TEST(StorageEngineTest, RejectsEmptyDatabasePathBeforeCreatingFiles) {
+    EXPECT_THROW(static_cast<void>(StorageEngine::open(std::filesystem::path{})),
+                 std::invalid_argument);
+}
+
 TEST(StorageEngineTest, RejectsSecondWriterProcessAndReleasesOwnershipAfterCrash) {
     TemporaryDirectory temporary;
     int ready_fd = -1;
