@@ -57,9 +57,10 @@ absolute capacity, native-hardware, or durability claims.
 
 ## Sanitizer boundary
 
-For commit `6143f5a796760b818e30f907a3f2dd87373b7d3c`, GitHub Actions run `33884876502`
-completed successfully on Ubuntu 24.04. ASan+UBSan and TSan each passed 121/121 tests. The record
-decoder and frame parser libFuzzer targets each completed 10,000 runs. These results describe that
-named commit. The final uncommitted development tree was also rebuilt in an Ubuntu 24.04 container
-with Clang 18.1.3: ASan+UBSan and TSan each passed 122/122 tests, and both fuzz targets completed
-10,000 runs. That local container result is evidence for the working tree, not a named CI commit.
+The earlier commit `6143f5a796760b818e30f907a3f2dd87373b7d3c` passed 121/121 ASan+UBSan and
+TSan tests plus both 10,000-run fuzz jobs in GitHub Actions run `33884876502`; it did not include
+the final process-ownership and performance changes. Those changes were committed as
+`bdd54e020c1f15559f9102c36c0f1432e16b3b90`. GitHub Actions run `34016861591` passed 122/122
+Release tests on Ubuntu 24.04 and macOS 15, 122/122 ASan+UBSan tests, 122/122 TSan tests, and both
+10,000-run fuzz targets for that exact commit. The pre-commit Ubuntu 24.04/Clang 18.1.3 container
+run reported the same sanitizer and fuzz counts.

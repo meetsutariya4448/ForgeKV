@@ -1,8 +1,8 @@
 # ForgeKV
 
-ForgeKV is a systems-engineering project in modern C++ that is planned to become a persistent
-key-value store with a log-structured storage engine, concurrent request processing, framed TCP
-networking, crash recovery, TTL expiration, compaction, and measured performance.
+ForgeKV is a persistent single-node key-value server implemented in modern C++ with a
+log-structured storage engine, concurrent request processing, framed TCP networking, crash
+recovery, TTL expiration, compaction, and measured performance.
 
 The implementation roadmap through **Milestone 11** is present: the bounded single-node server has
 versioned persistence, TTL, rotating segments, crash-safe compaction, observability, and a real TCP
