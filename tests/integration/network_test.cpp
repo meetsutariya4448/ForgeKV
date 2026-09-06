@@ -430,6 +430,12 @@ TEST(NetworkIntegrationTest, ReturnsOverloadedWhenRequestQueueSaturates) {
 
     EXPECT_GT(overloaded.load(), 0);
     EXPECT_EQ(failures.load(), 0);
+
+    const auto stats = clients.front().request(request(protocol::Opcode::kStats, 100, {}));
+    ASSERT_EQ(stats.status, protocol::Status::kOk);
+    const std::string json(reinterpret_cast<const char*>(stats.value.data()), stats.value.size());
+    EXPECT_NE(json.find("\"errors\":" + std::to_string(overloaded.load())),
+              std::string::npos);
 }
 
 TEST(NetworkIntegrationTest, ShutdownInterruptsIdleConnections) {

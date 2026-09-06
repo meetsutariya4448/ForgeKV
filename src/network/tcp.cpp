@@ -246,6 +246,7 @@ protocol::Frame TcpServer::dispatch_via_pool(const protocol::Frame& request) {
             try { promise->set_value(dispatch(request)); }
             catch (...) { promise->set_exception(std::current_exception()); }
         })) {
+        request_errors_.fetch_add(1);
         return response_for(request, protocol::Status::kOverloaded,
                             message_bytes("request queue is full"));
     }
