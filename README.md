@@ -1,131 +1,129 @@
 # ForgeKV
 
-ForgeKV is a persistent single-node key-value server implemented in modern C++ with a
-log-structured storage engine, concurrent request processing, framed TCP networking, crash
-recovery, TTL expiration, compaction, and measured performance.
+**A persistent key-value server built from scratch in C++20, with TCP networking, concurrent request handling, and crash recovery.**
 
-The implementation roadmap through **Milestone 11** is present: the bounded single-node server has
-versioned persistence, TTL, rotating segments, crash-safe compaction, observability, and a real TCP
-benchmark; the reusable cluster library adds deterministic consistent hashing and an explicit
-primary/replica protocol model. The cluster layer is not wired into the server process and is not a
-consensus or automatic-failover system.
+[![CI](https://github.com/meetsutariya4448/ForgeKV/actions/workflows/ci.yml/badge.svg)](https://github.com/meetsutariya4448/ForgeKV/actions/workflows/ci.yml)
+![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)
 
-## Current targets
+ForgeKV accepts `PUT`, `GET`, `DELETE`, expiration, health, and statistics commands through a
+versioned binary protocol. It stores data in its own checksummed, append-only segment format and
+rebuilds its in-memory index when the server restarts.
 
-| Target | Current behavior |
-|---|---|
-| `forgekv` | Storage, compaction, TTL, TCP, concurrency, consistent-hash, and replication library |
-| `forgekv-server` | Bounded server for PUT/GET/DELETE/EXISTS/PUTEX/TTL/PING/STATS over TCP |
-| `forgekv-cli` | Sends text commands through the binary protocol |
-| `forgekv-bench` | Runs pipelined TCP workloads or the focused index-contention experiment |
-| `forgekv_unit_tests` | Unit, integration, crash, concurrency, cluster, and model-stress tests |
+## Demo
 
-## Build and test
+![Terminal demo showing ForgeKV storing and recovering a value](docs/assets/forgekv-demo.gif)
 
-Prerequisites are a C++20 compiler, CMake 3.24 or newer, Git, and network access during the first
-test build. GoogleTest is pinned and fetched into the build tree by default; it is not a runtime
-dependency. A compatible installed package may be selected explicitly with
-`-DFORGEKV_USE_SYSTEM_GTEST=ON`.
+The recording starts a server, writes and reads a value, stops the process, restarts it with the
+same data directory, and reads the persisted value again. The equivalent commands are:
 
 ```sh
-cmake -S . -B build
-cmake --build build
-ctest --test-dir build --output-on-failure
-```
+# Terminal 1
+./build/forgekv-server --data ./forgekv-demo-data --durability always
 
-For an AddressSanitizer plus UndefinedBehaviorSanitizer build:
+# Terminal 2
+./build/forgekv-cli 127.0.0.1 7391 PUT greeting persisted-value
+# OK
+./build/forgekv-cli 127.0.0.1 7391 GET greeting
+# persisted-value
 
-```sh
-cmake -S . -B build-asan -DFORGEKV_ENABLE_ASAN=ON -DFORGEKV_ENABLE_UBSAN=ON
-cmake --build build-asan
-ctest --test-dir build-asan --output-on-failure
-```
-
-ThreadSanitizer is deliberately configured as a separate build:
-
-```sh
-cmake -S . -B build-tsan -DFORGEKV_ENABLE_TSAN=ON
-cmake --build build-tsan
-ctest --test-dir build-tsan --output-on-failure
+# Stop Terminal 1 with Ctrl-C, restart the same server command, then run:
+./build/forgekv-cli 127.0.0.1 7391 GET greeting
+# persisted-value
 ```
 
 ## Architecture
 
-```text
-clients -> framed TCP server -> bounded dispatcher -> storage engine
-                                      |                    |
-                                      v                    v
-                              sharded index          append-only segments
-                                      |                    |
-                                      v                    v
-                                TTL scheduler       rotation / compaction
+```mermaid
+flowchart LR
+    A[CLI / Client] --> B[TCP Server]
+    B --> C[Bounded Worker Pool]
+    C --> D[Storage Engine]
+    D --> E[Sharded Index]
+    D --> F[Append-only Segments]
+    G[TTL & Compaction] --> D
 ```
 
-The single-node path above is implemented. A separate library layer implements a virtual-node hash
-ring, RF=1/2/3 placement, replication framing, per-key-stream gap detection, lag/recovery, and
-`primary`/`all` acknowledgement modes. See
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/ROADMAP.md`](docs/ROADMAP.md), and
-[`docs/STORAGE_FORMAT.md`](docs/STORAGE_FORMAT.md) for precise status and intended sequencing. The
-wire contract is in [`docs/PROTOCOL.md`](docs/PROTOCOL.md); current guarantee boundaries are in
-[`docs/LIMITATIONS.md`](docs/LIMITATIONS.md), and concurrency invariants are in
-[`docs/CONCURRENCY.md`](docs/CONCURRENCY.md).
+Detailed locking, recovery, compaction, and replication-model diagrams live in the
+[architecture documentation](docs/ARCHITECTURE.md).
 
-## Run the server and CLI
+## Engineering highlights
+
+- **Persistence:** Versioned records carry header and payload checksums. Recovery keeps complete
+  acknowledged data, removes an incomplete active tail, and reports complete-record corruption.
+- **Concurrency:** Connections, queued work, and workers are bounded. Independently locked index
+  shards allow concurrent lookups, while a process-level lock prevents two servers from mutating
+  the same data directory.
+- **Storage maintenance:** Expiring keys are tracked by deadline, active segments rotate at a
+  configured size, and compaction reclaims obsolete records without allowing stale copies to
+  overwrite concurrent changes.
+- **Validation:** Unit, integration, crash, concurrency, and model-stress tests run on Linux and
+  macOS; Linux jobs additionally exercise address, undefined-behavior, and thread sanitizers plus
+  fuzzing of storage and protocol parsers.
+
+## Quickstart
+
+Prerequisites: Git, CMake 3.24 or newer, a C++20 compiler, and network access during the first
+configuration so CMake can fetch the pinned GoogleTest dependency. Linux and macOS are exercised
+by CI.
 
 ```sh
-./build/forgekv-server --host 127.0.0.1 --port 7391 --data ./forgekv-data \
-  --workers 4 --queue-capacity 256 --max-connections 128 --index-shards 16 \
-  --durability periodic --sync-interval-ms 1000
+git clone https://github.com/meetsutariya4448/ForgeKV.git
+cd ForgeKV
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+```
+
+Start the server. Here `--durability always` synchronizes each acknowledged mutation, and data is
+stored beneath `./forgekv-data` relative to the directory where the command runs.
+
+```sh
+./build/forgekv-server --host 127.0.0.1 --port 7391 \
+  --data ./forgekv-data --durability always
+```
+
+In another terminal, write and retrieve a value:
+
+```sh
 ./build/forgekv-cli 127.0.0.1 7391 PUT greeting hello
-./build/forgekv-cli 127.0.0.1 7391 PUTEX session 5000 token
 ./build/forgekv-cli 127.0.0.1 7391 GET greeting
-./build/forgekv-cli 127.0.0.1 7391 EXISTS greeting
-./build/forgekv-cli 127.0.0.1 7391 TTL session
-./build/forgekv-cli 127.0.0.1 7391 DELETE greeting
-./build/forgekv-cli 127.0.0.1 7391 PING
-./build/forgekv-cli 127.0.0.1 7391 STATS
 ```
 
-Run a bounded TCP benchmark and preserve summary plus raw latency evidence:
+Run the complete test suite:
 
 ```sh
-./build/forgekv-bench network --host 127.0.0.1 --port 7391 \
-  --connections 10 --threads 10 --requests 100000 --read-ratio 0.8 \
-  --key-count 1000 --value-size 128 --pipeline-depth 4 \
-  --output-prefix bench/raw/my-run
-./scripts/run-benchmark-matrix.sh quick
+ctest --test-dir build --output-on-failure
 ```
 
-On Linux, reproduce the read-heavy profile (and an SVG flame graph when `FLAMEGRAPH_DIR` points to
-the standard FlameGraph scripts), then run the connection-saturation/slow-client check:
+## Performance finding
 
-```sh
-FORGEKV_PROFILE_BUILD_DIR=build-release ./scripts/profile-read-heavy.sh
-./scripts/run-overload-scenario.py --server build-release/forgekv-server \
-  --output bench/raw/overload-slow-clients.json
-```
+Linux profiling identified a small-response TCP buffering delay. Enabling `TCP_NODELAY` produced
+the following focused comparison:
 
-The full required sweep values are available with `./scripts/run-benchmark-matrix.sh full`. Runs are
-never overwritten; failures remain in each matrix manifest. Methodology and the bounded local
-evidence are in [`docs/BENCHMARKING.md`](docs/BENCHMARKING.md) and
-[`docs/FAILURE_REPORT.md`](docs/FAILURE_REPORT.md).
+| Read-only loopback benchmark | Before | After `TCP_NODELAY` |
+|---|---:|---:|
+| Median p99 batch latency | 49.2 ms | 0.99 ms |
 
-The original isolated shard-contention sweep remains available:
+This was five alternating trials in a Docker Desktop Linux VM: 100% GET, durability `none`, 1,000
+keys in one segment, 128-byte values, 16 connections, four workers, pipeline depth four, and six
+seconds per trial. It is evidence for the TCP buffering diagnosis—not a general capacity claim or
+comparison with other databases. See the [methodology](docs/BENCHMARKING.md#optimization-discipline)
+and [recorded comparison](bench/raw/profile-read-heavy-tcp-nodelay-comparison-20260905T220859Z-6143f5a79676/comparison-summary.json).
 
-```sh
-./scripts/run-m3-contention-benchmark.sh
-```
+## Validation and scope
 
-The script writes a uniquely named CSV under `bench/raw/`; it is not end-to-end server throughput.
+**Validation:** 126 tests passed in each final hosted Release and sanitizer configuration; both
+parser fuzzers completed 10,000 runs. See the
+[exact GitHub Actions run](https://github.com/meetsutariya4448/ForgeKV/actions/runs/34045003048).
 
-## Engineering principles
+**Scope:** The working server is single-node. Consistent-hashing and replication components are
+separate in-process library models, not a deployed cluster. Durability depends on the selected
+synchronization mode. See the [full limitations](docs/LIMITATIONS.md).
 
-- Correctness and failure behavior are specified before performance claims.
-- No storage engine is hidden beneath ForgeKV.
-- Dependencies must have a narrow, documented purpose.
-- Benchmarks preserve raw results and environment metadata.
-- Distributed work starts only after the single-node engine is tested and measured.
+## Documentation
 
-Only the documented single-record `always` fsync boundary is called durable. The preserved quick
-matrix is smoke-scale evidence, not a capacity claim. No transactional, consensus, automatic
-failover, linearizability, arbitrary-filesystem, or production-readiness claims are made.
+| Document | What it explains |
+|---|---|
+| [Architecture](docs/ARCHITECTURE.md) | Components, ownership, and request flow |
+| [Storage format](docs/STORAGE_FORMAT.md) | Records, checksums, recovery, and durability |
+| [Benchmarks](docs/BENCHMARKING.md) | Methodology, profiling, and raw results |
+| [Limitations](docs/LIMITATIONS.md) | Guarantees and unsupported behavior |
