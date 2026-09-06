@@ -184,6 +184,18 @@ TEST(StorageEngineTest, RejectsEmptyDatabasePathBeforeCreatingFiles) {
                  std::invalid_argument);
 }
 
+TEST(StorageEngineTest, ReportsDirectoryLossInsteadOfAnEmptySegmentSet) {
+    TemporaryDirectory temporary;
+    StorageOptions options;
+    options.durability = DurabilityMode::kNone;
+    options.background_compaction = false;
+    StorageEngine engine = StorageEngine::open(temporary.path(), options);
+    ASSERT_TRUE(std::filesystem::remove_all(temporary.path()) > 0);
+
+    EXPECT_THROW(static_cast<void>(engine.segment_count()), StorageError);
+    EXPECT_NO_THROW(engine.close());
+}
+
 TEST(StorageEngineTest, RejectsSecondWriterProcessAndReleasesOwnershipAfterCrash) {
     TemporaryDirectory temporary;
     int ready_fd = -1;

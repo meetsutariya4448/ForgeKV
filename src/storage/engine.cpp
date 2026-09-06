@@ -469,8 +469,11 @@ void StorageEngine::recover_compaction_artifacts() {
     std::vector<std::uint64_t> old_ids;
     std::vector<std::filesystem::path> temporary_files;
     std::error_code error;
-    for (const auto& entry : std::filesystem::directory_iterator(database_directory_, error)) {
-        if (error) throw StorageError("failed to inspect database directory: " + error.message());
+    std::filesystem::directory_iterator iterator(database_directory_, error);
+    if (error) throw StorageError("failed to inspect database directory: " + error.message());
+    const std::filesystem::directory_iterator end;
+    while (iterator != end) {
+        const auto& entry = *iterator;
         const std::string filename = entry.path().filename().string();
         if (filename.ends_with(".old")) {
             const auto id = parse_segment_id(
@@ -481,6 +484,8 @@ void StorageEngine::recover_compaction_artifacts() {
                 0, filename.size() - std::string_view(".compact").size());
             if (parse_segment_id(base)) temporary_files.push_back(entry.path());
         }
+        iterator.increment(error);
+        if (error) throw StorageError("failed to inspect database directory: " + error.message());
     }
     if (!old_ids.empty()) {
         std::sort(old_ids.begin(), old_ids.end());
@@ -506,14 +511,18 @@ void StorageEngine::recover_compaction_artifacts() {
 std::vector<std::uint64_t> StorageEngine::discover_segment_ids() const {
     std::vector<std::uint64_t> ids;
     std::error_code error;
-    for (const auto& entry : std::filesystem::directory_iterator(database_directory_, error)) {
-        if (error) throw StorageError("failed to list storage segments: " + error.message());
-        if (!entry.is_regular_file(error)) {
-            if (error) throw StorageError("failed to inspect storage segment: " + error.message());
-            continue;
+    std::filesystem::directory_iterator iterator(database_directory_, error);
+    if (error) throw StorageError("failed to list storage segments: " + error.message());
+    const std::filesystem::directory_iterator end;
+    while (iterator != end) {
+        const auto& entry = *iterator;
+        if (entry.is_regular_file(error)) {
+            const auto id = parse_segment_id(entry.path().filename().string());
+            if (id) ids.push_back(*id);
         }
-        const auto id = parse_segment_id(entry.path().filename().string());
-        if (id) ids.push_back(*id);
+        if (error) throw StorageError("failed to inspect storage segment: " + error.message());
+        iterator.increment(error);
+        if (error) throw StorageError("failed to list storage segments: " + error.message());
     }
     std::sort(ids.begin(), ids.end());
     if (std::adjacent_find(ids.begin(), ids.end()) != ids.end()) {
