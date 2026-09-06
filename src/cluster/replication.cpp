@@ -180,7 +180,10 @@ ReplicaApplyResult ReplicaState::apply(const ReplicationMessage& message) {
     static_cast<void>(encode_replication_message(message));
     std::lock_guard lock(mutex_);
     const std::string stream = stream_key(message.primary_id, message.key);
-    const std::uint64_t last = stream_sequences_[stream];
+    const auto sequence_iterator = stream_sequences_.find(stream);
+    const std::uint64_t last = sequence_iterator == stream_sequences_.end()
+                                   ? 0
+                                   : sequence_iterator->second;
     if (message.sequence <= last) return ReplicaApplyResult::kDuplicate;
     if (message.sequence != last + 1) return ReplicaApplyResult::kGap;
     const std::string key = bytes_string(message.key);
@@ -190,7 +193,7 @@ ReplicaApplyResult ReplicaState::apply(const ReplicationMessage& message) {
         values_[key] = StoredValue{message.primary_id, message.sequence,
                                    message.expires_at_unix_ms, message.value};
     }
-    stream_sequences_[stream] = message.sequence;
+    stream_sequences_.insert_or_assign(stream, message.sequence);
     return ReplicaApplyResult::kApplied;
 }
 

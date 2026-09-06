@@ -68,6 +68,17 @@ TEST(ReplicaStateTest, DetectsGapsDuplicatesAndRestoresSnapshot) {
     EXPECT_EQ(restarted.get(key), std::optional<storage::Bytes>(replica_bytes("two")));
 }
 
+TEST(ReplicaStateTest, RejectedGapDoesNotCreateSnapshotWatermark) {
+    ReplicaState state;
+    const auto key = replica_bytes("key");
+
+    EXPECT_EQ(state.apply({"node-a", 2, storage::Operation::kPut, 0, key,
+                           replica_bytes("two")}),
+              ReplicaApplyResult::kGap);
+    EXPECT_EQ(state.last_sequence("node-a", key), 0U);
+    EXPECT_TRUE(state.snapshot().empty());
+}
+
 TEST(ReplicaStateTest, InvalidSnapshotLeavesExistingStateIntact) {
     ReplicaState state;
     const auto key = replica_bytes("key");
