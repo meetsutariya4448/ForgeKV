@@ -1,3 +1,4 @@
+#include "forgekv/benchmark/output.hpp"
 #include "forgekv/index/sharded_index.hpp"
 #include "forgekv/network/tcp.hpp"
 #include "forgekv/storage/location.hpp"
@@ -40,6 +41,8 @@
 namespace {
 
 using Clock = std::chrono::steady_clock;
+using forgekv::benchmark::csv_escape;
+using forgekv::benchmark::json_escape;
 
 struct ContentionOptions {
     std::size_t threads = 4;
@@ -410,32 +413,6 @@ std::string system_description() {
     utsname info{};
     if (::uname(&info) != 0) return "unknown";
     return std::string(info.sysname) + " " + info.release + " " + info.machine;
-}
-
-std::string json_escape(std::string_view value) {
-    std::string escaped;
-    for (const char character : value) {
-        switch (character) {
-            case '\\': escaped += "\\\\"; break;
-            case '"': escaped += "\\\""; break;
-            case '\n': escaped += "\\n"; break;
-            case '\r': escaped += "\\r"; break;
-            case '\t': escaped += "\\t"; break;
-            default: escaped.push_back(character); break;
-        }
-    }
-    return escaped;
-}
-
-std::string csv_escape(std::string_view value) {
-    if (value.find_first_of(",\"\r\n") == std::string_view::npos) return std::string(value);
-    std::string escaped{"\""};
-    for (const char character : value) {
-        if (character == '"') escaped.push_back('"');
-        escaped.push_back(character);
-    }
-    escaped.push_back('"');
-    return escaped;
 }
 
 void write_outputs(const NetworkOptions& options, const NetworkResult& result) {

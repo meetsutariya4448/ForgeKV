@@ -21,6 +21,7 @@ add_executable(
     integration/network_test.cpp
     integration/storage_engine_test.cpp
     stress/reference_model_test.cpp
+    unit/benchmark/output_test.cpp
     unit/cluster/hash_ring_test.cpp
     unit/cluster/replication_test.cpp
     unit/concurrency/worker_pool_test.cpp

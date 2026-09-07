@@ -24,6 +24,7 @@ forgekv_configure_sanitizers(forgekv_sanitizers)
 
 add_library(
     forgekv
+    src/benchmark/output.cpp
     src/cluster/hash_ring.cpp
     src/cluster/replication.cpp
     src/concurrency/worker_pool.cpp
