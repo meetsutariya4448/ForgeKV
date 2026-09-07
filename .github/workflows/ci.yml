@@ -15,7 +15,7 @@ jobs:
         os: [ubuntu-24.04, macos-15]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Select C++20 toolchain
         if: runner.os == 'macOS'
         run: |
@@ -43,7 +43,7 @@ jobs:
       CC: clang
       CXX: clang++
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Configure ${{ matrix.sanitizer.name }}
         run: cmake -S . -B build-${{ matrix.sanitizer.name }} -DCMAKE_BUILD_TYPE=Debug ${{ matrix.sanitizer.options }}
       - name: Build ${{ matrix.sanitizer.name }}
@@ -57,7 +57,7 @@ jobs:
       CC: clang
       CXX: clang++
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Configure fuzzers
         run: cmake -S . -B build-fuzz -DCMAKE_BUILD_TYPE=Debug -DFORGEKV_BUILD_FUZZERS=ON -DFORGEKV_ENABLE_ASAN=ON -DFORGEKV_ENABLE_UBSAN=ON
       - name: Build fuzzers
