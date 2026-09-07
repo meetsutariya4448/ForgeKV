@@ -425,8 +425,14 @@ std::vector<protocol::Frame> TcpClient::pipeline(
             throw NetworkError("response read timed out");
         }
         if (received < 0) throw_errno("response read");
-        auto frames = parser.feed(
-            std::span<const std::byte>(buffer).first(static_cast<std::size_t>(received)));
+        std::vector<protocol::Frame> frames;
+        try {
+            frames = parser.feed(
+                std::span<const std::byte>(buffer).first(static_cast<std::size_t>(received)));
+        } catch (const protocol::ProtocolError& error) {
+            throw NetworkError(std::string("server returned malformed response: ") +
+                               error.what());
+        }
         for (auto& response : frames) {
             if (responses.size() >= requests.size()) {
                 throw NetworkError("server returned more responses than requested");
