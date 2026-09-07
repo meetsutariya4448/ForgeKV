@@ -454,9 +454,16 @@ TEST(NetworkFailureTest, ConnectionRefusalIsReportedPromptly) {
     const auto [listener, port] = listen_for_failure_test();
     ::close(listener);
     const auto started = std::chrono::steady_clock::now();
-    EXPECT_THROW(static_cast<void>(TcpClient::connect(
-                     "127.0.0.1", port, std::chrono::milliseconds{100})),
-                 NetworkError);
+    std::string message;
+    try {
+        static_cast<void>(TcpClient::connect(
+            "127.0.0.1", port, std::chrono::milliseconds{100}));
+        FAIL() << "connection to a closed listener unexpectedly succeeded";
+    } catch (const NetworkError& error) {
+        message = error.what();
+    }
+    EXPECT_TRUE(message.starts_with("connect: ")) << message;
+    EXPECT_GT(message.size(), std::string_view("connect: ").size());
     EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds{2});
 }
 

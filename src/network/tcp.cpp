@@ -363,9 +363,13 @@ TcpClient TcpClient::connect(const std::string& host, std::uint16_t port,
     const int status = ::getaddrinfo(host.c_str(), service.c_str(), &hints, &addresses);
     if (status != 0) throw NetworkError(std::string("getaddrinfo: ") + gai_strerror(status));
     int connected = -1;
+    int last_error = 0;
     for (addrinfo* address = addresses; address != nullptr; address = address->ai_next) {
         int fd = ::socket(address->ai_family, address->ai_socktype, address->ai_protocol);
-        if (fd < 0) continue;
+        if (fd < 0) {
+            last_error = errno;
+            continue;
+        }
         try {
             set_timeouts(fd, timeout);
         } catch (...) {
@@ -377,10 +381,17 @@ TcpClient TcpClient::connect(const std::string& host, std::uint16_t port,
             connected = fd;
             break;
         }
+        last_error = errno;
         close_socket(fd);
     }
     ::freeaddrinfo(addresses);
-    if (connected < 0) throw NetworkError("failed to connect to server");
+    if (connected < 0) {
+        if (last_error != 0) {
+            errno = last_error;
+            throw_errno("connect");
+        }
+        throw NetworkError("host resolution returned no connectable addresses");
+    }
     return TcpClient(connected);
 }
 
