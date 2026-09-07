@@ -106,6 +106,16 @@ std::uint64_t parse_u64(std::string_view text, std::string_view name) {
     return value;
 }
 
+std::chrono::seconds parse_duration(std::string_view text) {
+    const std::uint64_t value = parse_u64(text, "duration");
+    const auto maximum = (std::chrono::seconds::max)().count();
+    if (value > static_cast<std::uint64_t>(maximum)) {
+        throw std::invalid_argument("duration is outside supported range: " +
+                                    std::string(text));
+    }
+    return std::chrono::seconds{static_cast<std::chrono::seconds::rep>(value)};
+}
+
 double parse_ratio(std::string_view text) {
     std::size_t consumed = 0;
     const double value = std::stod(std::string(text), &consumed);
@@ -188,7 +198,7 @@ NetworkOptions parse_network_options(int argc, char** argv) {
         else if (argument == "--connections") options.connections = parse_positive_size(next(), "connections");
         else if (argument == "--threads") options.threads = parse_positive_size(next(), "threads");
         else if (argument == "--requests") options.requests = parse_u64(next(), "requests");
-        else if (argument == "--duration") options.duration = std::chrono::seconds(parse_u64(next(), "duration"));
+        else if (argument == "--duration") options.duration = parse_duration(next());
         else if (argument == "--read-ratio") options.read_ratio = parse_ratio(next());
         else if (argument == "--key-count") options.key_count = parse_positive_size(next(), "key count");
         else if (argument == "--value-size") options.value_size = parse_positive_size(next(), "value size");
