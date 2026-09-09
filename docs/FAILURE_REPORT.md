@@ -2,7 +2,7 @@
 
 ## Evidence captured
 
-- Current Linux Release suite: 122/122 tests pass, including process ownership, network failure,
+- Hosted Linux Release evidence: 130/130 tests pass, including process ownership, network failure,
   overload and background compaction coverage.
 - Current quick TCP matrix: 42/42 trials valid across 14 variants, with zero reported operation or
   connection errors; raw JSON/CSV/latencies, logs, resources and distribution summary are under
@@ -57,10 +57,7 @@ absolute capacity, native-hardware, or durability claims.
 
 ## Sanitizer boundary
 
-The earlier commit `6143f5a796760b818e30f907a3f2dd87373b7d3c` passed 121/121 ASan+UBSan and
-TSan tests plus both 10,000-run fuzz jobs in GitHub Actions run `33884876502`; it did not include
-the final process-ownership and performance changes. Those changes were committed as
-`bdd54e020c1f15559f9102c36c0f1432e16b3b90`. GitHub Actions run `34016861591` passed 122/122
-Release tests on Ubuntu 24.04 and macOS 15, 122/122 ASan+UBSan tests, 122/122 TSan tests, and both
-10,000-run fuzz targets for that exact commit. The pre-commit Ubuntu 24.04/Clang 18.1.3 container
-run reported the same sanitizer and fuzz counts.
+GitHub Actions run `34140977502` passed 130/130 Release tests on Ubuntu 24.04 and macOS 15,
+130/130 ASan+UBSan tests, 130/130 TSan tests, and both 10,000-run fuzz targets for commit
+`9dce1f07daf55caabc4571c9a992eddae51be943`. Earlier runs remain historical evidence for their
+exact commits rather than evidence for the current tree.

@@ -59,10 +59,10 @@ restart and are not persisted.
 ## Compilers, fuzzers and sanitizers
 
 The local Apple Clang environment is not the sanitizer evidence source. GitHub Actions run
-`34016861591` passed 122/122 ASan+UBSan tests, 122/122 TSan tests and both 10,000-run fuzz jobs on
-Ubuntu 24.04 for final implementation commit `bdd54e020c1f15559f9102c36c0f1432e16b3b90`.
-The Release suite also passed 122/122 tests on Ubuntu 24.04 and macOS 15 in that run. Earlier run
-`33884876502` remains historical evidence for the preceding 121-test commit, not the final tree.
+`34140977502` passed 130/130 ASan+UBSan tests, 130/130 TSan tests and both 10,000-run fuzz jobs on
+Ubuntu 24.04 for commit `9dce1f07daf55caabc4571c9a992eddae51be943`. The Release suite also passed
+130/130 tests on Ubuntu 24.04 and macOS 15 in that run. Earlier runs remain historical evidence for
+their exact commits, not the current tree.
 
 ## Benchmark evidence
 

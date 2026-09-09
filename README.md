@@ -111,9 +111,9 @@ and [recorded comparison](bench/raw/profile-read-heavy-tcp-nodelay-comparison-20
 
 ## Validation and scope
 
-**Validation:** 126 tests passed in each final hosted Release and sanitizer configuration; both
+**Validation:** A hosted matrix passed 130 tests in each Release and sanitizer configuration; both
 parser fuzzers completed 10,000 runs. See the
-[exact GitHub Actions run](https://github.com/meetsutariya4448/ForgeKV/actions/runs/34045003048).
+[exact GitHub Actions run](https://github.com/meetsutariya4448/ForgeKV/actions/runs/34140977502).
 
 **Scope:** The working server is single-node. Consistent-hashing and replication components are
 separate in-process library models, not a deployed cluster. Durability depends on the selected
