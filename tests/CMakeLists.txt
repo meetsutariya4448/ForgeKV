@@ -63,10 +63,12 @@ target_compile_definitions(
 )
 
 include(GoogleTest)
+set(FORGEKV_TEST_TIMEOUT_SECONDS 30)
 gtest_discover_tests(
     forgekv_unit_tests
     DISCOVERY_MODE PRE_TEST
     DISCOVERY_TIMEOUT 15
+    PROPERTIES TIMEOUT ${FORGEKV_TEST_TIMEOUT_SECONDS}
 )
 
 add_test(
@@ -83,6 +85,11 @@ add_test(
         ${CMAKE_COMMAND}
         "-DBENCHMARK=$<TARGET_FILE:forgekv-bench>"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_shards.cmake
+)
+set_tests_properties(
+    ForgeKVBenchTest.RejectsDurationOutsideChronoRange
+    ForgeKVBenchTest.RejectsMalformedShardLists
+    PROPERTIES TIMEOUT ${FORGEKV_TEST_TIMEOUT_SECONDS}
 )
 
 if(FORGEKV_BUILD_FUZZERS)
