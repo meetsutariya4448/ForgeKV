@@ -190,12 +190,24 @@ void TcpServer::open_listener() {
     const int status = ::getaddrinfo(config_.bind_address.c_str(), service.c_str(), &hints, &addresses);
     if (status != 0) throw NetworkError(std::string("getaddrinfo: ") + gai_strerror(status));
 
+    int failure_errno = 0;
+    std::string_view failure_action = "socket";
     for (addrinfo* address = addresses; address != nullptr; address = address->ai_next) {
         const int fd = ::socket(address->ai_family, address->ai_socktype, address->ai_protocol);
-        if (fd < 0) continue;
+        if (fd < 0) {
+            failure_errno = errno;
+            failure_action = "socket";
+            continue;
+        }
         int reuse = 1;
         static_cast<void>(::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)));
-        if (::bind(fd, address->ai_addr, address->ai_addrlen) == 0 && ::listen(fd, 16) == 0) {
+        if (::bind(fd, address->ai_addr, address->ai_addrlen) != 0) {
+            failure_errno = errno;
+            failure_action = "bind";
+        } else if (::listen(fd, 16) != 0) {
+            failure_errno = errno;
+            failure_action = "listen";
+        } else {
             listener_fd_ = fd;
             break;
         }
@@ -203,7 +215,11 @@ void TcpServer::open_listener() {
         close_socket(temporary);
     }
     ::freeaddrinfo(addresses);
-    if (listener_fd_ < 0) throw NetworkError("failed to bind listening socket");
+    if (listener_fd_ < 0) {
+        if (failure_errno == 0) throw NetworkError("failed to open listening socket");
+        errno = failure_errno;
+        throw_errno(failure_action);
+    }
 
     sockaddr_storage local{};
     socklen_t length = sizeof(local);

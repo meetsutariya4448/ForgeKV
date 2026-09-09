@@ -467,6 +467,23 @@ TEST(NetworkFailureTest, ConnectionRefusalIsReportedPromptly) {
     EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds{2});
 }
 
+TEST(NetworkFailureTest, BindFailurePreservesOperatingSystemReason) {
+    const auto [listener, port] = listen_for_failure_test();
+    TemporaryDirectory temporary;
+    ServerConfig config{"127.0.0.1", port, temporary.path()};
+    std::string message;
+    try {
+        static_cast<void>(TcpServer(std::move(config)));
+        FAIL() << "server unexpectedly bound an occupied port";
+    } catch (const NetworkError& error) {
+        message = error.what();
+    }
+    ::close(listener);
+
+    EXPECT_TRUE(message.starts_with("bind: ")) << message;
+    EXPECT_GT(message.size(), std::string_view("bind: ").size());
+}
+
 TEST(NetworkFailureTest, ResponseTimeoutIsReportedWithinConfiguredBound) {
     const auto [listener, port] = listen_for_failure_test();
     std::jthread peer([listener] {
