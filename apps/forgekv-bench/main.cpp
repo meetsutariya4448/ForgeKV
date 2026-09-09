@@ -135,10 +135,15 @@ std::uint16_t parse_port(std::string_view text) {
 }
 
 std::vector<std::size_t> parse_shards(std::string_view text) {
+    if (text.empty()) throw std::invalid_argument("shard list must not be empty");
     std::vector<std::size_t> shards;
-    while (!text.empty()) {
+    for (;;) {
         const std::size_t comma = text.find(',');
-        shards.push_back(parse_positive_size(text.substr(0, comma), "shard count"));
+        const std::string_view shard = text.substr(0, comma);
+        if (shard.empty()) {
+            throw std::invalid_argument("shard list must not contain empty entries");
+        }
+        shards.push_back(parse_positive_size(shard, "shard count"));
         if (comma == std::string_view::npos) break;
         text.remove_prefix(comma + 1);
     }

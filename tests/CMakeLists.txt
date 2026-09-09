@@ -77,6 +77,14 @@ add_test(
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_duration.cmake
 )
 
+add_test(
+    NAME ForgeKVBenchTest.RejectsMalformedShardLists
+    COMMAND
+        ${CMAKE_COMMAND}
+        "-DBENCHMARK=$<TARGET_FILE:forgekv-bench>"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_shards.cmake
+)
+
 if(FORGEKV_BUILD_FUZZERS)
     if(NOT CMAKE_CXX_COMPILER_ID MATCHES "AppleClang|Clang")
         message(FATAL_ERROR "ForgeKV fuzz targets currently require Clang and libFuzzer")
