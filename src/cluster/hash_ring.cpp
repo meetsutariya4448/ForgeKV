@@ -98,6 +98,7 @@ std::vector<Node> ConsistentHashRing::placement(std::span<const std::byte> key,
 Node ConsistentHashRing::route(
     std::span<const std::byte> key,
     const std::function<bool(const Node&)>& reachable) const {
+    if (!reachable) throw std::invalid_argument("reachability predicate must be provided");
     const Node& selected = primary(key);
     if (!reachable(selected)) {
         throw RoutingError("selected node is unavailable: " + selected.id);

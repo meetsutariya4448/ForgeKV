@@ -84,6 +84,14 @@ TEST(ConsistentHashRingTest, UnreachableSelectedNodeFailsWithoutImplicitFailover
                  RoutingError);
 }
 
+TEST(ConsistentHashRingTest, RejectsMissingReachabilityPredicate) {
+    ConsistentHashRing ring(32);
+    ring.set_nodes(three_nodes());
+
+    EXPECT_THROW(static_cast<void>(ring.route(key_bytes("important-key"), {})),
+                 std::invalid_argument);
+}
+
 TEST(ConsistentHashRingTest, RejectsUnusableNodeEndpoints) {
     ConsistentHashRing ring(32);
     EXPECT_THROW(ring.set_nodes({{"node-a", "", 7001}}), std::invalid_argument);
