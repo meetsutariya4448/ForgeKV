@@ -79,6 +79,23 @@ TEST(ReplicaStateTest, RejectedGapDoesNotCreateSnapshotWatermark) {
     EXPECT_TRUE(state.snapshot().empty());
 }
 
+TEST(ReplicaStateTest, RejectsAmbiguousStreamQueries) {
+    ReplicaState state;
+    const storage::Bytes key{
+        std::byte{'x'}, std::byte{0}, std::byte{'y'},
+    };
+    ASSERT_EQ(state.apply({"node-a", 1, storage::Operation::kPut, 0, key,
+                           replica_bytes("value")}),
+              ReplicaApplyResult::kApplied);
+
+    EXPECT_THROW(static_cast<void>(state.last_sequence(
+                     std::string("node-a\0x", 8), replica_bytes("y"))),
+                 std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(state.last_sequence("node-a", {})),
+                 std::invalid_argument);
+    EXPECT_EQ(state.last_sequence("node-a", key), 1U);
+}
+
 TEST(ReplicaStateTest, InvalidSnapshotLeavesExistingStateIntact) {
     ReplicaState state;
     const auto key = replica_bytes("key");

@@ -70,13 +70,17 @@ void validate_replication_key(std::span<const std::byte> key) {
     }
 }
 
+void validate_primary_id(std::string_view primary_id) {
+    if (primary_id.empty() || primary_id.size() > kMaxPrimaryId ||
+        primary_id.find('\0') != std::string_view::npos) {
+        throw std::invalid_argument("replication primary id is outside bounds");
+    }
+}
+
 }  // namespace
 
 storage::Bytes encode_replication_message(const ReplicationMessage& message) {
-    if (message.primary_id.empty() || message.primary_id.size() > kMaxPrimaryId ||
-        message.primary_id.find('\0') != std::string::npos) {
-        throw std::invalid_argument("replication primary id is outside bounds");
-    }
+    validate_primary_id(message.primary_id);
     if (message.sequence == 0 || message.key.empty() ||
         message.key.size() > storage::kMaxKeySize ||
         message.value.size() > storage::kMaxValueSize) {
@@ -208,6 +212,8 @@ std::optional<storage::Bytes> ReplicaState::get(std::span<const std::byte> key) 
 
 std::uint64_t ReplicaState::last_sequence(std::string_view primary_id,
                                           std::span<const std::byte> key) const {
+    validate_primary_id(primary_id);
+    validate_replication_key(key);
     std::lock_guard lock(mutex_);
     const auto iterator = stream_sequences_.find(stream_key(primary_id, key));
     return iterator == stream_sequences_.end() ? 0 : iterator->second;
