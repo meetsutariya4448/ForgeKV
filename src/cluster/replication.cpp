@@ -224,6 +224,7 @@ std::vector<ReplicationMessage> ReplicaState::snapshot() const {
     std::lock_guard lock(mutex_);
     std::vector<ReplicationMessage> messages;
     messages.reserve(stream_sequences_.size());
+    const std::uint64_t snapshot_time = now_unix_ms();
     for (const auto& [stream, sequence] : stream_sequences_) {
         const auto separator = stream.find('\0');
         const std::string primary_id = stream.substr(0, separator);
@@ -231,7 +232,9 @@ std::vector<ReplicationMessage> ReplicaState::snapshot() const {
         const auto stored = values_.find(key);
         const bool has_current_value =
             stored != values_.end() && stored->second.primary_id == primary_id &&
-            stored->second.sequence == sequence;
+            stored->second.sequence == sequence &&
+            (stored->second.expires_at_unix_ms == 0 ||
+             stored->second.expires_at_unix_ms > snapshot_time);
         const auto* key_begin = reinterpret_cast<const std::byte*>(key.data());
         messages.push_back(ReplicationMessage{
             primary_id, sequence,

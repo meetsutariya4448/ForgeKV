@@ -143,6 +143,28 @@ TEST(ReplicaStateTest, SnapshotPreservesDeletedStreamWatermarks) {
               std::optional<storage::Bytes>(replica_bytes("restored")));
 }
 
+TEST(ReplicaStateTest, SnapshotConvertsExpiredValuesToDeletionWatermarks) {
+    ReplicaState state;
+    const auto key = replica_bytes("expired-key");
+    ASSERT_EQ(state.apply({"node-a", 1, storage::Operation::kPut, 1, key,
+                           replica_bytes("stale-value")}),
+              ReplicaApplyResult::kApplied);
+    ASSERT_FALSE(state.get(key).has_value());
+
+    const auto snapshot = state.snapshot();
+
+    ASSERT_EQ(snapshot.size(), 1U);
+    EXPECT_EQ(snapshot.front().sequence, 1U);
+    EXPECT_EQ(snapshot.front().operation, storage::Operation::kDelete);
+    EXPECT_EQ(snapshot.front().expires_at_unix_ms, 0U);
+    EXPECT_TRUE(snapshot.front().value.empty());
+
+    ReplicaState restarted;
+    restarted.install_snapshot(snapshot);
+    EXPECT_EQ(restarted.last_sequence("node-a", key), 1U);
+    EXPECT_FALSE(restarted.get(key).has_value());
+}
+
 TEST(ReplicaStateTest, DuplicateSnapshotKeysLeaveExistingStateIntact) {
     ReplicaState state;
     const auto key = replica_bytes("key");
