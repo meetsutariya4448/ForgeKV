@@ -39,6 +39,16 @@ case "$trials" in
     ''|*[!0-9]*|0) echo "FORGEKV_BENCH_TRIALS must be a positive integer" >&2; exit 2 ;;
 esac
 
+timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+git_sha=$(git -C "$FORGEKV_BENCH_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)
+run_id=${FORGEKV_BENCH_RUN_ID:-matrix-${timestamp}-${git_sha}}
+case "$run_id" in
+    ''|.|..|*[!A-Za-z0-9._-]*)
+        echo "FORGEKV_BENCH_RUN_ID must be a safe filename component" >&2
+        exit 2
+        ;;
+esac
+
 if [ ! -x "$build_dir/forgekv-server" ] || [ ! -x "$build_dir/forgekv-bench" ] ||
    [ ! -x "$build_dir/forgekv-cli" ]; then
     echo "Release binaries are missing under $build_dir" >&2
@@ -49,16 +59,6 @@ if [ "$build_type" != "Release" ]; then
     echo "benchmark matrix requires a Release build; found ${build_type:-unknown}" >&2
     exit 1
 fi
-
-timestamp=$(date -u +%Y%m%dT%H%M%SZ)
-git_sha=$(git -C "$FORGEKV_BENCH_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)
-run_id=${FORGEKV_BENCH_RUN_ID:-matrix-${timestamp}-${git_sha}}
-case "$run_id" in
-    ''|.|..|*[!A-Za-z0-9._-]*)
-        echo "FORGEKV_BENCH_RUN_ID must be a safe filename component" >&2
-        exit 2
-        ;;
-esac
 run_dir="$FORGEKV_BENCH_ROOT/bench/raw/$run_id"
 if [ -e "$run_dir" ]; then
     echo "refusing to overwrite existing benchmark run: $run_dir" >&2
