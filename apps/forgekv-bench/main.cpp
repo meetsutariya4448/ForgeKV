@@ -336,9 +336,7 @@ NetworkResult run_network(const NetworkOptions& options) {
     std::atomic_uint64_t connection_errors = 0;
     std::vector<std::vector<double>> thread_latencies(options.threads);
     std::barrier start_line(static_cast<std::ptrdiff_t>(options.threads + 1));
-    const auto deadline = options.duration == std::chrono::seconds::zero()
-                              ? Clock::time_point::max()
-                              : Clock::now() + options.duration;
+    Clock::time_point deadline = Clock::time_point::max();
     std::vector<std::jthread> workers;
     for (std::size_t thread_index = 0; thread_index < options.threads; ++thread_index) {
         workers.emplace_back([&, thread_index] {
@@ -385,6 +383,9 @@ NetworkResult run_network(const NetworkOptions& options) {
         });
     }
     const auto started = Clock::now();
+    if (options.duration != std::chrono::seconds::zero()) {
+        deadline = started + options.duration;
+    }
     start_line.arrive_and_wait();
     workers.clear();
     const double seconds = std::chrono::duration<double>(Clock::now() - started).count();
