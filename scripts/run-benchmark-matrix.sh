@@ -53,6 +53,12 @@ fi
 timestamp=$(date -u +%Y%m%dT%H%M%SZ)
 git_sha=$(git -C "$FORGEKV_BENCH_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)
 run_id=${FORGEKV_BENCH_RUN_ID:-matrix-${timestamp}-${git_sha}}
+case "$run_id" in
+    ''|.|..|*[!A-Za-z0-9._-]*)
+        echo "FORGEKV_BENCH_RUN_ID must be a safe filename component" >&2
+        exit 2
+        ;;
+esac
 run_dir="$FORGEKV_BENCH_ROOT/bench/raw/$run_id"
 if [ -e "$run_dir" ]; then
     echo "refusing to overwrite existing benchmark run: $run_dir" >&2
