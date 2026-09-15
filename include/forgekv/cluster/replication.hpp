@@ -65,6 +65,7 @@ struct ReplicationResult {
     std::size_t required = 0;
     std::size_t unavailable = 0;
     std::size_t timed_out = 0;
+    std::size_t sequence_gaps = 0;
 };
 
 class ReplicatedCluster {

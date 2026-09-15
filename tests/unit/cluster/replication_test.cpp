@@ -215,6 +215,25 @@ TEST(ReplicatedClusterTest, ReplicaLagAndRecoveryAreMeasuredPerKeyStream) {
               std::optional<storage::Bytes>(replica_bytes("two")));
 }
 
+TEST(ReplicatedClusterTest, AllAcknowledgementReportsReplicaSequenceGaps) {
+    ReplicatedCluster cluster(replica_nodes(), 3, 64);
+    const auto key = replica_bytes("gap-diagnostics");
+    const auto placement = cluster.ring().placement(key, 3);
+    const std::string lagging = placement[1].id;
+    cluster.set_available(lagging, false);
+    ASSERT_TRUE(cluster.put(key, replica_bytes("one"), AcknowledgementMode::kPrimary)
+                    .acknowledged);
+
+    cluster.set_available(lagging, true);
+    const auto result = cluster.put(key, replica_bytes("two"), AcknowledgementMode::kAll);
+
+    EXPECT_FALSE(result.acknowledged);
+    EXPECT_EQ(result.acknowledgements, 2U);
+    EXPECT_EQ(result.sequence_gaps, 1U);
+    EXPECT_EQ(result.unavailable, 0U);
+    EXPECT_EQ(result.timed_out, 0U);
+}
+
 TEST(ReplicatedClusterTest, RecoveryCannotMutateUnavailableReplica) {
     ReplicatedCluster cluster(replica_nodes(), 3, 64);
     const auto key = replica_bytes("recover-availability");

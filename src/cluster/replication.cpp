@@ -348,6 +348,8 @@ ReplicationResult ReplicatedCluster::mutate(storage::Operation operation,
         if (applied == ReplicaApplyResult::kApplied || applied == ReplicaApplyResult::kDuplicate) {
             ++result.acknowledgements;
             if (node.id == placement.front().id) primary_acknowledged = true;
+        } else if (applied == ReplicaApplyResult::kGap) {
+            ++result.sequence_gaps;
         }
     }
     result.acknowledged = mode == AcknowledgementMode::kPrimary

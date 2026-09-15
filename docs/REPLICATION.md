@@ -43,6 +43,10 @@ constructing the message.
 
 The current coordinator and endpoints are an in-process deterministic transport model used to
 exercise protocol semantics, RF placement, delays, timeouts, unavailable nodes, lag and recovery.
+
+Write results report unavailable replicas, timeouts, and sequence gaps separately, so an `all`
+acknowledgement failure identifies whether recovery is required instead of looking like an
+unexplained short acknowledgement count.
 It is not connected to independent server processes or durable replica journals. It therefore does
 not demonstrate networked availability, persisted replica recovery, membership consensus, leader
 election, safe failover, split-brain prevention, linearizability or quorum consistency.
