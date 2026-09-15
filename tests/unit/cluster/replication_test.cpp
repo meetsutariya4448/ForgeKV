@@ -96,6 +96,14 @@ TEST(ReplicaStateTest, RejectsAmbiguousStreamQueries) {
     EXPECT_EQ(state.last_sequence("node-a", key), 1U);
 }
 
+TEST(ReplicaStateTest, RejectsInvalidReadKeys) {
+    ReplicaState state;
+    const storage::Bytes oversized(storage::kMaxKeySize + 1, std::byte{'k'});
+
+    EXPECT_THROW(static_cast<void>(state.get({})), std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(state.get(oversized)), std::invalid_argument);
+}
+
 TEST(ReplicaStateTest, InvalidSnapshotLeavesExistingStateIntact) {
     ReplicaState state;
     const auto key = replica_bytes("key");

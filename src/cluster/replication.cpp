@@ -202,6 +202,7 @@ ReplicaApplyResult ReplicaState::apply(const ReplicationMessage& message) {
 }
 
 std::optional<storage::Bytes> ReplicaState::get(std::span<const std::byte> key) const {
+    validate_replication_key(key);
     std::lock_guard lock(mutex_);
     const auto iterator = values_.find(bytes_string(key));
     if (iterator == values_.end()) return std::nullopt;
