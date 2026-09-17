@@ -224,6 +224,19 @@ TEST(NetworkIntegrationTest, ClientPipelineMatchesOrderedResponses) {
     EXPECT_EQ(responses[3].value, bytes("second"));
 }
 
+TEST(NetworkIntegrationTest, ClientRejectsDuplicatePipelineRequestIdsBeforeSending) {
+    TemporaryDirectory temporary;
+    RunningServer server(temporary.path());
+    auto client = TcpClient::connect("127.0.0.1", server.port());
+    const std::vector<protocol::Frame> duplicate_ids{
+        request(protocol::Opcode::kPut, 7, bytes("one"), bytes("first")),
+        request(protocol::Opcode::kPut, 7, bytes("two"), bytes("second"))};
+
+    EXPECT_THROW(static_cast<void>(client.pipeline(duplicate_ids)), std::invalid_argument);
+    EXPECT_EQ(client.request(request(protocol::Opcode::kGet, 8, bytes("one"))).status,
+              protocol::Status::kNotFound);
+}
+
 TEST(NetworkIntegrationTest, PingAndStatsExposeBoundedObservability) {
     TemporaryDirectory temporary;
     RunningServer server(temporary.path());

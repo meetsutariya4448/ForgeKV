@@ -16,6 +16,7 @@
 #include <limits>
 #include <sstream>
 #include <string_view>
+#include <unordered_set>
 
 namespace forgekv::network {
 namespace {
@@ -432,9 +433,14 @@ std::vector<protocol::Frame> TcpClient::pipeline(
     std::span<const protocol::Frame> requests) {
     if (requests.empty()) throw std::invalid_argument("pipeline must contain a request");
     protocol::Bytes encoded;
+    std::unordered_set<std::uint64_t> request_ids;
+    request_ids.reserve(requests.size());
     for (const auto& request : requests) {
         if (request.kind != protocol::FrameKind::kRequest) {
             throw std::invalid_argument("client can only send request frames");
+        }
+        if (!request_ids.insert(request.request_id).second) {
+            throw std::invalid_argument("pipeline request ids must be unique");
         }
         protocol::Bytes frame = protocol::encode_frame(request);
         encoded.insert(encoded.end(), frame.begin(), frame.end());
