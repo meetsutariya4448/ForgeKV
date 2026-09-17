@@ -190,6 +190,10 @@ ContentionOptions parse_contention_options(int argc, char** argv) {
             throw std::invalid_argument("unknown or incomplete contention option");
         }
     }
+    if (options.operations_per_thread >
+        std::numeric_limits<std::size_t>::max() / options.threads) {
+        throw std::invalid_argument("total contention operation count is not representable");
+    }
     return options;
 }
 
