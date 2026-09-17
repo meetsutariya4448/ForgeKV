@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstddef>
 #include <functional>
+#include <mutex>
 #include <thread>
 #include <vector>
 namespace forgekv::concurrency {
@@ -25,5 +26,7 @@ private:
     std::vector<std::jthread> workers_;
     std::atomic_size_t worker_count_ = 0;
     std::atomic_bool stopping_ = false;
+    std::mutex shutdown_mutex_;
+    static thread_local WorkerPool* current_pool_;
 };
 }  // namespace forgekv::concurrency

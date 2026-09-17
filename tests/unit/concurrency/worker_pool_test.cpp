@@ -51,5 +51,20 @@ TEST(WorkerPoolTest, ReportsWorkersSafelyAcrossShutdown) {
     pool.shutdown();
     EXPECT_EQ(pool.worker_count(), 0U);
 }
+TEST(WorkerPoolTest, WorkerCanInitiateShutdownWithoutJoiningItself) {
+    WorkerPool pool(1, 2);
+    std::promise<void> returned;
+    ASSERT_TRUE(pool.try_submit([&] {
+        pool.shutdown();
+        returned.set_value();
+    }));
+
+    EXPECT_EQ(returned.get_future().wait_for(std::chrono::seconds{1}),
+              std::future_status::ready);
+    EXPECT_TRUE(pool.stopping());
+    EXPECT_FALSE(pool.try_submit([] {}));
+    pool.shutdown();
+    EXPECT_EQ(pool.worker_count(), 0U);
+}
 }  // namespace
 }  // namespace forgekv::concurrency
