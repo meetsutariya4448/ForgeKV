@@ -232,6 +232,11 @@ NetworkOptions parse_network_options(int argc, char** argv) {
     if (options.value_size > forgekv::storage::kMaxValueSize) {
         throw std::invalid_argument("value size exceeds protocol limit");
     }
+    if (options.preload &&
+        options.warmup_requests >
+            std::numeric_limits<std::uint64_t>::max() - options.key_count) {
+        throw std::invalid_argument("preload and warmup exhaust request ids");
+    }
     options.threads = std::min(options.threads, options.connections);
     return options;
 }

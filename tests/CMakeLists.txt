@@ -94,10 +94,18 @@ add_test(
         "-DBUILD_DIR=$<TARGET_FILE_DIR:forgekv-bench>"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_run_id.cmake
 )
+add_test(
+    NAME ForgeKVBenchTest.RejectsPreloadRequestIdExhaustion
+    COMMAND
+        ${CMAKE_COMMAND}
+        "-DBENCHMARK=$<TARGET_FILE:forgekv-bench>"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_request_ids.cmake
+)
 set_tests_properties(
     ForgeKVBenchTest.RejectsDurationOutsideChronoRange
     ForgeKVBenchTest.RejectsMalformedShardLists
     ForgeKVBenchTest.RejectsUnsafeRunIds
+    ForgeKVBenchTest.RejectsPreloadRequestIdExhaustion
     PROPERTIES TIMEOUT ${FORGEKV_TEST_TIMEOUT_SECONDS}
 )
 
