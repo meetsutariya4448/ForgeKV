@@ -150,6 +150,13 @@ std::vector<std::size_t> parse_shards(std::string_view text) {
     return shards;
 }
 
+void validate_thread_count(std::size_t threads) {
+    const auto maximum = static_cast<std::size_t>(std::barrier<>::max());
+    if (threads >= maximum) {
+        throw std::invalid_argument("thread count exceeds barrier participant limit");
+    }
+}
+
 void print_usage() {
     std::cerr
         << "usage: forgekv-bench network [--host HOST] [--port PORT] [--connections N] "
@@ -194,6 +201,7 @@ ContentionOptions parse_contention_options(int argc, char** argv) {
         std::numeric_limits<std::size_t>::max() / options.threads) {
         throw std::invalid_argument("total contention operation count is not representable");
     }
+    validate_thread_count(options.threads);
     return options;
 }
 
@@ -242,6 +250,7 @@ NetworkOptions parse_network_options(int argc, char** argv) {
         throw std::invalid_argument("preload and warmup exhaust request ids");
     }
     options.threads = std::min(options.threads, options.connections);
+    validate_thread_count(options.threads);
     return options;
 }
 

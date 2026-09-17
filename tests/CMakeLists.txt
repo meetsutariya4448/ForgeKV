@@ -108,12 +108,20 @@ add_test(
         "-DBENCHMARK=$<TARGET_FILE:forgekv-bench>"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_operations.cmake
 )
+add_test(
+    NAME ForgeKVBenchTest.RejectsUnsupportedThreadCounts
+    COMMAND
+        ${CMAKE_COMMAND}
+        "-DBENCHMARK=$<TARGET_FILE:forgekv-bench>"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_threads.cmake
+)
 set_tests_properties(
     ForgeKVBenchTest.RejectsDurationOutsideChronoRange
     ForgeKVBenchTest.RejectsMalformedShardLists
     ForgeKVBenchTest.RejectsUnsafeRunIds
     ForgeKVBenchTest.RejectsPreloadRequestIdExhaustion
     ForgeKVBenchTest.RejectsOverflowingContentionOperationCount
+    ForgeKVBenchTest.RejectsUnsupportedThreadCounts
     PROPERTIES TIMEOUT ${FORGEKV_TEST_TIMEOUT_SECONDS}
 )
 
