@@ -115,6 +115,13 @@ add_test(
         "-DBENCHMARK=$<TARGET_FILE:forgekv-bench>"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_threads.cmake
 )
+add_test(
+    NAME ForgeKVBenchTest.RejectsEmptyOutputPrefix
+    COMMAND
+        ${CMAKE_COMMAND}
+        "-DBENCHMARK=$<TARGET_FILE:forgekv-bench>"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_output.cmake
+)
 set_tests_properties(
     ForgeKVBenchTest.RejectsDurationOutsideChronoRange
     ForgeKVBenchTest.RejectsMalformedShardLists
@@ -122,6 +129,7 @@ set_tests_properties(
     ForgeKVBenchTest.RejectsPreloadRequestIdExhaustion
     ForgeKVBenchTest.RejectsOverflowingContentionOperationCount
     ForgeKVBenchTest.RejectsUnsupportedThreadCounts
+    ForgeKVBenchTest.RejectsEmptyOutputPrefix
     PROPERTIES TIMEOUT ${FORGEKV_TEST_TIMEOUT_SECONDS}
 )
 

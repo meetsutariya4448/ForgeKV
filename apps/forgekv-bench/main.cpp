@@ -239,7 +239,12 @@ NetworkOptions parse_network_options(int argc, char** argv) {
         else if (argument == "--run-id") options.run_id = next();
         else if (argument == "--experiment") options.experiment = next();
         else if (argument == "--variant") options.variant = next();
-        else if (argument == "--output-prefix") options.output_prefix = next();
+        else if (argument == "--output-prefix") {
+            options.output_prefix = next();
+            if (options.output_prefix.empty()) {
+                throw std::invalid_argument("output prefix must not be empty");
+            }
+        }
         else throw std::invalid_argument("unknown or incomplete network option: " + std::string(argument));
     }
     if (options.requests == 0 && options.duration == std::chrono::seconds::zero()) {
