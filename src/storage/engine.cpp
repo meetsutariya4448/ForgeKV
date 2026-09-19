@@ -383,6 +383,9 @@ const std::filesystem::path& StorageEngine::database_directory() const noexcept 
 
 std::filesystem::path StorageEngine::segment_path_for_id(
     const std::filesystem::path& database_directory, std::uint64_t segment_id) {
+    if (segment_id == 0) {
+        throw std::invalid_argument("segment id must be nonzero");
+    }
     std::ostringstream filename;
     filename << "segment-" << std::setw(20) << std::setfill('0') << segment_id << ".fkv";
     return database_directory / filename.str();

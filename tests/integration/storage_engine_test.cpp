@@ -184,6 +184,13 @@ TEST(StorageEngineTest, RejectsEmptyDatabasePathBeforeCreatingFiles) {
                  std::invalid_argument);
 }
 
+TEST(StorageEngineTest, RejectsReservedZeroSegmentPath) {
+    EXPECT_THROW(static_cast<void>(StorageEngine::segment_path_for_id("database", 0)),
+                 std::invalid_argument);
+    EXPECT_EQ(StorageEngine::segment_path_for_id("database", kInitialSegmentId),
+              std::filesystem::path("database/segment-00000000000000000001.fkv"));
+}
+
 TEST(StorageEngineTest, ReportsDirectoryLossInsteadOfAnEmptySegmentSet) {
     TemporaryDirectory temporary;
     StorageOptions options;
