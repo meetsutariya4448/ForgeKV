@@ -143,7 +143,11 @@ std::vector<std::size_t> parse_shards(std::string_view text) {
         if (shard.empty()) {
             throw std::invalid_argument("shard list must not contain empty entries");
         }
-        shards.push_back(parse_positive_size(shard, "shard count"));
+        const std::size_t parsed = parse_positive_size(shard, "shard count");
+        if (std::find(shards.begin(), shards.end(), parsed) != shards.end()) {
+            throw std::invalid_argument("shard list must not contain duplicates");
+        }
+        shards.push_back(parsed);
         if (comma == std::string_view::npos) break;
         text.remove_prefix(comma + 1);
     }

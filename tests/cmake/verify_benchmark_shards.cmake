@@ -15,3 +15,16 @@ foreach(shards IN ITEMS "" ",4" "4,,16" "4,")
         )
     endif()
 endforeach()
+
+execute_process(
+    COMMAND "${BENCHMARK}" contention --shards "4,16,4"
+    RESULT_VARIABLE result
+    OUTPUT_VARIABLE output
+    ERROR_VARIABLE error
+)
+if(result EQUAL 0)
+    message(FATAL_ERROR "benchmark accepted duplicate shard counts")
+endif()
+if(NOT error MATCHES "shard list must not contain duplicates")
+    message(FATAL_ERROR "benchmark reported an unexpected duplicate error: ${output}${error}")
+endif()
