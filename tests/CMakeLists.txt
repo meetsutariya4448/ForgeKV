@@ -122,6 +122,13 @@ add_test(
         "-DBENCHMARK=$<TARGET_FILE:forgekv-bench>"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_output.cmake
 )
+add_test(
+    NAME ForgeKVBenchTest.RejectsDuplicateOptions
+    COMMAND
+        ${CMAKE_COMMAND}
+        "-DBENCHMARK=$<TARGET_FILE:forgekv-bench>"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_duplicate_options.cmake
+)
 set_tests_properties(
     ForgeKVBenchTest.RejectsDurationOutsideChronoRange
     ForgeKVBenchTest.RejectsMalformedShardLists
@@ -130,6 +137,7 @@ set_tests_properties(
     ForgeKVBenchTest.RejectsOverflowingContentionOperationCount
     ForgeKVBenchTest.RejectsUnsupportedThreadCounts
     ForgeKVBenchTest.RejectsEmptyOutputPrefix
+    ForgeKVBenchTest.RejectsDuplicateOptions
     PROPERTIES TIMEOUT ${FORGEKV_TEST_TIMEOUT_SECONDS}
 )
 

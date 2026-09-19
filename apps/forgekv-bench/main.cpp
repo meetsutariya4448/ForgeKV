@@ -18,6 +18,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -185,8 +186,13 @@ std::string key_for(std::uint64_t index) {
 
 ContentionOptions parse_contention_options(int argc, char** argv) {
     ContentionOptions options;
+    std::set<std::string_view> seen_options;
     for (int index = 2; index < argc; ++index) {
         const std::string_view argument = argv[index];
+        if (!seen_options.insert(argument).second) {
+            throw std::invalid_argument("duplicate contention option: " +
+                                        std::string(argument));
+        }
         if (argument == "--threads" && index + 1 < argc) {
             options.threads = parse_positive_size(argv[++index], "thread count");
         } else if (argument == "--operations-per-thread" && index + 1 < argc) {
@@ -211,8 +217,13 @@ ContentionOptions parse_contention_options(int argc, char** argv) {
 
 NetworkOptions parse_network_options(int argc, char** argv) {
     NetworkOptions options;
+    std::set<std::string_view> seen_options;
     for (int index = 2; index < argc; ++index) {
         const std::string_view argument = argv[index];
+        if (!seen_options.insert(argument).second) {
+            throw std::invalid_argument("duplicate network option: " +
+                                        std::string(argument));
+        }
         auto next = [&]() -> std::string_view {
             if (index + 1 >= argc) throw std::invalid_argument("missing value for " + std::string(argument));
             return argv[++index];
