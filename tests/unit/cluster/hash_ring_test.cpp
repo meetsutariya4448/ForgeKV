@@ -106,6 +106,19 @@ TEST(ConsistentHashRingTest, RejectsUnusableNodeEndpoints) {
     EXPECT_EQ(ring.node_count(), 3U);
 }
 
+TEST(ConsistentHashRingTest, RejectsDuplicatePhysicalEndpoints) {
+    ConsistentHashRing ring(32);
+    EXPECT_THROW(ring.set_nodes({{"node-a", "127.0.0.1", 7001},
+                                 {"node-b", "127.0.0.1", 7001}}),
+                 std::invalid_argument);
+    EXPECT_EQ(ring.node_count(), 0U);
+
+    ring.set_nodes(three_nodes());
+    EXPECT_THROW(ring.add_node({"node-d", "127.0.0.1", 7002}),
+                 std::invalid_argument);
+    EXPECT_EQ(ring.node_count(), 3U);
+}
+
 TEST(ConsistentHashRingTest, FailedTokenBuildLeavesMembershipUnchanged) {
     ConsistentHashRing ring(std::numeric_limits<std::size_t>::max());
 

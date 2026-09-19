@@ -34,10 +34,14 @@ void ConsistentHashRing::set_nodes(std::vector<Node> nodes) {
     std::sort(nodes.begin(), nodes.end(), [](const Node& left, const Node& right) {
         return left.id < right.id;
     });
+    std::set<std::pair<std::string, std::uint16_t>> endpoints;
     for (std::size_t index = 0; index < nodes.size(); ++index) {
         validate_node(nodes[index]);
         if (index != 0 && nodes[index - 1].id == nodes[index].id) {
             throw std::invalid_argument("node ids must be unique");
+        }
+        if (!endpoints.emplace(nodes[index].host, nodes[index].port).second) {
+            throw std::invalid_argument("node endpoints must be unique");
         }
     }
     auto tokens = build_tokens(nodes);
@@ -51,6 +55,11 @@ void ConsistentHashRing::add_node(Node node) {
             return existing.id == node.id;
         })) {
         throw std::invalid_argument("node id already exists");
+    }
+    if (std::any_of(nodes_.begin(), nodes_.end(), [&](const Node& existing) {
+            return existing.host == node.host && existing.port == node.port;
+        })) {
+        throw std::invalid_argument("node endpoint already exists");
     }
     auto nodes = nodes_;
     nodes.push_back(std::move(node));
