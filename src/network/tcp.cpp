@@ -436,8 +436,8 @@ std::vector<protocol::Frame> TcpClient::pipeline(
     std::unordered_set<std::uint64_t> request_ids;
     request_ids.reserve(requests.size());
     for (const auto& request : requests) {
-        if (request.kind != protocol::FrameKind::kRequest) {
-            throw std::invalid_argument("client can only send request frames");
+        if (!protocol::request_semantics_valid(request)) {
+            throw std::invalid_argument("client request has invalid operation semantics");
         }
         if (!request_ids.insert(request.request_id).second) {
             throw std::invalid_argument("pipeline request ids must be unique");

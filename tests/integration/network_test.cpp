@@ -237,6 +237,18 @@ TEST(NetworkIntegrationTest, ClientRejectsDuplicatePipelineRequestIdsBeforeSendi
               protocol::Status::kNotFound);
 }
 
+TEST(NetworkIntegrationTest, ClientRejectsInvalidRequestSemanticsBeforeSending) {
+    TemporaryDirectory temporary;
+    RunningServer server(temporary.path());
+    auto client = TcpClient::connect("127.0.0.1", server.port());
+
+    EXPECT_THROW(static_cast<void>(client.request(
+                     request(protocol::Opcode::kGet, 1, bytes("key"), bytes("bad")))),
+                 std::invalid_argument);
+    EXPECT_EQ(client.request(request(protocol::Opcode::kPut, 2, bytes("key"), bytes("ok"))).status,
+              protocol::Status::kOk);
+}
+
 TEST(NetworkIntegrationTest, PingAndStatsExposeBoundedObservability) {
     TemporaryDirectory temporary;
     RunningServer server(temporary.path());
@@ -257,11 +269,17 @@ TEST(NetworkIntegrationTest, PingAndStatsExposeBoundedObservability) {
 TEST(NetworkIntegrationTest, RejectsSemanticErrorWithoutDroppingConnection) {
     TemporaryDirectory temporary;
     RunningServer server(temporary.path());
-    auto client = TcpClient::connect("127.0.0.1", server.port());
-    EXPECT_EQ(client.request(request(protocol::Opcode::kGet, 1, bytes("key"), bytes("bad"))).status,
-              protocol::Status::kInvalidRequest);
-    EXPECT_EQ(client.request(request(protocol::Opcode::kPut, 2, bytes("key"), bytes("ok"))).status,
-              protocol::Status::kOk);
+    const int fd = connect_raw(server.port());
+    const auto invalid = protocol::encode_frame(
+        request(protocol::Opcode::kGet, 1, bytes("key"), bytes("bad")));
+    send_raw_all(fd, invalid);
+    EXPECT_EQ(receive_frame(fd).status, protocol::Status::kInvalidRequest);
+
+    const auto valid = protocol::encode_frame(
+        request(protocol::Opcode::kPut, 2, bytes("key"), bytes("ok")));
+    send_raw_all(fd, valid);
+    EXPECT_EQ(receive_frame(fd).status, protocol::Status::kOk);
+    ::close(fd);
 }
 
 TEST(NetworkIntegrationTest, PutExTtlAndExpirationWork) {
