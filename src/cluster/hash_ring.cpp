@@ -1,6 +1,7 @@
 #include "forgekv/cluster/hash_ring.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <limits>
 #include <set>
 
@@ -11,12 +12,23 @@ std::span<const std::byte> as_bytes(std::string_view value) {
     return {reinterpret_cast<const std::byte*>(value.data()), value.size()};
 }
 
+bool has_edge_whitespace(std::string_view value) {
+    const auto whitespace = [](char character) {
+        return std::isspace(static_cast<unsigned char>(character)) != 0;
+    };
+    return !value.empty() && (whitespace(value.front()) || whitespace(value.back()));
+}
+
 void validate_node(const Node& node) {
-    if (node.id.empty()) throw std::invalid_argument("node id must not be empty");
+    if (node.id.empty() || has_edge_whitespace(node.id)) {
+        throw std::invalid_argument("node id must be nonempty and trimmed");
+    }
     if (node.id.find('\0') != std::string::npos) {
         throw std::invalid_argument("node id must not contain a null byte");
     }
-    if (node.host.empty()) throw std::invalid_argument("node host must not be empty");
+    if (node.host.empty() || has_edge_whitespace(node.host)) {
+        throw std::invalid_argument("node host must be nonempty and trimmed");
+    }
     if (node.host.find('\0') != std::string::npos) {
         throw std::invalid_argument("node host must not contain a null byte");
     }
