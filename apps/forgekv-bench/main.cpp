@@ -264,10 +264,18 @@ NetworkOptions parse_network_options(int argc, char** argv) {
     if (options.value_size > forgekv::storage::kMaxValueSize) {
         throw std::invalid_argument("value size exceeds protocol limit");
     }
-    if (options.preload &&
-        options.warmup_requests >
+    std::uint64_t setup_requests = 0;
+    if (options.preload) {
+        if (options.warmup_requests >
             std::numeric_limits<std::uint64_t>::max() - options.key_count) {
-        throw std::invalid_argument("preload and warmup exhaust request ids");
+            throw std::invalid_argument("preload and warmup exhaust request ids");
+        }
+        setup_requests = static_cast<std::uint64_t>(options.key_count) +
+                         static_cast<std::uint64_t>(options.warmup_requests);
+    }
+    if (options.requests != 0 &&
+        options.requests > std::numeric_limits<std::uint64_t>::max() - setup_requests) {
+        throw std::invalid_argument("benchmark workload exhausts request ids");
     }
     options.threads = std::min(options.threads, options.connections);
     validate_thread_count(options.threads);
