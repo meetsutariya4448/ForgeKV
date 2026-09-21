@@ -92,6 +92,18 @@ TEST(ConsistentHashRingTest, RejectsMissingReachabilityPredicate) {
                  std::invalid_argument);
 }
 
+TEST(ConsistentHashRingTest, RejectsUnsatisfiedReplicationFactor) {
+    ConsistentHashRing ring(32);
+    ring.set_nodes({{"node-a", "127.0.0.1", 7001},
+                    {"node-b", "127.0.0.1", 7002}});
+
+    EXPECT_THROW(static_cast<void>(ring.placement(key_bytes("important-key"), 3)),
+                 RoutingError);
+    EXPECT_THROW(static_cast<void>(ring.placement(key_bytes("important-key"), 0)),
+                 std::invalid_argument);
+    EXPECT_EQ(ring.placement(key_bytes("important-key"), 2).size(), 2U);
+}
+
 TEST(ConsistentHashRingTest, RejectsUnusableNodeEndpoints) {
     ConsistentHashRing ring(32);
     EXPECT_THROW(ring.set_nodes({{"node-a", "", 7001}}), std::invalid_argument);

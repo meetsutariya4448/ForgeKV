@@ -103,7 +103,10 @@ std::vector<Node> ConsistentHashRing::placement(std::span<const std::byte> key,
                                                 std::size_t replication_factor) const {
     if (replication_factor == 0) throw std::invalid_argument("replication factor must be positive");
     if (nodes_.empty()) throw RoutingError("cannot place replicas without cluster nodes");
-    const std::size_t wanted = std::min(replication_factor, nodes_.size());
+    if (replication_factor > nodes_.size()) {
+        throw RoutingError("replication factor exceeds cluster membership");
+    }
+    const std::size_t wanted = replication_factor;
     std::vector<Node> result;
     result.reserve(wanted);
     std::set<std::size_t> selected;
