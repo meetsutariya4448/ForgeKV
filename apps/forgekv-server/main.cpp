@@ -8,6 +8,7 @@
 #include <exception>
 #include <iostream>
 #include <limits>
+#include <set>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -67,8 +68,12 @@ void print_usage() {
 int main(int argc, char** argv) {
     forgekv::network::ServerConfig config;
     try {
+        std::set<std::string> seen_options;
         for (int index = 1; index < argc; ++index) {
             const std::string argument = argv[index];
+            if (!seen_options.insert(argument).second) {
+                throw std::invalid_argument("duplicate server option: " + argument);
+            }
             if (argument == "--host" && index + 1 < argc) config.bind_address = argv[++index];
             else if (argument == "--port" && index + 1 < argc) config.port = parse_port(argv[++index]);
             else if (argument == "--data" && index + 1 < argc) config.database_directory = argv[++index];
