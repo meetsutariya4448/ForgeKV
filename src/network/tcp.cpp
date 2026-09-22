@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <future>
 #include <limits>
 #include <sstream>
@@ -82,6 +83,13 @@ protocol::Bytes message_bytes(std::string_view message) {
     return protocol::Bytes(begin, begin + message.size());
 }
 
+bool has_edge_whitespace(std::string_view value) {
+    const auto whitespace = [](char character) {
+        return std::isspace(static_cast<unsigned char>(character)) != 0;
+    };
+    return !value.empty() && (whitespace(value.front()) || whitespace(value.back()));
+}
+
 protocol::Frame response_for(const protocol::Frame& request, protocol::Status status,
                              protocol::Bytes value = {}) {
     return protocol::Frame{protocol::FrameKind::kResponse, request.opcode, status,
@@ -89,8 +97,9 @@ protocol::Frame response_for(const protocol::Frame& request, protocol::Status st
 }
 
 ServerConfig validate_server_config(ServerConfig config) {
-    if (config.bind_address.empty() || config.bind_address.find('\0') != std::string::npos) {
-        throw std::invalid_argument("server bind address must be nonempty and unambiguous");
+    if (config.bind_address.empty() || has_edge_whitespace(config.bind_address) ||
+        config.bind_address.find('\0') != std::string::npos) {
+        throw std::invalid_argument("server bind address must be nonempty, trimmed, and unambiguous");
     }
     if (config.io_timeout <= std::chrono::milliseconds::zero()) {
         throw std::invalid_argument("server I/O timeout must be positive");
@@ -363,8 +372,8 @@ protocol::Frame TcpServer::dispatch(const protocol::Frame& request) {
 
 TcpClient TcpClient::connect(const std::string& host, std::uint16_t port,
                              std::chrono::milliseconds timeout) {
-    if (host.empty() || host.find('\0') != std::string::npos) {
-        throw std::invalid_argument("client host must be nonempty and unambiguous");
+    if (host.empty() || has_edge_whitespace(host) || host.find('\0') != std::string::npos) {
+        throw std::invalid_argument("client host must be nonempty, trimmed, and unambiguous");
     }
     if (port == 0) {
         throw std::invalid_argument("client port must be nonzero");
