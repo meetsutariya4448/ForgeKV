@@ -243,6 +243,11 @@ std::vector<ReplicationMessage> ReplicaState::snapshot() const {
             storage::Bytes(key_begin, key_begin + key.size()),
             has_current_value ? stored->second.value : storage::Bytes{}});
     }
+    std::sort(messages.begin(), messages.end(), [](const ReplicationMessage& left,
+                                                   const ReplicationMessage& right) {
+        if (left.primary_id != right.primary_id) return left.primary_id < right.primary_id;
+        return left.key < right.key;
+    });
     return messages;
 }
 

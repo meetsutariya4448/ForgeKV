@@ -143,6 +143,28 @@ TEST(ReplicaStateTest, SnapshotPreservesDeletedStreamWatermarks) {
               std::optional<storage::Bytes>(replica_bytes("restored")));
 }
 
+TEST(ReplicaStateTest, SnapshotOrderIsDeterministic) {
+    ReplicaState state;
+    ASSERT_EQ(state.apply({"primary-b", 1, storage::Operation::kPut, 0,
+                           replica_bytes("key-b"), replica_bytes("value-b")}),
+              ReplicaApplyResult::kApplied);
+    ASSERT_EQ(state.apply({"primary-a", 1, storage::Operation::kPut, 0,
+                           replica_bytes("key-c"), replica_bytes("value-c")}),
+              ReplicaApplyResult::kApplied);
+    ASSERT_EQ(state.apply({"primary-a", 1, storage::Operation::kPut, 0,
+                           replica_bytes("key-a"), replica_bytes("value-a")}),
+              ReplicaApplyResult::kApplied);
+
+    const auto snapshot = state.snapshot();
+    ASSERT_EQ(snapshot.size(), 3U);
+    EXPECT_EQ(snapshot[0].primary_id, "primary-a");
+    EXPECT_EQ(snapshot[0].key, replica_bytes("key-a"));
+    EXPECT_EQ(snapshot[1].primary_id, "primary-a");
+    EXPECT_EQ(snapshot[1].key, replica_bytes("key-c"));
+    EXPECT_EQ(snapshot[2].primary_id, "primary-b");
+    EXPECT_EQ(snapshot[2].key, replica_bytes("key-b"));
+}
+
 TEST(ReplicaStateTest, SnapshotConvertsExpiredValuesToDeletionWatermarks) {
     ReplicaState state;
     const auto key = replica_bytes("expired-key");
