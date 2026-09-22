@@ -191,6 +191,20 @@ TEST(StorageEngineTest, RejectsReservedZeroSegmentPath) {
               std::filesystem::path("database/segment-00000000000000000001.fkv"));
 }
 
+TEST(StorageEngineTest, RejectsSymlinkedStorageSegments) {
+    TemporaryDirectory temporary;
+    ASSERT_TRUE(std::filesystem::create_directories(temporary.path()));
+    const auto target = temporary.path() / "external-data";
+    append_bytes(target, encode_record(Operation::kPut, 1, bytes("key"), bytes("value")));
+    const auto segment =
+        StorageEngine::segment_path_for_id(temporary.path(), kInitialSegmentId);
+    ASSERT_NO_THROW(std::filesystem::create_symlink(target, segment));
+    const auto original_size = std::filesystem::file_size(target);
+
+    EXPECT_THROW(static_cast<void>(StorageEngine::open(temporary.path())), CorruptionError);
+    EXPECT_EQ(std::filesystem::file_size(target), original_size);
+}
+
 TEST(StorageEngineTest, ReportsDirectoryLossInsteadOfAnEmptySegmentSet) {
     TemporaryDirectory temporary;
     StorageOptions options;

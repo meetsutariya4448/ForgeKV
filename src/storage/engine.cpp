@@ -519,11 +519,16 @@ std::vector<std::uint64_t> StorageEngine::discover_segment_ids() const {
     const std::filesystem::directory_iterator end;
     while (iterator != end) {
         const auto& entry = *iterator;
-        if (entry.is_regular_file(error)) {
-            const auto id = parse_segment_id(entry.path().filename().string());
-            if (id) ids.push_back(*id);
+        const auto id = parse_segment_id(entry.path().filename().string());
+        if (id) {
+            const auto status = entry.symlink_status(error);
+            if (error) throw StorageError("failed to inspect storage segment: " + error.message());
+            if (!std::filesystem::is_regular_file(status)) {
+                throw CorruptionError("storage segment path is not a regular file: " +
+                                      entry.path().string());
+            }
+            ids.push_back(*id);
         }
-        if (error) throw StorageError("failed to inspect storage segment: " + error.message());
         iterator.increment(error);
         if (error) throw StorageError("failed to list storage segments: " + error.message());
     }
