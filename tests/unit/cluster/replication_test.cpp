@@ -40,12 +40,14 @@ TEST(ReplicationProtocolTest, RoundTripsAndDetectsCorruption) {
 }
 
 TEST(ReplicationProtocolTest, RejectsAmbiguousPrimaryIdentifiers) {
-    const ReplicationMessage message{std::string("node\0a", 6), 1,
-                                     storage::Operation::kPut, 0,
-                                     replica_bytes("key"), replica_bytes("value")};
-
-    EXPECT_THROW(static_cast<void>(encode_replication_message(message)),
-                 std::invalid_argument);
+    for (const std::string& primary_id : {
+             std::string("node\0a", 6), std::string(" node-a"), std::string("node-a\t"),
+         }) {
+        const ReplicationMessage message{primary_id, 1, storage::Operation::kPut, 0,
+                                         replica_bytes("key"), replica_bytes("value")};
+        EXPECT_THROW(static_cast<void>(encode_replication_message(message)),
+                     std::invalid_argument);
+    }
 }
 
 TEST(ReplicaStateTest, DetectsGapsDuplicatesAndRestoresSnapshot) {

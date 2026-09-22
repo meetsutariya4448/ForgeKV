@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <chrono>
 #include <limits>
 #include <stdexcept>
@@ -71,9 +72,13 @@ void validate_replication_key(std::span<const std::byte> key) {
 }
 
 void validate_primary_id(std::string_view primary_id) {
+    const auto whitespace = [](char character) {
+        return std::isspace(static_cast<unsigned char>(character)) != 0;
+    };
     if (primary_id.empty() || primary_id.size() > kMaxPrimaryId ||
+        whitespace(primary_id.front()) || whitespace(primary_id.back()) ||
         primary_id.find('\0') != std::string_view::npos) {
-        throw std::invalid_argument("replication primary id is outside bounds");
+        throw std::invalid_argument("replication primary id is outside bounds or not trimmed");
     }
 }
 
