@@ -454,47 +454,52 @@ std::vector<protocol::Frame> TcpClient::pipeline(
         protocol::Bytes frame = protocol::encode_frame(request);
         encoded.insert(encoded.end(), frame.begin(), frame.end());
     }
-    send_all(socket_fd_, encoded);
-    protocol::FrameParser parser;
-    std::array<std::byte, 8192> buffer{};
-    std::vector<protocol::Frame> responses;
-    responses.reserve(requests.size());
-    while (responses.size() < requests.size()) {
-        const ssize_t received = ::recv(socket_fd_, buffer.data(), buffer.size(), 0);
-        if (received == 0) throw NetworkError("server disconnected before response");
-        if (received < 0 && errno == EINTR) continue;
-        if (received < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-            throw NetworkError("response read timed out");
-        }
-        if (received < 0) throw_errno("response read");
-        std::vector<protocol::Frame> frames;
-        try {
-            frames = parser.feed(
-                std::span<const std::byte>(buffer).first(static_cast<std::size_t>(received)));
-        } catch (const protocol::ProtocolError& error) {
-            throw NetworkError(std::string("server returned malformed response: ") +
-                               error.what());
-        }
-        for (auto& response : frames) {
-            if (responses.size() >= requests.size()) {
-                throw NetworkError("server returned more responses than requested");
+    try {
+        send_all(socket_fd_, encoded);
+        protocol::FrameParser parser;
+        std::array<std::byte, 8192> buffer{};
+        std::vector<protocol::Frame> responses;
+        responses.reserve(requests.size());
+        while (responses.size() < requests.size()) {
+            const ssize_t received = ::recv(socket_fd_, buffer.data(), buffer.size(), 0);
+            if (received == 0) throw NetworkError("server disconnected before response");
+            if (received < 0 && errno == EINTR) continue;
+            if (received < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                throw NetworkError("response read timed out");
             }
-            const auto& request = requests[responses.size()];
-            if (response.kind != protocol::FrameKind::kResponse ||
-                response.request_id != request.request_id ||
-                response.opcode != request.opcode) {
-                throw NetworkError("response does not match request");
+            if (received < 0) throw_errno("response read");
+            std::vector<protocol::Frame> frames;
+            try {
+                frames = parser.feed(
+                    std::span<const std::byte>(buffer).first(static_cast<std::size_t>(received)));
+            } catch (const protocol::ProtocolError& error) {
+                throw NetworkError(std::string("server returned malformed response: ") +
+                                   error.what());
             }
-            if (!protocol::response_semantics_valid(response)) {
-                throw NetworkError("response has invalid operation semantics");
+            for (auto& response : frames) {
+                if (responses.size() >= requests.size()) {
+                    throw NetworkError("server returned more responses than requested");
+                }
+                const auto& request = requests[responses.size()];
+                if (response.kind != protocol::FrameKind::kResponse ||
+                    response.request_id != request.request_id ||
+                    response.opcode != request.opcode) {
+                    throw NetworkError("response does not match request");
+                }
+                if (!protocol::response_semantics_valid(response)) {
+                    throw NetworkError("response has invalid operation semantics");
+                }
+                responses.push_back(std::move(response));
             }
-            responses.push_back(std::move(response));
+            if (responses.size() == requests.size() && parser.buffered_bytes() != 0) {
+                throw NetworkError("server returned trailing response bytes");
+            }
         }
-        if (responses.size() == requests.size() && parser.buffered_bytes() != 0) {
-            throw NetworkError("server returned trailing response bytes");
-        }
+        return responses;
+    } catch (...) {
+        close_socket(socket_fd_);
+        throw;
     }
-    return responses;
 }
 
 }  // namespace forgekv::network

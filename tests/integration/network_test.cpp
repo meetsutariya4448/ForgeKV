@@ -1,6 +1,7 @@
 #include "forgekv/network/tcp.hpp"
 
 #include <arpa/inet.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -574,6 +575,39 @@ TEST(NetworkFailureTest, InvalidResponseSemanticsAreRejected) {
     EXPECT_THROW(static_cast<void>(client.request(
                      request(protocol::Opcode::kExists, 1, bytes("key")))),
                  NetworkError);
+}
+
+TEST(NetworkFailureTest, ProtocolFailureClosesClientConnection) {
+    const auto [listener, port] = listen_for_failure_test();
+    std::atomic_bool received_after_failure = false;
+    std::jthread peer([listener, &received_after_failure] {
+        int accepted = ::accept(listener, nullptr, nullptr);
+        if (accepted >= 0) {
+            static_cast<void>(receive_frame(accepted));
+            const auto malformed = protocol::encode_frame(protocol::Frame{
+                protocol::FrameKind::kResponse, protocol::Opcode::kExists,
+                protocol::Status::kOk, 1, {}, {std::byte{2}}});
+            send_raw_all(accepted, malformed);
+            pollfd descriptor{accepted, POLLIN, 0};
+            if (::poll(&descriptor, 1, 500) > 0 && (descriptor.revents & POLLIN) != 0) {
+                std::array<std::byte, 256> received{};
+                received_after_failure.store(::recv(accepted, received.data(),
+                                                     received.size(), 0) > 0);
+            }
+            ::close(accepted);
+        }
+        ::close(listener);
+    });
+    auto client = TcpClient::connect("127.0.0.1", port, std::chrono::milliseconds{250});
+
+    EXPECT_THROW(static_cast<void>(client.request(
+                     request(protocol::Opcode::kExists, 1, bytes("key")))),
+                 NetworkError);
+    EXPECT_THROW(static_cast<void>(client.request(
+                     request(protocol::Opcode::kGet, 2, bytes("key")))),
+                 NetworkError);
+    peer.join();
+    EXPECT_FALSE(received_after_failure.load());
 }
 
 TEST(NetworkFailureTest, MalformedResponseFramesAreReportedAsNetworkErrors) {
