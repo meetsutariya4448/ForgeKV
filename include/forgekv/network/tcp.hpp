@@ -75,6 +75,7 @@ private:
     std::atomic_uint64_t put_ex_operations_ = 0;
     std::atomic_uint64_t ttl_operations_ = 0;
     std::atomic_uint64_t request_errors_ = 0;
+    std::atomic_uint64_t rejected_connections_ = 0;
     int listener_fd_ = -1;
     std::uint16_t bound_port_ = 0;
 };

@@ -154,6 +154,7 @@ void TcpServer::serve(std::stop_token stop_token) {
         if (client_fd < 0 && errno == EINTR) continue;
         if (client_fd < 0) throw_errno("accept");
         if (active_connections_.load() >= config_.max_connections) {
+            rejected_connections_.fetch_add(1);
             close_socket(client_fd);
             continue;
         }
@@ -349,6 +350,7 @@ protocol::Frame TcpServer::dispatch(const protocol::Frame& request) {
                       << ",\"putex\":" << put_ex_operations_.load()
                       << ",\"ttl\":" << ttl_operations_.load()
                       << ",\"errors\":" << request_errors_.load()
+                      << ",\"rejected_connections\":" << rejected_connections_.load()
                       << ",\"active_connections\":" << active_connections_.load()
                       << ",\"queue_depth\":" << worker_pool_.queued_tasks()
                       << ",\"bytes_appended\":" << storage_.bytes_appended()

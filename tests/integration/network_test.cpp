@@ -425,6 +425,13 @@ TEST(NetworkIntegrationTest, EnforcesConfiguredConnectionLimit) {
     EXPECT_THROW(static_cast<void>(rejected.request(
                      request(protocol::Opcode::kGet, 1, bytes("key")))), NetworkError);
     ::close(first);
+    ASSERT_TRUE(wait_for_connection_count(server, 0));
+
+    auto observer = TcpClient::connect("127.0.0.1", server.port());
+    const auto stats = observer.request(request(protocol::Opcode::kStats, 2, {}));
+    ASSERT_EQ(stats.status, protocol::Status::kOk);
+    const std::string json(reinterpret_cast<const char*>(stats.value.data()), stats.value.size());
+    EXPECT_NE(json.find("\"rejected_connections\":1"), std::string::npos);
 }
 
 TEST(NetworkIntegrationTest, ReturnsOverloadedWhenRequestQueueSaturates) {
