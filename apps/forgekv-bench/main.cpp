@@ -261,6 +261,12 @@ NetworkOptions parse_network_options(int argc, char** argv) {
     if (options.requests == 0 && options.duration == std::chrono::seconds::zero()) {
         throw std::invalid_argument("requests and duration cannot both be zero");
     }
+    if (!options.preload) {
+        if (seen_options.contains("--warmup-requests") && options.warmup_requests != 0) {
+            throw std::invalid_argument("warmup requests require dataset preload");
+        }
+        options.warmup_requests = 0;
+    }
     if (options.value_size > forgekv::storage::kMaxValueSize) {
         throw std::invalid_argument("value size exceeds protocol limit");
     }

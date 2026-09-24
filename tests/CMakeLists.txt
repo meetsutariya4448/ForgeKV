@@ -130,6 +130,13 @@ add_test(
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_duplicate_options.cmake
 )
 add_test(
+    NAME ForgeKVBenchTest.RejectsWarmupWithoutPreload
+    COMMAND
+        ${CMAKE_COMMAND}
+        "-DBENCHMARK=$<TARGET_FILE:forgekv-bench>"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_warmup.cmake
+)
+add_test(
     NAME ForgeKVServerTest.RejectsDuplicateOptions
     COMMAND
         ${CMAKE_COMMAND}
@@ -145,6 +152,7 @@ set_tests_properties(
     ForgeKVBenchTest.RejectsUnsupportedThreadCounts
     ForgeKVBenchTest.RejectsEmptyOutputPrefix
     ForgeKVBenchTest.RejectsDuplicateOptions
+    ForgeKVBenchTest.RejectsWarmupWithoutPreload
     ForgeKVServerTest.RejectsDuplicateOptions
     PROPERTIES TIMEOUT ${FORGEKV_TEST_TIMEOUT_SECONDS}
 )
