@@ -191,6 +191,18 @@ TEST(StorageEngineTest, RejectsReservedZeroSegmentPath) {
               std::filesystem::path("database/segment-00000000000000000001.fkv"));
 }
 
+TEST(StorageEngineTest, RejectsMalformedSegmentFilenamesInsteadOfIgnoringData) {
+    TemporaryDirectory temporary;
+    ASSERT_TRUE(std::filesystem::create_directories(temporary.path()));
+    const auto malformed = temporary.path() / "segment-00000000000000000000.fkv";
+    append_bytes(malformed, encode_record(Operation::kPut, 1, bytes("key"), bytes("value")));
+
+    EXPECT_THROW(static_cast<void>(StorageEngine::open(temporary.path())), CorruptionError);
+    EXPECT_FALSE(std::filesystem::exists(
+        StorageEngine::segment_path_for_id(temporary.path(), kInitialSegmentId)));
+    EXPECT_GT(std::filesystem::file_size(malformed), 0U);
+}
+
 TEST(StorageEngineTest, RejectsSymlinkedStorageSegments) {
     TemporaryDirectory temporary;
     ASSERT_TRUE(std::filesystem::create_directories(temporary.path()));

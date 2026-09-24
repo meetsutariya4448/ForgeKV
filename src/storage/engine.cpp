@@ -519,7 +519,12 @@ std::vector<std::uint64_t> StorageEngine::discover_segment_ids() const {
     const std::filesystem::directory_iterator end;
     while (iterator != end) {
         const auto& entry = *iterator;
-        const auto id = parse_segment_id(entry.path().filename().string());
+        const std::string filename = entry.path().filename().string();
+        const auto id = parse_segment_id(filename);
+        if (!id && filename.starts_with("segment-") && filename.ends_with(".fkv")) {
+            throw CorruptionError("malformed storage segment filename: " +
+                                  entry.path().string());
+        }
         if (id) {
             const auto status = entry.symlink_status(error);
             if (error) throw StorageError("failed to inspect storage segment: " + error.message());
