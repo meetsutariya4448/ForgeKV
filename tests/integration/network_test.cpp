@@ -368,6 +368,10 @@ TEST(NetworkIntegrationTest, MalformedConnectionClosesAndServerContinues) {
     auto client = TcpClient::connect("127.0.0.1", server.port());
     EXPECT_EQ(client.request(request(protocol::Opcode::kPut, 2, bytes("key"), bytes("value"))).status,
               protocol::Status::kOk);
+    const auto stats = client.request(request(protocol::Opcode::kStats, 3, {}));
+    ASSERT_EQ(stats.status, protocol::Status::kOk);
+    const std::string json(reinterpret_cast<const char*>(stats.value.data()), stats.value.size());
+    EXPECT_NE(json.find("\"errors\":1"), std::string::npos);
 }
 
 TEST(NetworkIntegrationTest, ServesConcurrentClientsWithoutLosingWrites) {

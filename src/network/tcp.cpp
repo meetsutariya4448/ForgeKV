@@ -260,6 +260,7 @@ void TcpServer::handle_connection(int client_fd, std::stop_token stop_token) {
                 send_all(client_fd, protocol::encode_frame(dispatch_via_pool(frame)));
             }
         } catch (const protocol::ProtocolError&) {
+            request_errors_.fetch_add(1);
             return;
         }
     }
