@@ -267,6 +267,10 @@ NetworkOptions parse_network_options(int argc, char** argv) {
         }
         options.warmup_requests = 0;
     }
+    if (options.durability != "unspecified" && options.durability != "always" &&
+        options.durability != "periodic" && options.durability != "none") {
+        throw std::invalid_argument("durability must be always, periodic, or none");
+    }
     if (options.value_size > forgekv::storage::kMaxValueSize) {
         throw std::invalid_argument("value size exceeds protocol limit");
     }

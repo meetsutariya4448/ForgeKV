@@ -137,6 +137,13 @@ add_test(
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_warmup.cmake
 )
 add_test(
+    NAME ForgeKVBenchTest.RejectsUnknownDurabilityLabels
+    COMMAND
+        ${CMAKE_COMMAND}
+        "-DBENCHMARK=$<TARGET_FILE:forgekv-bench>"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_durability.cmake
+)
+add_test(
     NAME ForgeKVServerTest.RejectsDuplicateOptions
     COMMAND
         ${CMAKE_COMMAND}
@@ -153,6 +160,7 @@ set_tests_properties(
     ForgeKVBenchTest.RejectsEmptyOutputPrefix
     ForgeKVBenchTest.RejectsDuplicateOptions
     ForgeKVBenchTest.RejectsWarmupWithoutPreload
+    ForgeKVBenchTest.RejectsUnknownDurabilityLabels
     ForgeKVServerTest.RejectsDuplicateOptions
     PROPERTIES TIMEOUT ${FORGEKV_TEST_TIMEOUT_SECONDS}
 )
