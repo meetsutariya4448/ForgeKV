@@ -112,9 +112,15 @@ std::uint64_t parse_u64(std::string_view text, std::string_view name) {
 
 std::chrono::seconds parse_duration(std::string_view text) {
     const std::uint64_t value = parse_u64(text, "duration");
-    const auto maximum = (std::chrono::seconds::max)().count();
-    if (value > static_cast<std::uint64_t>(maximum)) {
+    const auto seconds_maximum = (std::chrono::seconds::max)().count();
+    if (value > static_cast<std::uint64_t>(seconds_maximum)) {
         throw std::invalid_argument("duration is outside supported range: " +
+                                    std::string(text));
+    }
+    const auto clock_maximum =
+        std::chrono::duration_cast<std::chrono::seconds>(Clock::duration::max()).count();
+    if (clock_maximum < 0 || value > static_cast<std::uint64_t>(clock_maximum)) {
+        throw std::invalid_argument("duration exceeds steady clock range: " +
                                     std::string(text));
     }
     return std::chrono::seconds{static_cast<std::chrono::seconds::rep>(value)};
