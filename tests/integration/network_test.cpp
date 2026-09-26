@@ -268,6 +268,8 @@ TEST(NetworkIntegrationTest, PingAndStatsExposeBoundedObservability) {
     EXPECT_EQ(stats.status, protocol::Status::kOk);
     const std::string json(reinterpret_cast<const char*>(stats.value.data()), stats.value.size());
     EXPECT_NE(json.find("\"put\":1"), std::string::npos);
+    EXPECT_NE(json.find("\"ping\":1"), std::string::npos);
+    EXPECT_NE(json.find("\"stats\":1"), std::string::npos);
     EXPECT_NE(json.find("\"segments\":"), std::string::npos);
     EXPECT_NE(json.find("\"index_entries\":1"), std::string::npos);
 }

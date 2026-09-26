@@ -339,8 +339,10 @@ protocol::Frame TcpServer::dispatch(const protocol::Frame& request) {
                                     protocol::encode_ttl_payload(ttl.remaining_ms));
             }
             case protocol::Opcode::kPing:
+                ping_operations_.fetch_add(1);
                 return response_for(request, protocol::Status::kOk, message_bytes("PONG"));
             case protocol::Opcode::kStats: {
+                stats_operations_.fetch_add(1);
                 const auto compaction = storage_.last_compaction();
                 std::ostringstream stats;
                 stats << "{\"get\":" << get_operations_.load()
@@ -349,6 +351,8 @@ protocol::Frame TcpServer::dispatch(const protocol::Frame& request) {
                       << ",\"exists\":" << exists_operations_.load()
                       << ",\"putex\":" << put_ex_operations_.load()
                       << ",\"ttl\":" << ttl_operations_.load()
+                      << ",\"ping\":" << ping_operations_.load()
+                      << ",\"stats\":" << stats_operations_.load()
                       << ",\"errors\":" << request_errors_.load()
                       << ",\"rejected_connections\":" << rejected_connections_.load()
                       << ",\"active_connections\":" << active_connections_.load()

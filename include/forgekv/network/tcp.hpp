@@ -74,6 +74,8 @@ private:
     std::atomic_uint64_t exists_operations_ = 0;
     std::atomic_uint64_t put_ex_operations_ = 0;
     std::atomic_uint64_t ttl_operations_ = 0;
+    std::atomic_uint64_t ping_operations_ = 0;
+    std::atomic_uint64_t stats_operations_ = 0;
     std::atomic_uint64_t request_errors_ = 0;
     std::atomic_uint64_t rejected_connections_ = 0;
     int listener_fd_ = -1;
