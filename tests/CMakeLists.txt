@@ -95,6 +95,13 @@ add_test(
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_run_id.cmake
 )
 add_test(
+    NAME ForgeKVBenchTest.RejectsInvalidMatrixConfiguration
+    COMMAND
+        ${CMAKE_COMMAND}
+        "-DMATRIX_RUNNER=${CMAKE_SOURCE_DIR}/scripts/run-benchmark-matrix.sh"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_matrix_config.cmake
+)
+add_test(
     NAME ForgeKVBenchTest.RejectsPreloadRequestIdExhaustion
     COMMAND
         ${CMAKE_COMMAND}
@@ -154,6 +161,7 @@ set_tests_properties(
     ForgeKVBenchTest.RejectsDurationOutsideChronoRange
     ForgeKVBenchTest.RejectsMalformedShardLists
     ForgeKVBenchTest.RejectsUnsafeRunIds
+    ForgeKVBenchTest.RejectsInvalidMatrixConfiguration
     ForgeKVBenchTest.RejectsPreloadRequestIdExhaustion
     ForgeKVBenchTest.RejectsOverflowingContentionOperationCount
     ForgeKVBenchTest.RejectsUnsupportedThreadCounts

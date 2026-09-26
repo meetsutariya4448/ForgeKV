@@ -38,6 +38,29 @@ trials=${FORGEKV_BENCH_TRIALS:-$default_trials}
 case "$trials" in
     ''|*[!0-9]*|0) echo "FORGEKV_BENCH_TRIALS must be a positive integer" >&2; exit 2 ;;
 esac
+if ! python3 - "$port" "$base_seed" "$trials" <<'PY'
+import sys
+
+port_text, seed_text, trials_text = sys.argv[1:]
+if not port_text or any(character not in "0123456789" for character in port_text):
+    print("FORGEKV_BENCH_PORT must be an integer from 1 to 65535", file=sys.stderr)
+    raise SystemExit(2)
+port = int(port_text)
+if not 1 <= port <= 65535:
+    print("FORGEKV_BENCH_PORT must be an integer from 1 to 65535", file=sys.stderr)
+    raise SystemExit(2)
+if not seed_text or any(character not in "0123456789" for character in seed_text):
+    print("FORGEKV_BENCH_SEED must be a nonnegative integer", file=sys.stderr)
+    raise SystemExit(2)
+seed = int(seed_text)
+trials = int(trials_text)
+if seed + trials - 1 > 2**63 - 1:
+    print("FORGEKV_BENCH_SEED and trial count exceed shell arithmetic range", file=sys.stderr)
+    raise SystemExit(2)
+PY
+then
+    exit 2
+fi
 
 timestamp=$(date -u +%Y%m%dT%H%M%SZ)
 git_sha=$(git -C "$FORGEKV_BENCH_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)
