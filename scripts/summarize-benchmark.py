@@ -8,6 +8,23 @@ import sys
 from pathlib import Path
 
 
+def validate_result_metadata(result_path: Path, row: dict[str, str], result: dict) -> None:
+    expected = {
+        "run_id": row["run_id"],
+        "experiment": row["experiment"],
+        "variant": row["variant"],
+        "repetition": int(row["trial"]),
+        "seed": int(row["seed"]),
+    }
+    for field, expected_value in expected.items():
+        actual = result.get(field)
+        if actual != expected_value:
+            raise ValueError(
+                f"{result_path.name} {field}={actual!r} does not match "
+                f"manifest value {expected_value!r}"
+            )
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("usage: summarize-benchmark.py RUN_DIRECTORY", file=sys.stderr)
@@ -24,7 +41,14 @@ def main() -> int:
         if row["status"] != "valid":
             continue
         result_path = run_directory / (row["output_prefix"] + ".json")
-        result = json.loads(result_path.read_text(encoding="utf-8"))
+        try:
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+            if not isinstance(result, dict):
+                raise ValueError(f"{result_path.name} must contain a JSON object")
+            validate_result_metadata(result_path, row, result)
+        except (OSError, KeyError, TypeError, ValueError) as error:
+            print(f"invalid benchmark result: {error}", file=sys.stderr)
+            return 1
         grouped.setdefault((row["experiment"], row["variant"]), []).append(result)
 
     output_path = run_directory / "summary.csv"

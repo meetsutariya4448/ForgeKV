@@ -102,6 +102,13 @@ add_test(
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_matrix_config.cmake
 )
 add_test(
+    NAME ForgeKVBenchTest.ValidatesSummaryMetadata
+    COMMAND
+        ${CMAKE_COMMAND}
+        "-DSUMMARY_SCRIPT=${CMAKE_SOURCE_DIR}/scripts/summarize-benchmark.py"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_summary.cmake
+)
+add_test(
     NAME ForgeKVBenchTest.RejectsPreloadRequestIdExhaustion
     COMMAND
         ${CMAKE_COMMAND}
@@ -162,6 +169,7 @@ set_tests_properties(
     ForgeKVBenchTest.RejectsMalformedShardLists
     ForgeKVBenchTest.RejectsUnsafeRunIds
     ForgeKVBenchTest.RejectsInvalidMatrixConfiguration
+    ForgeKVBenchTest.ValidatesSummaryMetadata
     ForgeKVBenchTest.RejectsPreloadRequestIdExhaustion
     ForgeKVBenchTest.RejectsOverflowingContentionOperationCount
     ForgeKVBenchTest.RejectsUnsupportedThreadCounts
