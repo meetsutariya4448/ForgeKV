@@ -170,6 +170,10 @@ TEST(NetworkConfigurationTest, RejectsInvalidClientEndpointsBeforeResolution) {
                  std::invalid_argument);
     EXPECT_THROW(static_cast<void>(TcpClient::connect("127.0.0.1\t", 7391)),
                  std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(TcpClient::connect("local host", 7391)),
+                 std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(TcpClient::connect("local\nhost", 7391)),
+                 std::invalid_argument);
     EXPECT_THROW(static_cast<void>(TcpClient::connect(std::string("localhost\0ignored", 17),
                                                       7391)),
                  std::invalid_argument);
@@ -181,7 +185,8 @@ TEST(NetworkConfigurationTest, RejectsInvalidBindAddressesBeforeOpeningStorage) 
     TemporaryDirectory temporary;
     for (const std::string& bind_address : {
              std::string{}, std::string(" 127.0.0.1"), std::string("127.0.0.1\n"),
-             std::string("127.0.0.1\0ignored", 17),
+             std::string("127.0.0.1\0ignored", 17), std::string("local host"),
+             std::string("local\nhost"),
          }) {
         ServerConfig config;
         config.bind_address = bind_address;

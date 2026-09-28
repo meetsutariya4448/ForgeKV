@@ -83,11 +83,11 @@ protocol::Bytes message_bytes(std::string_view message) {
     return protocol::Bytes(begin, begin + message.size());
 }
 
-bool has_edge_whitespace(std::string_view value) {
-    const auto whitespace = [](char character) {
-        return std::isspace(static_cast<unsigned char>(character)) != 0;
-    };
-    return !value.empty() && (whitespace(value.front()) || whitespace(value.back()));
+bool has_invalid_endpoint_character(std::string_view value) {
+    return std::any_of(value.begin(), value.end(), [](char character) {
+        const auto byte = static_cast<unsigned char>(character);
+        return std::isspace(byte) != 0 || std::iscntrl(byte) != 0;
+    });
 }
 
 protocol::Frame response_for(const protocol::Frame& request, protocol::Status status,
@@ -97,8 +97,7 @@ protocol::Frame response_for(const protocol::Frame& request, protocol::Status st
 }
 
 ServerConfig validate_server_config(ServerConfig config) {
-    if (config.bind_address.empty() || has_edge_whitespace(config.bind_address) ||
-        config.bind_address.find('\0') != std::string::npos) {
+    if (config.bind_address.empty() || has_invalid_endpoint_character(config.bind_address)) {
         throw std::invalid_argument("server bind address must be nonempty, trimmed, and unambiguous");
     }
     if (config.io_timeout <= std::chrono::milliseconds::zero()) {
@@ -379,7 +378,7 @@ protocol::Frame TcpServer::dispatch(const protocol::Frame& request) {
 
 TcpClient TcpClient::connect(const std::string& host, std::uint16_t port,
                              std::chrono::milliseconds timeout) {
-    if (host.empty() || has_edge_whitespace(host) || host.find('\0') != std::string::npos) {
+    if (host.empty() || has_invalid_endpoint_character(host)) {
         throw std::invalid_argument("client host must be nonempty, trimmed, and unambiguous");
     }
     if (port == 0) {
