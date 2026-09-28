@@ -130,6 +130,9 @@ StorageEngine::StorageEngine(std::filesystem::path database_directory, StorageOp
     if (database_directory_.empty()) {
         throw std::invalid_argument("database directory must not be empty");
     }
+    if (database_directory_.native().find('\0') != std::filesystem::path::string_type::npos) {
+        throw std::invalid_argument("database directory must not contain a null byte");
+    }
     if (options_.durability != DurabilityMode::kAlways &&
         options_.durability != DurabilityMode::kPeriodic &&
         options_.durability != DurabilityMode::kNone) {

@@ -184,6 +184,15 @@ TEST(StorageEngineTest, RejectsEmptyDatabasePathBeforeCreatingFiles) {
                  std::invalid_argument);
 }
 
+TEST(StorageEngineTest, RejectsNullByteInDatabasePathBeforeCreatingFiles) {
+    TemporaryDirectory temporary;
+    const std::string prefix = temporary.path().string();
+    const std::filesystem::path ambiguous{prefix + std::string("\0ignored", 8)};
+
+    EXPECT_THROW(static_cast<void>(StorageEngine::open(ambiguous)), std::invalid_argument);
+    EXPECT_FALSE(std::filesystem::exists(temporary.path()));
+}
+
 TEST(StorageEngineTest, RejectsReservedZeroSegmentPath) {
     EXPECT_THROW(static_cast<void>(StorageEngine::segment_path_for_id("database", 0)),
                  std::invalid_argument);
