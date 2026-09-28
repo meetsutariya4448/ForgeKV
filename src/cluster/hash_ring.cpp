@@ -35,6 +35,12 @@ void validate_node(const Node& node) {
     if (node.port == 0) throw std::invalid_argument("node port must be nonzero");
 }
 
+void validate_key(std::span<const std::byte> key) {
+    if (key.empty()) {
+        throw std::invalid_argument("routing key must not be empty");
+    }
+}
+
 }  // namespace
 
 ConsistentHashRing::ConsistentHashRing(std::size_t virtual_nodes)
@@ -95,12 +101,14 @@ bool ConsistentHashRing::remove_node(std::string_view node_id) {
 }
 
 const Node& ConsistentHashRing::primary(std::span<const std::byte> key) const {
+    validate_key(key);
     if (nodes_.empty()) throw RoutingError("cannot route without cluster nodes");
     return nodes_[tokens_[first_token(key)].node_index];
 }
 
 std::vector<Node> ConsistentHashRing::placement(std::span<const std::byte> key,
                                                 std::size_t replication_factor) const {
+    validate_key(key);
     if (replication_factor == 0) throw std::invalid_argument("replication factor must be positive");
     if (nodes_.empty()) throw RoutingError("cannot place replicas without cluster nodes");
     if (replication_factor > nodes_.size()) {

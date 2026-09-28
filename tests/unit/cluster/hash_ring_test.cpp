@@ -92,6 +92,16 @@ TEST(ConsistentHashRingTest, RejectsMissingReachabilityPredicate) {
                  std::invalid_argument);
 }
 
+TEST(ConsistentHashRingTest, RejectsEmptyRoutingKeys) {
+    ConsistentHashRing ring(32);
+    ring.set_nodes(three_nodes());
+
+    EXPECT_THROW(static_cast<void>(ring.primary({})), std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(ring.placement({}, 2)), std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(ring.route({}, [](const Node&) { return true; })),
+                 std::invalid_argument);
+}
+
 TEST(ConsistentHashRingTest, RejectsUnsatisfiedReplicationFactor) {
     ConsistentHashRing ring(32);
     ring.set_nodes({{"node-a", "127.0.0.1", 7001},
