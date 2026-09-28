@@ -19,18 +19,28 @@ bool has_edge_whitespace(std::string_view value) {
     return !value.empty() && (whitespace(value.front()) || whitespace(value.back()));
 }
 
+bool has_control_character(std::string_view value) {
+    return std::any_of(value.begin(), value.end(), [](char character) {
+        return std::iscntrl(static_cast<unsigned char>(character)) != 0;
+    });
+}
+
+bool has_whitespace(std::string_view value) {
+    return std::any_of(value.begin(), value.end(), [](char character) {
+        return std::isspace(static_cast<unsigned char>(character)) != 0;
+    });
+}
+
 void validate_node(const Node& node) {
     if (node.id.empty() || has_edge_whitespace(node.id)) {
         throw std::invalid_argument("node id must be nonempty and trimmed");
     }
-    if (node.id.find('\0') != std::string::npos) {
-        throw std::invalid_argument("node id must not contain a null byte");
+    if (has_control_character(node.id)) {
+        throw std::invalid_argument("node id must not contain control characters");
     }
-    if (node.host.empty() || has_edge_whitespace(node.host)) {
-        throw std::invalid_argument("node host must be nonempty and trimmed");
-    }
-    if (node.host.find('\0') != std::string::npos) {
-        throw std::invalid_argument("node host must not contain a null byte");
+    if (node.host.empty() || has_whitespace(node.host) || has_control_character(node.host)) {
+        throw std::invalid_argument(
+            "node host must be nonempty and contain no whitespace or controls");
     }
     if (node.port == 0) throw std::invalid_argument("node port must be nonzero");
 }
