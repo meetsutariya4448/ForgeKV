@@ -45,6 +45,25 @@ file(WRITE "${run_directory}/result.json"
     "{\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
     "\"repetition\":1,\"seed\":7,\"operations_per_second\":10,"
     "\"latency_us\":{\"p99\":2},\"errors\":0,\"connection_errors\":0}\n")
+file(APPEND "${run_directory}/manifest.csv"
+    "run-1,read-ratio,0.8,1,7,valid,result\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE duplicate_result
+    OUTPUT_VARIABLE duplicate_output
+    ERROR_VARIABLE duplicate_error
+)
+if(duplicate_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted a duplicate valid trial")
+endif()
+if(NOT duplicate_error MATCHES "manifest contains duplicate valid trial")
+    message(FATAL_ERROR
+        "summary reported an unexpected duplicate error: ${duplicate_output}${duplicate_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,read-ratio,0.8,1,7,valid,result\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
     RESULT_VARIABLE valid_result

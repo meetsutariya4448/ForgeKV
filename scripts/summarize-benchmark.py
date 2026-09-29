@@ -57,11 +57,18 @@ def main() -> int:
 
     rows = list(csv.DictReader(manifest_path.open(newline="", encoding="utf-8")))
     grouped: dict[tuple[str, str], list[dict]] = {}
+    seen_trials: set[tuple[str, str, str, str, str]] = set()
     for row in rows:
         if row["status"] != "valid":
             continue
-        result_path = run_directory / (row["output_prefix"] + ".json")
         try:
+            identity = (
+                row["run_id"], row["experiment"], row["variant"], row["trial"], row["seed"]
+            )
+            if identity in seen_trials:
+                raise ValueError(f"manifest contains duplicate valid trial {identity!r}")
+            seen_trials.add(identity)
+            result_path = run_directory / (row["output_prefix"] + ".json")
             result = json.loads(result_path.read_text(encoding="utf-8"))
             if not isinstance(result, dict):
                 raise ValueError(f"{result_path.name} must contain a JSON object")
