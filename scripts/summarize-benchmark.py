@@ -3,6 +3,7 @@
 
 import csv
 import json
+import math
 import statistics
 import sys
 from pathlib import Path
@@ -23,6 +24,25 @@ def validate_result_metadata(result_path: Path, row: dict[str, str], result: dic
                 f"{result_path.name} {field}={actual!r} does not match "
                 f"manifest value {expected_value!r}"
             )
+
+    numeric_fields = {
+        "operations_per_second": result.get("operations_per_second"),
+        "latency_us.p99": result.get("latency_us", {}).get("p99")
+        if isinstance(result.get("latency_us"), dict) else None,
+    }
+    for field, value in numeric_fields.items():
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value < 0
+        ):
+            raise ValueError(f"{result_path.name} {field} must be a finite nonnegative number")
+
+    for field in ("errors", "connection_errors"):
+        value = result.get(field)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"{result_path.name} {field} must be a nonnegative integer")
 
 
 def main() -> int:
