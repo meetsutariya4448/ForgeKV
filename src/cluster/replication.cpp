@@ -196,6 +196,10 @@ ReplicaApplyResult ReplicaState::apply(const ReplicationMessage& message) {
     if (message.sequence <= last) return ReplicaApplyResult::kDuplicate;
     if (message.sequence != last + 1) return ReplicaApplyResult::kGap;
     const std::string key = bytes_string(message.key);
+    const auto existing = values_.find(key);
+    if (existing != values_.end() && existing->second.primary_id != message.primary_id) {
+        throw std::invalid_argument("replica key is already owned by another primary");
+    }
     if (message.operation == storage::Operation::kDelete) {
         values_.erase(key);
     } else {

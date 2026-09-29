@@ -205,6 +205,22 @@ TEST(ReplicaStateTest, DuplicateSnapshotKeysLeaveExistingStateIntact) {
     EXPECT_EQ(state.last_sequence("node-a", key), 1U);
 }
 
+TEST(ReplicaStateTest, ConflictingPrimaryLeavesExistingStateIntact) {
+    ReplicaState state;
+    const auto key = replica_bytes("key");
+    ASSERT_EQ(state.apply({"node-a", 1, storage::Operation::kPut, 0, key,
+                           replica_bytes("original")}),
+              ReplicaApplyResult::kApplied);
+
+    EXPECT_THROW(static_cast<void>(state.apply(
+                     {"node-b", 1, storage::Operation::kPut, 0, key,
+                      replica_bytes("replacement")})),
+                 std::invalid_argument);
+    EXPECT_EQ(state.get(key), std::optional<storage::Bytes>(replica_bytes("original")));
+    EXPECT_EQ(state.last_sequence("node-a", key), 1U);
+    EXPECT_EQ(state.last_sequence("node-b", key), 0U);
+}
+
 TEST(ReplicatedClusterTest, PrimaryAndAllAcknowledgementModesAreExplicit) {
     ReplicatedCluster cluster(replica_nodes(), 3, 64);
     const auto key = replica_bytes("account");
