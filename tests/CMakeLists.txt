@@ -171,6 +171,13 @@ add_test(
         "-DSERVER=$<TARGET_FILE:forgekv-server>"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_server_duplicate_options.cmake
 )
+add_test(
+    NAME ForgeKVScenarioTest.CleansUpFailedLaunch
+    COMMAND
+        ${CMAKE_COMMAND}
+        "-DOVERLOAD_SCRIPT=${CMAKE_SOURCE_DIR}/scripts/run-overload-scenario.py"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_overload_cleanup.cmake
+)
 set_tests_properties(
     ForgeKVBenchTest.RejectsDurationOutsideChronoRange
     ForgeKVBenchTest.RejectsMalformedShardLists
@@ -186,6 +193,7 @@ set_tests_properties(
     ForgeKVBenchTest.RejectsWarmupWithoutPreload
     ForgeKVBenchTest.RejectsUnknownDurabilityLabels
     ForgeKVServerTest.RejectsDuplicateOptions
+    ForgeKVScenarioTest.CleansUpFailedLaunch
     PROPERTIES TIMEOUT ${FORGEKV_TEST_TIMEOUT_SECONDS}
 )
 

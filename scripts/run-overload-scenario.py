@@ -129,18 +129,20 @@ def main() -> int:
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     log_path = args.output.with_suffix(".server.log")
-    data_directory = pathlib.Path(tempfile.mkdtemp(prefix="forgekv-overload-"))
     port = reserve_port(args.host)
-    command = [
-        str(args.server), "--host", args.host, "--port", str(port), "--data", str(data_directory),
-        "--workers", "4", "--queue-capacity", "16", "--max-connections",
-        str(args.max_connections), "--io-timeout-ms", str(args.io_timeout_ms),
-        "--durability", "none", "--no-background-compaction",
-    ]
     server_log = log_path.open("xb")
-    process = subprocess.Popen(command, stdout=server_log, stderr=subprocess.STDOUT)
+    data_directory: pathlib.Path | None = None
+    process: subprocess.Popen[bytes] | None = None
     slow_clients: list[socket.socket] = []
     try:
+        data_directory = pathlib.Path(tempfile.mkdtemp(prefix="forgekv-overload-"))
+        command = [
+            str(args.server), "--host", args.host, "--port", str(port), "--data",
+            str(data_directory), "--workers", "4", "--queue-capacity", "16",
+            "--max-connections", str(args.max_connections), "--io-timeout-ms",
+            str(args.io_timeout_ms), "--durability", "none", "--no-background-compaction",
+        ]
+        process = subprocess.Popen(command, stdout=server_log, stderr=subprocess.STDOUT)
         if not wait_until(lambda: ping(args.host, port, 1, 0.1), 5):
             raise RuntimeError("server did not become ready")
         time.sleep(0.2)
@@ -234,7 +236,7 @@ def main() -> int:
     finally:
         for connection in slow_clients:
             connection.close()
-        if process.poll() is None:
+        if process is not None and process.poll() is None:
             process.send_signal(signal.SIGINT)
             try:
                 process.wait(timeout=5)
@@ -242,7 +244,8 @@ def main() -> int:
                 process.kill()
                 process.wait()
         server_log.close()
-        shutil.rmtree(data_directory, ignore_errors=True)
+        if data_directory is not None:
+            shutil.rmtree(data_directory, ignore_errors=True)
 
 
 if __name__ == "__main__":
