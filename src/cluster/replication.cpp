@@ -75,9 +75,13 @@ void validate_primary_id(std::string_view primary_id) {
     const auto whitespace = [](char character) {
         return std::isspace(static_cast<unsigned char>(character)) != 0;
     };
+    const bool contains_control =
+        std::any_of(primary_id.begin(), primary_id.end(), [](char character) {
+            return std::iscntrl(static_cast<unsigned char>(character)) != 0;
+        });
     if (primary_id.empty() || primary_id.size() > kMaxPrimaryId ||
         whitespace(primary_id.front()) || whitespace(primary_id.back()) ||
-        primary_id.find('\0') != std::string_view::npos) {
+        contains_control) {
         throw std::invalid_argument("replication primary id is outside bounds or not trimmed");
     }
 }

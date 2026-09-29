@@ -42,6 +42,7 @@ TEST(ReplicationProtocolTest, RoundTripsAndDetectsCorruption) {
 TEST(ReplicationProtocolTest, RejectsAmbiguousPrimaryIdentifiers) {
     for (const std::string& primary_id : {
              std::string("node\0a", 6), std::string(" node-a"), std::string("node-a\t"),
+             std::string("node\na"), std::string("node\x1b" "a"),
          }) {
         const ReplicationMessage message{primary_id, 1, storage::Operation::kPut, 0,
                                          replica_bytes("key"), replica_bytes("value")};
