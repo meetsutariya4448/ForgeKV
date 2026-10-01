@@ -216,5 +216,8 @@ for trial in $(awk -v n="$trials" 'BEGIN {for (i=1; i<=n; ++i) print i}'); do
     done
 done
 
-python3 "$FORGEKV_BENCH_ROOT/scripts/summarize-benchmark.py" "$run_dir"
+if ! python3 "$FORGEKV_BENCH_ROOT/scripts/summarize-benchmark.py" "$run_dir"; then
+    echo "benchmark matrix summary failed" >&2
+    exit 1
+fi
 echo "benchmark matrix preserved under $run_dir"

@@ -102,6 +102,23 @@ endif()
 
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,read-ratio,0.8,1,7,invalid,result\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE empty_result
+    OUTPUT_VARIABLE empty_output
+    ERROR_VARIABLE empty_error
+)
+if(empty_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted a manifest without valid trials")
+endif()
+if(NOT empty_error MATCHES "manifest contains no valid trials")
+    message(FATAL_ERROR
+        "summary reported an unexpected empty-run error: ${empty_output}${empty_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,result\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"

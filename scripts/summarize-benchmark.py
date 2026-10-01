@@ -91,6 +91,10 @@ def main() -> int:
             return 1
         grouped.setdefault((row["experiment"], row["variant"]), []).append(result)
 
+    if not grouped:
+        print("benchmark manifest contains no valid trials", file=sys.stderr)
+        return 1
+
     output_path = run_directory / "summary.csv"
     with output_path.open("x", newline="", encoding="utf-8") as output:
         writer = csv.writer(output)
