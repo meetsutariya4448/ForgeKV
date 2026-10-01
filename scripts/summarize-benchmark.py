@@ -4,6 +4,7 @@
 import csv
 import json
 import math
+import re
 import statistics
 import sys
 from pathlib import Path
@@ -75,7 +76,12 @@ def main() -> int:
             if identity in seen_trials:
                 raise ValueError(f"manifest contains duplicate valid trial {identity!r}")
             seen_trials.add(identity)
-            result_path = run_directory / (row["output_prefix"] + ".json")
+            output_prefix = row["output_prefix"]
+            if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", output_prefix):
+                raise ValueError(
+                    f"manifest output prefix {output_prefix!r} is not a safe filename"
+                )
+            result_path = run_directory / (output_prefix + ".json")
             result = json.loads(result_path.read_text(encoding="utf-8"))
             if not isinstance(result, dict):
                 raise ValueError(f"{result_path.name} must contain a JSON object")

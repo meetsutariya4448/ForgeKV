@@ -85,6 +85,23 @@ endif()
 
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,read-ratio,0.8,1,7,valid,../result\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE unsafe_path_result
+    OUTPUT_VARIABLE unsafe_path_output
+    ERROR_VARIABLE unsafe_path_error
+)
+if(unsafe_path_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an unsafe result path")
+endif()
+if(NOT unsafe_path_error MATCHES "output prefix '../result' is not a safe filename")
+    message(FATAL_ERROR
+        "summary reported an unexpected path error: ${unsafe_path_output}${unsafe_path_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,result\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
