@@ -1,5 +1,7 @@
 #include "forgekv/benchmark/output.hpp"
 
+#include <stdexcept>
+
 namespace forgekv::benchmark {
 namespace {
 
@@ -87,6 +89,13 @@ std::string csv_escape(std::string_view value) {
     }
     escaped.push_back('"');
     return escaped;
+}
+
+void require_output_success(std::ostream& output, std::string_view description) {
+    output.flush();
+    if (!output) {
+        throw std::runtime_error("failed to write benchmark " + std::string(description));
+    }
 }
 
 }  // namespace forgekv::benchmark

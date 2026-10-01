@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <sstream>
 #include <string>
 
 namespace forgekv::benchmark {
@@ -34,6 +35,16 @@ TEST(BenchmarkOutputTest, JsonEscapesInvalidUtf8Bytes) {
               "\\u00f4\\u0090\\u0080\\u0080");
     EXPECT_EQ(json_escape(std::string("\xe2\x82", 2)), "\\u00e2\\u0082");
     EXPECT_EQ(json_escape("\xf0\x9f\x94\xa5"), "\xf0\x9f\x94\xa5");
+}
+
+TEST(BenchmarkOutputTest, DetectsOutputStreamFailures) {
+    std::ostringstream valid;
+    valid << "complete";
+    EXPECT_NO_THROW(require_output_success(valid, "test output"));
+
+    std::ostringstream failed;
+    failed.setstate(std::ios::badbit);
+    EXPECT_THROW(require_output_success(failed, "test output"), std::runtime_error);
 }
 
 }  // namespace

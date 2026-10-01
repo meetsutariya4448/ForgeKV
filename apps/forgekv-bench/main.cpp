@@ -44,6 +44,7 @@ namespace {
 using Clock = std::chrono::steady_clock;
 using forgekv::benchmark::csv_escape;
 using forgekv::benchmark::json_escape;
+using forgekv::benchmark::require_output_success;
 
 struct ContentionOptions {
     std::size_t threads = 4;
@@ -541,6 +542,15 @@ void write_outputs(const NetworkOptions& options, const NetworkResult& result) {
         << result.max_us << ',' << result.errors << ',' << result.connection_errors << '\n';
     raw << "latency_us\n";
     for (const double value_us : result.raw_latency_us) raw << value_us << '\n';
+    require_output_success(json, "JSON output");
+    require_output_success(csv, "CSV output");
+    require_output_success(raw, "latency output");
+    json.close();
+    csv.close();
+    raw.close();
+    if (!json || !csv || !raw) {
+        throw std::runtime_error("failed to close benchmark output files");
+    }
 }
 
 }  // namespace
