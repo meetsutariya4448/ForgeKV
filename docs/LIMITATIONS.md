@@ -46,12 +46,13 @@ queue entries, workers and frames are bounded, but maximum-sized frames across t
 connection limit can still consume substantial memory. Excess connections close without a protocol
 response; queue saturation returns `OVERLOADED`. There is no admission fairness, TLS, authentication,
 authorization, rate limiting, tenant isolation, or latency SLA. Pipelined requests execute in order
-on one connection; they are not parallel within that connection. Blocking `connect()` has no strict
-portable deadline. Established sockets use `TCP_NODELAY`, favoring small request/response latency at
-the possible cost of additional packets. CLI arguments are textual even though library and wire
-values are binary. The per-call receive timeout lets shutdown be observed but is not a total idle
-deadline: an incomplete-frame client can retain its bounded connection slot until it disconnects,
-and enough such clients cause new connections to be closed.
+on one connection; they are not parallel within that connection. Client connection attempts use a
+single configured deadline after address resolution. Established sockets use `TCP_NODELAY`,
+favoring small request/response latency at the possible cost of additional packets. CLI arguments
+are textual even though library and wire values are binary. The per-call receive timeout lets
+shutdown be observed but is not a total idle deadline: an incomplete-frame client can retain its
+bounded connection slot until it disconnects, and enough such clients cause new connections to be
+closed.
 
 STATS is a point-in-time JSON snapshot, not a stable schema or metrics endpoint. Counters reset on
 restart and are not persisted.

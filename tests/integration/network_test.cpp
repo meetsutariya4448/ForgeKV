@@ -522,6 +522,15 @@ TEST(NetworkFailureTest, ConnectionRefusalIsReportedPromptly) {
     EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds{2});
 }
 
+TEST(NetworkFailureTest, ConnectAttemptHonorsConfiguredTimeout) {
+    const auto started = std::chrono::steady_clock::now();
+    EXPECT_THROW(static_cast<void>(TcpClient::connect(
+                     "192.0.2.1", 9, std::chrono::milliseconds{25})),
+                 NetworkError);
+    const auto elapsed = std::chrono::steady_clock::now() - started;
+    EXPECT_LT(elapsed, std::chrono::seconds{1});
+}
+
 TEST(NetworkFailureTest, BindFailurePreservesOperatingSystemReason) {
     const auto [listener, port] = listen_for_failure_test();
     TemporaryDirectory temporary;

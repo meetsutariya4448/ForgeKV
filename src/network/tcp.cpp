@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include <cerrno>
 #include <cstring>
+#include <fcntl.h>
 #include <netdb.h>
 #include <netinet/tcp.h>
 #include <poll.h>
@@ -54,6 +55,59 @@ void set_timeouts(int fd, std::chrono::milliseconds timeout) {
         throw_errno("setsockopt SO_NOSIGPIPE");
     }
 #endif
+}
+
+void connect_with_deadline(int fd, const sockaddr* address, socklen_t address_length,
+                           std::chrono::steady_clock::time_point deadline) {
+    const int original_flags = ::fcntl(fd, F_GETFL, 0);
+    if (original_flags < 0) throw_errno("fcntl get socket flags");
+    if (::fcntl(fd, F_SETFL, original_flags | O_NONBLOCK) != 0) {
+        throw_errno("fcntl set nonblocking");
+    }
+
+    int connect_error = 0;
+    if (::connect(fd, address, address_length) != 0) {
+        if (errno != EINPROGRESS && errno != EWOULDBLOCK) {
+            connect_error = errno;
+        } else {
+            while (connect_error == 0) {
+                const auto now = std::chrono::steady_clock::now();
+                if (now >= deadline) {
+                    connect_error = ETIMEDOUT;
+                    break;
+                }
+                const auto remaining =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
+                const auto poll_timeout = static_cast<int>(std::min<std::int64_t>(
+                    std::max<std::int64_t>(remaining.count(), 1),
+                    std::numeric_limits<int>::max()));
+                pollfd descriptor{fd, POLLOUT, 0};
+                const int result = ::poll(&descriptor, 1, poll_timeout);
+                if (result < 0 && errno == EINTR) continue;
+                if (result < 0) {
+                    connect_error = errno;
+                    break;
+                }
+                if (result == 0) {
+                    connect_error = ETIMEDOUT;
+                    break;
+                }
+                socklen_t error_length = sizeof(connect_error);
+                if (::getsockopt(fd, SOL_SOCKET, SO_ERROR, &connect_error, &error_length) != 0) {
+                    connect_error = errno;
+                }
+                break;
+            }
+        }
+    }
+
+    if (::fcntl(fd, F_SETFL, original_flags) != 0 && connect_error == 0) {
+        throw_errno("fcntl restore socket flags");
+    }
+    if (connect_error != 0) {
+        errno = connect_error;
+        throw_errno("connect");
+    }
 }
 
 void send_all(int fd, std::span<const std::byte> bytes) {
@@ -396,6 +450,12 @@ TcpClient TcpClient::connect(const std::string& host, std::uint16_t port,
     if (status != 0) throw NetworkError(std::string("getaddrinfo: ") + gai_strerror(status));
     int connected = -1;
     int last_error = 0;
+    const auto connect_started = std::chrono::steady_clock::now();
+    const auto maximum_timeout = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::time_point::max() - connect_started);
+    const auto deadline = timeout > maximum_timeout
+                              ? std::chrono::steady_clock::time_point::max()
+                              : connect_started + timeout;
     for (addrinfo* address = addresses; address != nullptr; address = address->ai_next) {
         int fd = ::socket(address->ai_family, address->ai_socktype, address->ai_protocol);
         if (fd < 0) {
@@ -403,18 +463,15 @@ TcpClient TcpClient::connect(const std::string& host, std::uint16_t port,
             continue;
         }
         try {
+            connect_with_deadline(fd, address->ai_addr, address->ai_addrlen, deadline);
             set_timeouts(fd, timeout);
-        } catch (...) {
-            close_socket(fd);
-            ::freeaddrinfo(addresses);
-            throw;
-        }
-        if (::connect(fd, address->ai_addr, address->ai_addrlen) == 0) {
             connected = fd;
             break;
+        } catch (const NetworkError&) {
+            last_error = errno;
+            close_socket(fd);
+            if (std::chrono::steady_clock::now() >= deadline) break;
         }
-        last_error = errno;
-        close_socket(fd);
     }
     ::freeaddrinfo(addresses);
     if (connected < 0) {
