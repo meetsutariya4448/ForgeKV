@@ -63,6 +63,28 @@ endif()
 
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,read-ratio,0.8,1,7,valid,result\n"
+    "run-2,read-ratio,0.8,2,8,valid,result-2\n")
+file(WRITE "${run_directory}/result-2.json"
+    "{\"run_id\":\"run-2\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
+    "\"repetition\":2,\"seed\":8,\"operations_per_second\":11,"
+    "\"latency_us\":{\"p99\":3},\"errors\":0,\"connection_errors\":0}\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE mixed_run_result
+    OUTPUT_VARIABLE mixed_run_output
+    ERROR_VARIABLE mixed_run_error
+)
+if(mixed_run_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted trials from different runs")
+endif()
+if(NOT mixed_run_error MATCHES "manifest mixes run ids 'run-1' and 'run-2'")
+    message(FATAL_ERROR
+        "summary reported an unexpected mixed-run error: ${mixed_run_output}${mixed_run_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,result\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
