@@ -11,15 +11,25 @@ from pathlib import Path
 
 
 def validate_result_metadata(result_path: Path, row: dict[str, str], result: dict) -> None:
+    repetition = int(row["trial"])
+    seed = int(row["seed"])
+    if repetition <= 0:
+        raise ValueError(f"{result_path.name} manifest trial must be a positive integer")
+    if seed < 0:
+        raise ValueError(f"{result_path.name} manifest seed must be a nonnegative integer")
     expected = {
         "run_id": row["run_id"],
         "experiment": row["experiment"],
         "variant": row["variant"],
-        "repetition": int(row["trial"]),
-        "seed": int(row["seed"]),
+        "repetition": repetition,
+        "seed": seed,
     }
     for field, expected_value in expected.items():
         actual = result.get(field)
+        if field in {"repetition", "seed"} and (
+            isinstance(actual, bool) or not isinstance(actual, int)
+        ):
+            raise ValueError(f"{result_path.name} {field} must be an integer")
         if actual != expected_value:
             raise ValueError(
                 f"{result_path.name} {field}={actual!r} does not match "

@@ -25,6 +25,50 @@ endif()
 
 file(WRITE "${run_directory}/result.json"
     "{\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
+    "\"repetition\":true,\"seed\":7,\"operations_per_second\":10,"
+    "\"latency_us\":{\"p99\":2},\"errors\":0,\"connection_errors\":0}\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE boolean_metadata_result
+    OUTPUT_VARIABLE boolean_metadata_output
+    ERROR_VARIABLE boolean_metadata_error
+)
+if(boolean_metadata_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted boolean trial metadata")
+endif()
+if(NOT boolean_metadata_error MATCHES "repetition must be an integer")
+    message(FATAL_ERROR
+        "summary reported an unexpected metadata type error: "
+        "${boolean_metadata_output}${boolean_metadata_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,read-ratio,0.8,0,7,valid,result\n")
+file(WRITE "${run_directory}/result.json"
+    "{\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
+    "\"repetition\":0,\"seed\":7,\"operations_per_second\":10,"
+    "\"latency_us\":{\"p99\":2},\"errors\":0,\"connection_errors\":0}\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE zero_trial_result
+    OUTPUT_VARIABLE zero_trial_output
+    ERROR_VARIABLE zero_trial_error
+)
+if(zero_trial_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted trial zero")
+endif()
+if(NOT zero_trial_error MATCHES "manifest trial must be a positive integer")
+    message(FATAL_ERROR
+        "summary reported an unexpected trial bounds error: ${zero_trial_output}${zero_trial_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,read-ratio,0.8,1,7,valid,result\n")
+
+file(WRITE "${run_directory}/result.json"
+    "{\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
     "\"repetition\":1,\"seed\":7,\"operations_per_second\":-1,"
     "\"latency_us\":{\"p99\":2},\"errors\":0,\"connection_errors\":0}\n")
 execute_process(
