@@ -64,6 +64,29 @@ endif()
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,result\n"
+    "run-1,read-ratio,0.8,1,8,valid,result-2\n")
+file(WRITE "${run_directory}/result-2.json"
+    "{\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
+    "\"repetition\":1,\"seed\":8,\"operations_per_second\":11,"
+    "\"latency_us\":{\"p99\":3},\"errors\":0,\"connection_errors\":0}\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE duplicate_trial_result
+    OUTPUT_VARIABLE duplicate_trial_output
+    ERROR_VARIABLE duplicate_trial_error
+)
+if(duplicate_trial_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted one trial with conflicting seeds")
+endif()
+if(NOT duplicate_trial_error MATCHES "manifest contains duplicate valid trial")
+    message(FATAL_ERROR
+        "summary reported an unexpected conflicting-seed error: "
+        "${duplicate_trial_output}${duplicate_trial_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,read-ratio,0.8,1,7,valid,result\n"
     "run-2,read-ratio,0.8,2,8,valid,result-2\n")
 file(WRITE "${run_directory}/result-2.json"
     "{\"run_id\":\"run-2\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","

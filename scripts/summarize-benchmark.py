@@ -58,7 +58,7 @@ def main() -> int:
 
     rows = list(csv.DictReader(manifest_path.open(newline="", encoding="utf-8")))
     grouped: dict[tuple[str, str], list[dict]] = {}
-    seen_trials: set[tuple[str, str, str, str, str]] = set()
+    seen_trials: set[tuple[str, str, str, str]] = set()
     run_id: str | None = None
     for row in rows:
         if row["status"] != "valid":
@@ -71,7 +71,7 @@ def main() -> int:
                     f"manifest mixes run ids {run_id!r} and {row['run_id']!r}"
                 )
             identity = (
-                row["run_id"], row["experiment"], row["variant"], row["trial"], row["seed"]
+                row["run_id"], row["experiment"], row["variant"], row["trial"]
             )
             if identity in seen_trials:
                 raise ValueError(f"manifest contains duplicate valid trial {identity!r}")
