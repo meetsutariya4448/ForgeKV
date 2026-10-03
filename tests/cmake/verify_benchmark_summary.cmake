@@ -69,6 +69,26 @@ file(WRITE "${run_directory}/manifest.csv"
 
 file(WRITE "${run_directory}/result.json"
     "{\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
+    "\"repetition\":1,\"seed\":7,\"operations_per_second\":10,"
+    "\"operations_per_second\":11,\"latency_us\":{\"p99\":2},"
+    "\"errors\":0,\"connection_errors\":0}\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE duplicate_json_result
+    OUTPUT_VARIABLE duplicate_json_output
+    ERROR_VARIABLE duplicate_json_error
+)
+if(duplicate_json_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted duplicate JSON fields")
+endif()
+if(NOT duplicate_json_error MATCHES "duplicate JSON field 'operations_per_second'")
+    message(FATAL_ERROR
+        "summary reported an unexpected duplicate JSON error: "
+        "${duplicate_json_output}${duplicate_json_error}")
+endif()
+
+file(WRITE "${run_directory}/result.json"
+    "{\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
     "\"repetition\":1,\"seed\":7,\"operations_per_second\":-1,"
     "\"latency_us\":{\"p99\":2},\"errors\":0,\"connection_errors\":0}\n")
 execute_process(

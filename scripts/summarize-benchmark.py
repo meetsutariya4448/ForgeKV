@@ -10,6 +10,15 @@ import sys
 from pathlib import Path
 
 
+def unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON field {key!r}")
+        result[key] = value
+    return result
+
+
 def validate_result_metadata(result_path: Path, row: dict[str, str], result: dict) -> None:
     repetition = int(row["trial"])
     seed = int(row["seed"])
@@ -92,7 +101,10 @@ def main() -> int:
                     f"manifest output prefix {output_prefix!r} is not a safe filename"
                 )
             result_path = run_directory / (output_prefix + ".json")
-            result = json.loads(result_path.read_text(encoding="utf-8"))
+            result = json.loads(
+                result_path.read_text(encoding="utf-8"),
+                object_pairs_hook=unique_json_object,
+            )
             if not isinstance(result, dict):
                 raise ValueError(f"{result_path.name} must contain a JSON object")
             validate_result_metadata(result_path, row, result)
