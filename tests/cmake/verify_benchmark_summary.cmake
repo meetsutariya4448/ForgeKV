@@ -189,6 +189,24 @@ endif()
 
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,read-ratio,0.8,1,7,valid,result\n"
+    "run-1,read-ratio,1.0,2,8,vaild,result-2\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE unknown_status_result
+    OUTPUT_VARIABLE unknown_status_output
+    ERROR_VARIABLE unknown_status_error
+)
+if(unknown_status_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary silently omitted an unknown manifest status")
+endif()
+if(NOT unknown_status_error MATCHES "manifest contains unknown status 'vaild'")
+    message(FATAL_ERROR
+        "summary reported an unexpected status error: ${unknown_status_output}${unknown_status_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,invalid,result\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"

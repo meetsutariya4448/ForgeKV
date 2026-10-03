@@ -80,9 +80,12 @@ def main() -> int:
     seen_trials: set[tuple[str, str, str, str]] = set()
     run_id: str | None = None
     for row in rows:
-        if row["status"] != "valid":
-            continue
         try:
+            status = row["status"]
+            if status not in {"valid", "invalid"}:
+                raise ValueError(f"manifest contains unknown status {status!r}")
+            if status == "invalid":
+                continue
             if run_id is None:
                 run_id = row["run_id"]
             elif row["run_id"] != run_id:
