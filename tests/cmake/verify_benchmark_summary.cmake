@@ -2,6 +2,24 @@ set(run_directory "${CMAKE_CURRENT_BINARY_DIR}/benchmark-summary-validation")
 file(REMOVE_RECURSE "${run_directory}")
 file(MAKE_DIRECTORY "${run_directory}")
 file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,status,output_prefix\n"
+    "run-1,read-ratio,0.8,1,valid,result\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE malformed_manifest_result
+    OUTPUT_VARIABLE malformed_manifest_output
+    ERROR_VARIABLE malformed_manifest_error
+)
+if(malformed_manifest_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted a manifest without its seed column")
+endif()
+if(NOT malformed_manifest_error MATCHES "manifest is missing required columns: seed")
+    message(FATAL_ERROR
+        "summary reported an unexpected manifest schema error: "
+        "${malformed_manifest_output}${malformed_manifest_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,result\n")
 file(WRITE "${run_directory}/result.json"

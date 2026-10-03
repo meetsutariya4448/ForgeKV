@@ -10,6 +10,11 @@ import sys
 from pathlib import Path
 
 
+REQUIRED_MANIFEST_FIELDS = {
+    "run_id", "experiment", "variant", "trial", "seed", "status", "output_prefix",
+}
+
+
 def unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
     result: dict[str, object] = {}
     for key, value in pairs:
@@ -75,7 +80,24 @@ def main() -> int:
         print(f"missing manifest: {manifest_path}", file=sys.stderr)
         return 1
 
-    rows = list(csv.DictReader(manifest_path.open(newline="", encoding="utf-8")))
+    try:
+        with manifest_path.open(newline="", encoding="utf-8") as manifest:
+            reader = csv.DictReader(manifest)
+            fields = reader.fieldnames or []
+            if len(fields) != len(set(fields)):
+                raise ValueError("manifest contains duplicate column names")
+            missing_fields = sorted(REQUIRED_MANIFEST_FIELDS - set(fields))
+            if missing_fields:
+                raise ValueError(
+                    f"manifest is missing required columns: {', '.join(missing_fields)}"
+                )
+            rows = list(reader)
+        if any(None in row for row in rows):
+            raise ValueError("manifest row contains more fields than its header")
+    except (csv.Error, OSError, ValueError) as error:
+        print(f"invalid benchmark manifest: {error}", file=sys.stderr)
+        return 1
+
     grouped: dict[tuple[str, str], list[dict]] = {}
     seen_trials: set[tuple[str, str, str, str]] = set()
     run_id: str | None = None
