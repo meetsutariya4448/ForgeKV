@@ -106,6 +106,15 @@ fi
 stop_server() {
     if [ -n "$server_pid" ]; then
         kill -INT "$server_pid" 2>/dev/null || true
+        stop_attempt=0
+        while kill -0 "$server_pid" 2>/dev/null && [ "$stop_attempt" -lt 100 ]; do
+            stop_attempt=$((stop_attempt + 1))
+            sleep 0.05
+        done
+        if kill -0 "$server_pid" 2>/dev/null; then
+            echo "server $server_pid did not stop after SIGINT; forcing termination" >&2
+            kill -KILL "$server_pid" 2>/dev/null || true
+        fi
         wait "$server_pid" 2>/dev/null || true
         server_pid=""
     fi
