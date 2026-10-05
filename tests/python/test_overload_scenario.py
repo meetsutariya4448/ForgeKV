@@ -6,10 +6,12 @@ from __future__ import annotations
 import importlib.util
 import pathlib
 import struct
+import sys
 import unittest
 
 
 SCRIPT = pathlib.Path(__file__).resolve().parents[2] / "scripts" / "run-overload-scenario.py"
+sys.dont_write_bytecode = True
 SPEC = importlib.util.spec_from_file_location("overload_scenario", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 SCENARIO = importlib.util.module_from_spec(SPEC)
