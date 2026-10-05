@@ -50,6 +50,22 @@ esac
 mkdir -p "$output_dir"
 data_dir=$(mktemp -d "${TMPDIR:-/tmp}/forgekv-profile.XXXXXX")
 server_pid=""
+profiler_pid=""
+tracer_pid=""
+stop_auxiliary() {
+    auxiliary_pid=$1
+    if [ -z "$auxiliary_pid" ]; then return; fi
+    kill -TERM "$auxiliary_pid" 2>/dev/null || true
+    auxiliary_attempt=0
+    while kill -0 "$auxiliary_pid" 2>/dev/null && [ "$auxiliary_attempt" -lt 100 ]; do
+        auxiliary_attempt=$((auxiliary_attempt + 1))
+        sleep 0.05
+    done
+    if kill -0 "$auxiliary_pid" 2>/dev/null; then
+        kill -KILL "$auxiliary_pid" 2>/dev/null || true
+    fi
+    wait "$auxiliary_pid" 2>/dev/null || true
+}
 stop_server() {
     if [ -n "$server_pid" ]; then
         kill -INT "$server_pid" 2>/dev/null || true
@@ -66,6 +82,8 @@ stop_server() {
     fi
 }
 cleanup() {
+    stop_auxiliary "$profiler_pid"
+    stop_auxiliary "$tracer_pid"
     stop_server
     rm -rf "$data_dir"
 }
@@ -158,6 +176,7 @@ if [ -n "$perf_binary" ]; then
     else
         perf_status=failed
     fi
+    profiler_pid=""
 else
     run_workload unprofiled "$output_dir/workload" >"$output_dir/workload-table.txt"
 fi
@@ -169,6 +188,7 @@ if command -v strace >/dev/null 2>&1 && command -v timeout >/dev/null 2>&1; then
     tracer_pid=$!
     run_workload strace "$output_dir/strace-workload" >"$output_dir/strace-workload-table.txt"
     wait "$tracer_pid" 2>/dev/null || true
+    tracer_pid=""
     if [ -s "$output_dir/strace-summary.txt" ]; then strace_status=recorded; else strace_status=failed; fi
 fi
 
