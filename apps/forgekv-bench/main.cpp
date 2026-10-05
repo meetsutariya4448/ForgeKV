@@ -1,4 +1,5 @@
 #include "forgekv/benchmark/output.hpp"
+#include "forgekv/build_metadata.hpp"
 #include "forgekv/index/sharded_index.hpp"
 #include "forgekv/network/tcp.hpp"
 #include "forgekv/storage/location.hpp"
@@ -26,14 +27,8 @@
 #include <thread>
 #include <vector>
 
-#ifndef FORGEKV_GIT_SHA
-#define FORGEKV_GIT_SHA "unknown"
-#endif
 #ifndef FORGEKV_COMPILER_DESCRIPTION
 #define FORGEKV_COMPILER_DESCRIPTION "unknown"
-#endif
-#ifndef FORGEKV_GIT_DIRTY
-#define FORGEKV_GIT_DIRTY 1
 #endif
 #ifndef FORGEKV_BUILD_DESCRIPTION
 #define FORGEKV_BUILD_DESCRIPTION "unknown"

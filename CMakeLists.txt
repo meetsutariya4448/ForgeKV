@@ -56,28 +56,21 @@ forgekv_add_app(forgekv-server apps/forgekv-server/main.cpp)
 forgekv_add_app(forgekv-cli apps/forgekv-cli/main.cpp)
 forgekv_add_app(forgekv-bench apps/forgekv-bench/main.cpp)
 
-execute_process(
-    COMMAND git rev-parse HEAD
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    OUTPUT_VARIABLE FORGEKV_GIT_SHA
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    ERROR_QUIET
+set(FORGEKV_BUILD_METADATA_HEADER
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/forgekv/build_metadata.hpp)
+add_custom_target(
+    forgekv_build_metadata ALL
+    COMMAND
+        ${CMAKE_COMMAND}
+        "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+        "-DOUTPUT_FILE=${FORGEKV_BUILD_METADATA_HEADER}"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateBuildMetadata.cmake
+    BYPRODUCTS ${FORGEKV_BUILD_METADATA_HEADER}
+    COMMENT "Refreshing ForgeKV build metadata"
+    VERBATIM
 )
-if(NOT FORGEKV_GIT_SHA)
-    set(FORGEKV_GIT_SHA unknown)
-endif()
-execute_process(
-    COMMAND git status --porcelain
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    OUTPUT_VARIABLE FORGEKV_GIT_STATUS
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    ERROR_QUIET
-)
-if(FORGEKV_GIT_STATUS)
-    set(FORGEKV_GIT_DIRTY 1)
-else()
-    set(FORGEKV_GIT_DIRTY 0)
-endif()
+add_dependencies(forgekv-bench forgekv_build_metadata)
+target_include_directories(forgekv-bench PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
 if(CMAKE_BUILD_TYPE)
     set(FORGEKV_BUILD_DESCRIPTION_VALUE ${CMAKE_BUILD_TYPE})
 else()
@@ -86,8 +79,6 @@ endif()
 target_compile_definitions(
     forgekv-bench
     PRIVATE
-        FORGEKV_GIT_SHA="${FORGEKV_GIT_SHA}"
-        FORGEKV_GIT_DIRTY=${FORGEKV_GIT_DIRTY}
         FORGEKV_COMPILER_DESCRIPTION="${CMAKE_CXX_COMPILER_ID}-${CMAKE_CXX_COMPILER_VERSION}"
         FORGEKV_BUILD_DESCRIPTION="${FORGEKV_BUILD_DESCRIPTION_VALUE}"
 )
