@@ -50,19 +50,37 @@ def recv_exact(connection: socket.socket, size: int) -> bytes:
     return bytes(chunks)
 
 
+def valid_ping_header(header: bytes, request_id: int) -> bool:
+    if len(header) != HEADER_SIZE or header[:4] != b"FKVP":
+        return False
+    version, header_size, kind, opcode, status, flags, reserved, request = (
+        struct.unpack_from(">HHBBHHHQ", header, 4)
+    )
+    key_size, value_size, header_checksum, _ = struct.unpack_from(">IIII", header, 24)
+    return (
+        (version, header_size, kind, opcode, status, flags, reserved, request) ==
+        (1, HEADER_SIZE, 2, 7, 0, 0, 0, request_id)
+        and key_size == 0
+        and value_size == 4
+        and header_checksum == crc32c(header[:32])
+    )
+
+
+def valid_ping_payload(header: bytes, value: bytes) -> bool:
+    payload_checksum = struct.unpack_from(">I", header, 36)[0]
+    return value == b"PONG" and payload_checksum == crc32c(value)
+
+
 def ping(host: str, port: int, request_id: int, timeout: float) -> bool:
     try:
         with socket.create_connection((host, port), timeout=timeout) as connection:
             connection.settimeout(timeout)
             connection.sendall(ping_frame(request_id))
             header = recv_exact(connection, HEADER_SIZE)
-            if len(header) != HEADER_SIZE or header[:4] != b"FKVP":
+            if not valid_ping_header(header, request_id):
                 return False
-            kind, opcode, status = header[8], header[9], struct.unpack_from(">H", header, 10)[0]
-            request = struct.unpack_from(">Q", header, 16)[0]
-            value_size = struct.unpack_from(">I", header, 28)[0]
-            value = recv_exact(connection, value_size)
-            return (kind, opcode, status, request, value) == (2, 7, 0, request_id, b"PONG")
+            value = recv_exact(connection, 4)
+            return valid_ping_payload(header, value)
     except (ConnectionError, OSError, socket.timeout):
         return False
 

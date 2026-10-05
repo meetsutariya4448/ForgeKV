@@ -185,6 +185,10 @@ add_test(
         "-DOVERLOAD_SCRIPT=${CMAKE_SOURCE_DIR}/scripts/run-overload-scenario.py"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_overload_cleanup.cmake
 )
+add_test(
+    NAME ForgeKVScenarioTest.ValidatesPingResponses
+    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/python/test_overload_scenario.py
+)
 set_tests_properties(
     ForgeKVBenchTest.RejectsDurationOutsideChronoRange
     ForgeKVBenchTest.RejectsMalformedShardLists
@@ -202,6 +206,7 @@ set_tests_properties(
     ForgeKVBenchTest.RejectsUnknownDurabilityLabels
     ForgeKVServerTest.RejectsDuplicateOptions
     ForgeKVScenarioTest.CleansUpFailedLaunch
+    ForgeKVScenarioTest.ValidatesPingResponses
     PROPERTIES TIMEOUT ${FORGEKV_TEST_TIMEOUT_SECONDS}
 )
 
