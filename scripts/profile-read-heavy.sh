@@ -2,10 +2,6 @@
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-if [ "$(uname -s)" != "Linux" ]; then
-    echo "read-heavy profiling requires Linux" >&2
-    exit 1
-fi
 build_dir=${FORGEKV_PROFILE_BUILD_DIR:-$root/build-release}
 port=${FORGEKV_PROFILE_PORT:-17431}
 duration=${FORGEKV_PROFILE_DURATION:-15}
@@ -16,9 +12,26 @@ git_sha=$(git -C "$root" rev-parse HEAD 2>/dev/null || echo unknown)
 run_id=${FORGEKV_PROFILE_RUN_ID:-profile-read-heavy-${timestamp}-${git_sha}}
 output_dir=${FORGEKV_PROFILE_OUTPUT_DIR:-$root/bench/raw/$run_id}
 
+case "$run_id" in
+    ''|.|..|*[!A-Za-z0-9._-]*)
+        echo "FORGEKV_PROFILE_RUN_ID must be a safe filename component" >&2
+        exit 2
+        ;;
+esac
 case "$duration:$connections:$workers" in
     *[!0-9:]*|0:*|*:0:*|*:0) echo "duration, connections, and workers must be positive integers" >&2; exit 2 ;;
 esac
+case "$port" in
+    ''|*[!0-9]*|??????*) echo "FORGEKV_PROFILE_PORT must be an integer from 1 to 65535" >&2; exit 2 ;;
+esac
+if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+    echo "FORGEKV_PROFILE_PORT must be an integer from 1 to 65535" >&2
+    exit 2
+fi
+if [ "$(uname -s)" != "Linux" ]; then
+    echo "read-heavy profiling requires Linux" >&2
+    exit 1
+fi
 if [ -e "$output_dir" ]; then
     echo "refusing to overwrite profiling output: $output_dir" >&2
     exit 1

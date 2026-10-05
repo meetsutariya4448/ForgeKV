@@ -102,6 +102,13 @@ add_test(
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_matrix_config.cmake
 )
 add_test(
+    NAME ForgeKVBenchTest.RejectsInvalidProfileConfiguration
+    COMMAND
+        ${CMAKE_COMMAND}
+        "-DPROFILE_RUNNER=${CMAKE_SOURCE_DIR}/scripts/profile-read-heavy.sh"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_profile_config.cmake
+)
+add_test(
     NAME ForgeKVBenchTest.ValidatesSummaryMetadata
     COMMAND
         ${CMAKE_COMMAND}
@@ -183,6 +190,7 @@ set_tests_properties(
     ForgeKVBenchTest.RejectsMalformedShardLists
     ForgeKVBenchTest.RejectsUnsafeRunIds
     ForgeKVBenchTest.RejectsInvalidMatrixConfiguration
+    ForgeKVBenchTest.RejectsInvalidProfileConfiguration
     ForgeKVBenchTest.ValidatesSummaryMetadata
     ForgeKVBenchTest.RejectsPreloadRequestIdExhaustion
     ForgeKVBenchTest.RejectsOverflowingContentionOperationCount
