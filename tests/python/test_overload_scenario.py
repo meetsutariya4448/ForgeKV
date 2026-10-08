@@ -7,6 +7,7 @@ import importlib.util
 import pathlib
 import struct
 import sys
+import tempfile
 import unittest
 
 
@@ -54,6 +55,19 @@ class PingValidationTest(unittest.TestCase):
         corrupted = bytearray(header)
         corrupted[39] ^= 0x01
         self.assertFalse(SCENARIO.valid_ping_payload(bytes(corrupted), value))
+
+
+class OutputSafetyTest(unittest.TestCase):
+    def test_result_writer_never_replaces_existing_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = pathlib.Path(directory) / "result.json"
+            SCENARIO.write_json_exclusive(output, {"passed": True})
+            original = output.read_text(encoding="utf-8")
+
+            with self.assertRaises(FileExistsError):
+                SCENARIO.write_json_exclusive(output, {"passed": False})
+
+            self.assertEqual(output.read_text(encoding="utf-8"), original)
 
 
 if __name__ == "__main__":

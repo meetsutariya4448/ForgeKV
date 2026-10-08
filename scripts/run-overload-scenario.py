@@ -123,6 +123,13 @@ def git_metadata(root: pathlib.Path) -> tuple[str, bool]:
         return "unknown", True
 
 
+def write_json_exclusive(path: pathlib.Path, value: object) -> None:
+    """Create an evidence file without replacing an existing result."""
+    with path.open("x", encoding="utf-8") as output:
+        json.dump(value, output, indent=2)
+        output.write("\n")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--server", required=True, type=pathlib.Path)
@@ -248,7 +255,7 @@ def main() -> int:
             "checks": checks,
             "passed": all(checks.values()),
         }
-        args.output.write_text(json.dumps(result, indent=2) + "\n")
+        write_json_exclusive(args.output, result)
         print(json.dumps(result, indent=2))
         return 0 if result["passed"] else 1
     finally:
