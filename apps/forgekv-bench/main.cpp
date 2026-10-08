@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <ctime>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -291,6 +292,15 @@ NetworkOptions parse_network_options(int argc, char** argv) {
     }
     options.threads = std::min(options.threads, options.connections);
     validate_thread_count(options.threads);
+    if (!options.output_prefix.empty()) {
+        for (const std::string& suffix : {".json", ".csv", "-latency-us.csv"}) {
+            const std::filesystem::path output = options.output_prefix + suffix;
+            if (std::filesystem::exists(output)) {
+                throw std::invalid_argument(
+                    "refusing to overwrite benchmark output: " + output.string());
+            }
+        }
+    }
     return options;
 }
 
