@@ -153,6 +153,19 @@ TEST(ConsistentHashRingTest, RejectsDuplicatePhysicalEndpoints) {
     EXPECT_EQ(ring.node_count(), 3U);
 }
 
+TEST(ConsistentHashRingTest, TreatsHostCaseAsOnePhysicalEndpoint) {
+    ConsistentHashRing ring(32);
+    EXPECT_THROW(ring.set_nodes({{"node-a", "CACHE.EXAMPLE", 7001},
+                                 {"node-b", "cache.example", 7001}}),
+                 std::invalid_argument);
+    EXPECT_EQ(ring.node_count(), 0U);
+
+    ring.set_nodes({{"node-a", "CACHE.EXAMPLE", 7001}});
+    EXPECT_THROW(ring.add_node({"node-b", "cache.example", 7001}),
+                 std::invalid_argument);
+    EXPECT_EQ(ring.node_count(), 1U);
+}
+
 TEST(ConsistentHashRingTest, FailedTokenBuildLeavesMembershipUnchanged) {
     ConsistentHashRing ring(std::numeric_limits<std::size_t>::max());
 

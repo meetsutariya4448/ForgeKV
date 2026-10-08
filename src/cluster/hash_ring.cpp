@@ -31,6 +31,14 @@ bool has_whitespace(std::string_view value) {
     });
 }
 
+std::string canonical_host(std::string_view host) {
+    std::string result(host);
+    std::transform(result.begin(), result.end(), result.begin(), [](char character) {
+        return static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+    });
+    return result;
+}
+
 void validate_node(const Node& node) {
     if (node.id.empty() || has_edge_whitespace(node.id)) {
         throw std::invalid_argument("node id must be nonempty and trimmed");
@@ -68,7 +76,7 @@ void ConsistentHashRing::set_nodes(std::vector<Node> nodes) {
         if (index != 0 && nodes[index - 1].id == nodes[index].id) {
             throw std::invalid_argument("node ids must be unique");
         }
-        if (!endpoints.emplace(nodes[index].host, nodes[index].port).second) {
+        if (!endpoints.emplace(canonical_host(nodes[index].host), nodes[index].port).second) {
             throw std::invalid_argument("node endpoints must be unique");
         }
     }
@@ -85,7 +93,8 @@ void ConsistentHashRing::add_node(Node node) {
         throw std::invalid_argument("node id already exists");
     }
     if (std::any_of(nodes_.begin(), nodes_.end(), [&](const Node& existing) {
-            return existing.host == node.host && existing.port == node.port;
+            return canonical_host(existing.host) == canonical_host(node.host) &&
+                   existing.port == node.port;
         })) {
         throw std::invalid_argument("node endpoint already exists");
     }
