@@ -129,8 +129,10 @@ are submitted without blocking to a bounded worker queue; a full or stopping que
 `OVERLOADED` and the connection remains usable. These two saturation behaviors are intentionally
 different and deterministic.
 
-Client response-read timeouts are enforced. The current blocking `connect()` path does not provide a
-strict cross-platform connection-attempt deadline; that remains a documented limitation.
+After address resolution, the client uses nonblocking `connect()` and one steady-clock deadline
+across every returned address, then restores blocking mode and applies per-call read/write
+timeouts. Name resolution itself is still outside that deadline, and established-socket timeouts
+are not a total request deadline when a peer keeps making partial progress.
 `scripts/run-overload-scenario.py` fills the connection limit with incomplete-frame clients, checks
 that excess requests are rejected, samples Linux `/proc` resource counts, closes the slow clients,
 and verifies recovery.
