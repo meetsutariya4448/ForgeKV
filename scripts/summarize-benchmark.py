@@ -108,6 +108,11 @@ def main() -> int:
                 raise ValueError(f"manifest contains unknown status {status!r}")
             if status == "invalid":
                 continue
+            for field in ("run_id", "experiment", "variant"):
+                if not row[field].strip():
+                    raise ValueError(
+                        f"manifest valid trial has a blank {field}"
+                    )
             if run_id is None:
                 run_id = row["run_id"]
             elif row["run_id"] != run_id:

@@ -225,6 +225,24 @@ endif()
 
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,   ,0.8,1,7,valid,result\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE blank_identity_result
+    OUTPUT_VARIABLE blank_identity_output
+    ERROR_VARIABLE blank_identity_error
+)
+if(blank_identity_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted a blank trial identity")
+endif()
+if(NOT blank_identity_error MATCHES "manifest valid trial has a blank experiment")
+    message(FATAL_ERROR
+        "summary reported an unexpected blank identity error: "
+        "${blank_identity_output}${blank_identity_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,invalid,result\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
