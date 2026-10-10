@@ -28,6 +28,10 @@ if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
     echo "FORGEKV_PROFILE_PORT must be an integer from 1 to 65535" >&2
     exit 2
 fi
+if [ -n "${FORGEKV_PERF:-}" ] && [ ! -x "$FORGEKV_PERF" ]; then
+    echo "FORGEKV_PERF must name an executable profiler" >&2
+    exit 2
+fi
 if [ "$(uname -s)" != "Linux" ]; then
     echo "read-heavy profiling requires Linux" >&2
     exit 1
@@ -133,7 +137,7 @@ run_workload() {
 }
 
 find_perf() {
-    if [ -n "${FORGEKV_PERF:-}" ] && [ -x "$FORGEKV_PERF" ]; then
+    if [ -n "${FORGEKV_PERF:-}" ]; then
         echo "$FORGEKV_PERF"
         return
     fi

@@ -31,3 +31,20 @@ if(NOT port_error MATCHES "FORGEKV_PROFILE_PORT must be an integer from 1 to 655
     message(FATAL_ERROR
         "profile runner reported an unexpected port error: ${port_output}${port_error}")
 endif()
+
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        "FORGEKV_PERF=/definitely/missing/forgekv-perf"
+        /bin/sh "${PROFILE_RUNNER}"
+    RESULT_VARIABLE perf_result
+    OUTPUT_VARIABLE perf_output
+    ERROR_VARIABLE perf_error
+)
+if(perf_result EQUAL 0)
+    message(FATAL_ERROR "profile runner accepted a missing configured profiler")
+endif()
+if(NOT perf_error MATCHES "FORGEKV_PERF must name an executable profiler")
+    message(FATAL_ERROR
+        "profile runner reported an unexpected profiler error: ${perf_output}${perf_error}")
+endif()
