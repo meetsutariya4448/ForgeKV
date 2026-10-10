@@ -19,6 +19,7 @@ import time
 
 POLY = 0x82F63B78
 HEADER_SIZE = 40
+MAX_REQUEST_ID = (1 << 64) - 1
 
 
 def crc32c(data: bytes) -> int:
@@ -31,6 +32,8 @@ def crc32c(data: bytes) -> int:
 
 
 def ping_frame(request_id: int) -> bytes:
+    if not 1 <= request_id <= MAX_REQUEST_ID:
+        raise ValueError("request id must be a nonzero uint64")
     header = bytearray(HEADER_SIZE)
     header[0:4] = b"FKVP"
     struct.pack_into(">HHBBHHHQII", header, 4, 1, HEADER_SIZE, 1, 7, 0, 0, 0,
@@ -147,6 +150,8 @@ def main() -> int:
         raise SystemExit("overload scenario requires Linux /proc")
     if args.max_connections <= 0 or args.excess_connections <= 0 or args.io_timeout_ms <= 0:
         raise SystemExit("connection counts and timeout must be positive")
+    if args.excess_connections > MAX_REQUEST_ID - 99:
+        raise SystemExit("excess connection count exhausts request ids")
     if args.output.exists():
         raise SystemExit(f"refusing to overwrite {args.output}")
     if not args.server.is_file() or not os.access(args.server, os.X_OK):
