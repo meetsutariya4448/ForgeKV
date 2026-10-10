@@ -39,13 +39,17 @@ std::string canonical_host(std::string_view host) {
     return result;
 }
 
-void validate_node(const Node& node) {
-    if (node.id.empty() || has_edge_whitespace(node.id)) {
+void validate_node_id(std::string_view node_id) {
+    if (node_id.empty() || has_edge_whitespace(node_id)) {
         throw std::invalid_argument("node id must be nonempty and trimmed");
     }
-    if (has_control_character(node.id)) {
+    if (has_control_character(node_id)) {
         throw std::invalid_argument("node id must not contain control characters");
     }
+}
+
+void validate_node(const Node& node) {
+    validate_node_id(node.id);
     if (node.host.empty() || has_whitespace(node.host) || has_control_character(node.host)) {
         throw std::invalid_argument(
             "node host must be nonempty and contain no whitespace or controls");
@@ -109,6 +113,7 @@ void ConsistentHashRing::add_node(Node node) {
 }
 
 bool ConsistentHashRing::remove_node(std::string_view node_id) {
+    validate_node_id(node_id);
     auto nodes = nodes_;
     const auto old_size = nodes.size();
     std::erase_if(nodes, [&](const Node& node) { return node.id == node_id; });

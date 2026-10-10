@@ -140,6 +140,17 @@ TEST(ConsistentHashRingTest, RejectsUnusableNodeEndpoints) {
     EXPECT_EQ(ring.node_count(), 3U);
 }
 
+TEST(ConsistentHashRingTest, RejectsUnusableRemovalIdentifiers) {
+    ConsistentHashRing ring(32);
+    ring.set_nodes(three_nodes());
+
+    EXPECT_THROW(static_cast<void>(ring.remove_node("")), std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(ring.remove_node(" node-a")), std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(ring.remove_node("node-a\n")), std::invalid_argument);
+    EXPECT_EQ(ring.node_count(), 3U);
+    EXPECT_FALSE(ring.remove_node("node-missing"));
+}
+
 TEST(ConsistentHashRingTest, RejectsDuplicatePhysicalEndpoints) {
     ConsistentHashRing ring(32);
     EXPECT_THROW(ring.set_nodes({{"node-a", "127.0.0.1", 7001},
