@@ -83,11 +83,15 @@ if [ "$build_type" != "Release" ]; then
     exit 1
 fi
 run_dir="$FORGEKV_BENCH_ROOT/bench/raw/$run_id"
-if [ -e "$run_dir" ]; then
+run_parent=$(dirname -- "$run_dir")
+if ! mkdir -p "$run_parent"; then
+    echo "unable to create benchmark output root: $run_parent" >&2
+    exit 1
+fi
+if ! mkdir "$run_dir" 2>/dev/null; then
     echo "refusing to overwrite existing benchmark run: $run_dir" >&2
     exit 1
 fi
-mkdir -p "$run_dir"
 manifest="$run_dir/manifest.csv"
 printf '%s\n' "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file" > "$manifest"
 temporary_root=$(mktemp -d "${TMPDIR:-/tmp}/forgekv-matrix.XXXXXX")
