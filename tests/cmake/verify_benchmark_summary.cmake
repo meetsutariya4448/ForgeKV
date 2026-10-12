@@ -270,3 +270,26 @@ execute_process(
 if(NOT valid_result EQUAL 0 OR NOT EXISTS "${run_directory}/summary.csv")
     message(FATAL_ERROR "valid benchmark summary failed: ${valid_output}${valid_error}")
 endif()
+
+file(WRITE "${run_directory}/summary.csv" "existing-summary\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE existing_result
+    OUTPUT_VARIABLE existing_output
+    ERROR_VARIABLE existing_error
+)
+if(existing_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary replaced existing evidence")
+endif()
+if(NOT existing_error MATCHES "failed to publish benchmark summary")
+    message(FATAL_ERROR
+        "summary reported an unexpected publication error: ${existing_output}${existing_error}")
+endif()
+file(READ "${run_directory}/summary.csv" preserved_summary)
+if(NOT preserved_summary STREQUAL "existing-summary\n")
+    message(FATAL_ERROR "benchmark summary changed existing evidence")
+endif()
+file(GLOB temporary_summaries "${run_directory}/.summary.*.tmp")
+if(temporary_summaries)
+    message(FATAL_ERROR "benchmark summary leaked temporary output: ${temporary_summaries}")
+endif()

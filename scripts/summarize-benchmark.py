@@ -4,9 +4,11 @@
 import csv
 import json
 import math
+import os
 import re
 import statistics
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -68,6 +70,37 @@ def validate_result_metadata(result_path: Path, row: dict[str, str], result: dic
         value = result.get(field)
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             raise ValueError(f"{result_path.name} {field} must be a nonnegative integer")
+
+
+def publish_summary(output_path: Path, grouped: dict[tuple[str, str], list[dict]]) -> None:
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", newline="", encoding="utf-8", dir=output_path.parent,
+            prefix=".summary.", suffix=".tmp", delete=False,
+        ) as output:
+            temporary_path = Path(output.name)
+            writer = csv.writer(output)
+            writer.writerow([
+                "run_id", "experiment", "variant", "valid_trials", "ops_per_second_min",
+                "ops_per_second_median", "ops_per_second_max", "p99_us_median", "p99_us_max",
+                "total_errors", "total_connection_errors",
+            ])
+            for (experiment, variant), results in sorted(grouped.items()):
+                rates = [float(item["operations_per_second"]) for item in results]
+                p99s = [float(item["latency_us"]["p99"]) for item in results]
+                writer.writerow([
+                    results[0]["run_id"], experiment, variant, len(results), min(rates),
+                    statistics.median(rates), max(rates), statistics.median(p99s), max(p99s),
+                    sum(int(item["errors"]) for item in results),
+                    sum(int(item["connection_errors"]) for item in results),
+                ])
+            output.flush()
+            os.fsync(output.fileno())
+        os.link(temporary_path, output_path)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
 
 def main() -> int:
@@ -148,22 +181,11 @@ def main() -> int:
         return 1
 
     output_path = run_directory / "summary.csv"
-    with output_path.open("x", newline="", encoding="utf-8") as output:
-        writer = csv.writer(output)
-        writer.writerow([
-            "run_id", "experiment", "variant", "valid_trials", "ops_per_second_min",
-            "ops_per_second_median", "ops_per_second_max", "p99_us_median", "p99_us_max",
-            "total_errors", "total_connection_errors",
-        ])
-        for (experiment, variant), results in sorted(grouped.items()):
-            rates = [float(item["operations_per_second"]) for item in results]
-            p99s = [float(item["latency_us"]["p99"]) for item in results]
-            writer.writerow([
-                results[0]["run_id"], experiment, variant, len(results), min(rates),
-                statistics.median(rates), max(rates), statistics.median(p99s), max(p99s),
-                sum(int(item["errors"]) for item in results),
-                sum(int(item["connection_errors"]) for item in results),
-            ])
+    try:
+        publish_summary(output_path, grouped)
+    except OSError as error:
+        print(f"failed to publish benchmark summary: {error}", file=sys.stderr)
+        return 1
     print(output_path)
     return 0
 
