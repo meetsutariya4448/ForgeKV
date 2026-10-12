@@ -190,6 +190,23 @@ TEST(ReplicaStateTest, SnapshotConvertsExpiredValuesToDeletionWatermarks) {
     EXPECT_FALSE(restarted.get(key).has_value());
 }
 
+TEST(ReplicaStateTest, ExpiredValueDoesNotBlockNewPrimaryOwnership) {
+    ReplicaState state;
+    const auto key = replica_bytes("reassigned-key");
+    ASSERT_EQ(state.apply({"node-a", 1, storage::Operation::kPut, 1, key,
+                           replica_bytes("expired")}),
+              ReplicaApplyResult::kApplied);
+    ASSERT_FALSE(state.get(key).has_value());
+
+    EXPECT_EQ(state.apply({"node-b", 1, storage::Operation::kPut, 0, key,
+                           replica_bytes("current")}),
+              ReplicaApplyResult::kApplied);
+    EXPECT_EQ(state.get(key),
+              std::optional<storage::Bytes>(replica_bytes("current")));
+    EXPECT_EQ(state.last_sequence("node-a", key), 1U);
+    EXPECT_EQ(state.last_sequence("node-b", key), 1U);
+}
+
 TEST(ReplicaStateTest, DuplicateSnapshotKeysLeaveExistingStateIntact) {
     ReplicaState state;
     const auto key = replica_bytes("key");

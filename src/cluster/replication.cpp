@@ -200,7 +200,12 @@ ReplicaApplyResult ReplicaState::apply(const ReplicationMessage& message) {
     if (message.sequence <= last) return ReplicaApplyResult::kDuplicate;
     if (message.sequence != last + 1) return ReplicaApplyResult::kGap;
     const std::string key = bytes_string(message.key);
-    const auto existing = values_.find(key);
+    auto existing = values_.find(key);
+    if (existing != values_.end() && existing->second.expires_at_unix_ms != 0 &&
+        existing->second.expires_at_unix_ms <= now_unix_ms()) {
+        values_.erase(existing);
+        existing = values_.end();
+    }
     if (existing != values_.end() && existing->second.primary_id != message.primary_id) {
         throw std::invalid_argument("replica key is already owned by another primary");
     }
