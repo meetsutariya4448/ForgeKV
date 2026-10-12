@@ -164,6 +164,29 @@ TEST(NetworkConfigurationTest, RejectsInvalidCapacityBeforeOpeningStorage) {
     }
 }
 
+TEST(NetworkConfigurationTest, RejectsInvalidStorageOptionsBeforeOpeningStorage) {
+    TemporaryDirectory temporary;
+    for (void (*configure_invalid)(ServerConfig&) : {
+             +[](ServerConfig& config) { config.index_shards = 0; },
+             +[](ServerConfig& config) {
+                 config.durability = static_cast<storage::DurabilityMode>(255);
+             },
+             +[](ServerConfig& config) {
+                 config.durability = storage::DurabilityMode::kPeriodic;
+                 config.sync_interval = std::chrono::milliseconds::zero();
+             },
+             +[](ServerConfig& config) { config.segment_max_bytes = 0; },
+             +[](ServerConfig& config) { config.compaction_min_segments = 1; },
+         }) {
+        ServerConfig config;
+        config.database_directory = temporary.path();
+        configure_invalid(config);
+
+        EXPECT_THROW(static_cast<void>(TcpServer(config)), std::invalid_argument);
+        EXPECT_FALSE(std::filesystem::exists(temporary.path()));
+    }
+}
+
 TEST(NetworkConfigurationTest, RejectsInvalidClientEndpointsBeforeResolution) {
     EXPECT_THROW(static_cast<void>(TcpClient::connect("", 7391)), std::invalid_argument);
     EXPECT_THROW(static_cast<void>(TcpClient::connect(" 127.0.0.1", 7391)),

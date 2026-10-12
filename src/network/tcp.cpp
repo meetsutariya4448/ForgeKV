@@ -166,6 +166,24 @@ ServerConfig validate_server_config(ServerConfig config) {
     if (config.max_connections == 0) {
         throw std::invalid_argument("max connections must be positive");
     }
+    if (config.index_shards == 0) {
+        throw std::invalid_argument("index shard count must be positive");
+    }
+    if (config.durability != storage::DurabilityMode::kAlways &&
+        config.durability != storage::DurabilityMode::kPeriodic &&
+        config.durability != storage::DurabilityMode::kNone) {
+        throw std::invalid_argument("durability mode is unsupported");
+    }
+    if (config.durability == storage::DurabilityMode::kPeriodic &&
+        config.sync_interval <= std::chrono::milliseconds::zero()) {
+        throw std::invalid_argument("periodic sync interval must be positive");
+    }
+    if (config.segment_max_bytes == 0) {
+        throw std::invalid_argument("segment size must be positive");
+    }
+    if (config.compaction_min_segments < 2) {
+        throw std::invalid_argument("compaction threshold must be at least two segments");
+    }
     return config;
 }
 
