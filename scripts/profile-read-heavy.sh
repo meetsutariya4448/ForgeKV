@@ -32,10 +32,6 @@ if [ "$(uname -s)" != "Linux" ]; then
     echo "read-heavy profiling requires Linux" >&2
     exit 1
 fi
-if [ -e "$output_dir" ]; then
-    echo "refusing to overwrite profiling output: $output_dir" >&2
-    exit 1
-fi
 if [ ! -x "$build_dir/forgekv-server" ] || [ ! -x "$build_dir/forgekv-bench" ] ||
    [ ! -x "$build_dir/forgekv-cli" ]; then
     echo "profiling binaries are missing under $build_dir" >&2
@@ -47,7 +43,10 @@ case "$build_type" in
     *) echo "profiling requires Release or RelWithDebInfo; found ${build_type:-unknown}" >&2; exit 1 ;;
 esac
 
-mkdir -p "$output_dir"
+if ! mkdir "$output_dir" 2>/dev/null; then
+    echo "refusing to overwrite profiling output: $output_dir" >&2
+    exit 1
+fi
 data_dir=$(mktemp -d "${TMPDIR:-/tmp}/forgekv-profile.XXXXXX")
 server_pid=""
 profiler_pid=""
