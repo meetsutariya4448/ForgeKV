@@ -43,6 +43,11 @@ case "$build_type" in
     *) echo "profiling requires Release or RelWithDebInfo; found ${build_type:-unknown}" >&2; exit 1 ;;
 esac
 
+output_parent=$(dirname -- "$output_dir")
+if ! mkdir -p "$output_parent"; then
+    echo "failed to create profiling output parent: $output_parent" >&2
+    exit 1
+fi
 if ! mkdir "$output_dir" 2>/dev/null; then
     echo "refusing to overwrite profiling output: $output_dir" >&2
     exit 1

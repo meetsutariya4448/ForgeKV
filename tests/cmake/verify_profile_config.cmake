@@ -64,3 +64,24 @@ if(NOT output_error MATCHES "refusing to overwrite profiling output")
     message(FATAL_ERROR
         "profile runner reported an unexpected output error: ${output_output}${output_error}")
 endif()
+
+set(nested_output "${profile_test_root}/nested/evidence/run")
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        "PATH=${fake_bin}:$ENV{PATH}"
+        "TMPDIR=${profile_test_root}"
+        "FORGEKV_PROFILE_BUILD_DIR=${fake_build}"
+        "FORGEKV_PROFILE_OUTPUT_DIR=${nested_output}"
+        /bin/sh "${PROFILE_RUNNER}"
+    RESULT_VARIABLE nested_result
+    OUTPUT_VARIABLE nested_output_text
+    ERROR_VARIABLE nested_error
+)
+if(NOT nested_result EQUAL 0)
+    message(FATAL_ERROR
+        "profile runner rejected a nested output path: ${nested_output_text}${nested_error}")
+endif()
+if(NOT EXISTS "${nested_output}/metadata.txt")
+    message(FATAL_ERROR "profile runner did not preserve evidence under the nested output path")
+endif()
