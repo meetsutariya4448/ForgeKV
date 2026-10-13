@@ -69,6 +69,17 @@ class OutputSafetyTest(unittest.TestCase):
 
             self.assertEqual(output.read_text(encoding="utf-8"), original)
 
+    def test_serialization_failure_leaves_no_partial_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            output = root / "result.json"
+
+            with self.assertRaises(TypeError):
+                SCENARIO.write_json_exclusive(output, {"unsupported": {1, 2}})
+
+            self.assertFalse(output.exists())
+            self.assertEqual(list(root.glob(".result.json.*.tmp")), [])
+
 
 if __name__ == "__main__":
     unittest.main()

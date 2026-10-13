@@ -124,10 +124,22 @@ def git_metadata(root: pathlib.Path) -> tuple[str, bool]:
 
 
 def write_json_exclusive(path: pathlib.Path, value: object) -> None:
-    """Create an evidence file without replacing an existing result."""
-    with path.open("x", encoding="utf-8") as output:
-        json.dump(value, output, indent=2)
-        output.write("\n")
+    """Atomically publish evidence without replacing an existing result."""
+    temporary_path: pathlib.Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=f".{path.name}.", suffix=".tmp", delete=False,
+        ) as output:
+            temporary_path = pathlib.Path(output.name)
+            json.dump(value, output, indent=2)
+            output.write("\n")
+            output.flush()
+            os.fsync(output.fileno())
+        os.link(temporary_path, path)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
 
 def parse_args() -> argparse.Namespace:
