@@ -105,9 +105,19 @@ def wait_until(predicate, timeout: float) -> bool:
 
 
 def reserve_port(host: str) -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-        probe.bind((host, 0))
-        return int(probe.getsockname()[1])
+    last_error: OSError | None = None
+    for family, socktype, protocol, _, address in socket.getaddrinfo(
+        host, 0, type=socket.SOCK_STREAM
+    ):
+        try:
+            with socket.socket(family, socktype, protocol) as probe:
+                probe.bind(address)
+                return int(probe.getsockname()[1])
+        except OSError as error:
+            last_error = error
+    if last_error is not None:
+        raise last_error
+    raise OSError(f"host resolution returned no bindable addresses: {host}")
 
 
 def git_metadata(root: pathlib.Path) -> tuple[str, bool]:

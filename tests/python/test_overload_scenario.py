@@ -81,5 +81,20 @@ class OutputSafetyTest(unittest.TestCase):
             self.assertEqual(list(root.glob(".result.json.*.tmp")), [])
 
 
+class PortReservationTest(unittest.TestCase):
+    def test_reserves_ipv4_loopback_port(self) -> None:
+        port = SCENARIO.reserve_port("127.0.0.1")
+        self.assertGreater(port, 0)
+        self.assertLessEqual(port, 65535)
+
+    def test_reserves_ipv6_loopback_port_when_available(self) -> None:
+        try:
+            port = SCENARIO.reserve_port("::1")
+        except OSError as error:
+            self.skipTest(f"IPv6 loopback is unavailable: {error}")
+        self.assertGreater(port, 0)
+        self.assertLessEqual(port, 65535)
+
+
 if __name__ == "__main__":
     unittest.main()
