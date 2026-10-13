@@ -139,19 +139,21 @@ def main() -> int:
             status = row["status"]
             if status not in {"valid", "invalid"}:
                 raise ValueError(f"manifest contains unknown status {status!r}")
-            if status == "invalid":
-                continue
-            for field in ("run_id", "experiment", "variant"):
-                if not row[field].strip():
-                    raise ValueError(
-                        f"manifest valid trial has a blank {field}"
-                    )
+            if not row["run_id"].strip():
+                raise ValueError("manifest trial has a blank run_id")
             if run_id is None:
                 run_id = row["run_id"]
             elif row["run_id"] != run_id:
                 raise ValueError(
                     f"manifest mixes run ids {run_id!r} and {row['run_id']!r}"
                 )
+            if status == "invalid":
+                continue
+            for field in ("experiment", "variant"):
+                if not row[field].strip():
+                    raise ValueError(
+                        f"manifest valid trial has a blank {field}"
+                    )
             identity = (
                 row["run_id"], row["experiment"], row["variant"], row["trial"]
             )

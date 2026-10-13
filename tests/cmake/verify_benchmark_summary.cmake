@@ -190,6 +190,25 @@ endif()
 
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,read-ratio,0.8,1,7,valid,result\n"
+    "run-2,read-ratio,1.0,2,8,invalid,result-2\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE mixed_invalid_run_result
+    OUTPUT_VARIABLE mixed_invalid_run_output
+    ERROR_VARIABLE mixed_invalid_run_error
+)
+if(mixed_invalid_run_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary ignored a foreign run id on an invalid trial")
+endif()
+if(NOT mixed_invalid_run_error MATCHES "manifest mixes run ids 'run-1' and 'run-2'")
+    message(FATAL_ERROR
+        "summary reported an unexpected invalid-trial run error: "
+        "${mixed_invalid_run_output}${mixed_invalid_run_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,../result\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
