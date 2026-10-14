@@ -31,6 +31,12 @@ def ping_response(request_id: int) -> tuple[bytes, bytes]:
 
 
 class PingValidationTest(unittest.TestCase):
+    def test_rejects_request_ids_outside_protocol_range(self) -> None:
+        for request_id in (-1, 0, SCENARIO.MAX_REQUEST_ID + 1):
+            with self.subTest(request_id=request_id):
+                with self.assertRaisesRegex(ValueError, "nonzero uint64"):
+                    SCENARIO.ping_frame(request_id)
+
     def test_accepts_valid_ping_response(self) -> None:
         header, value = ping_response(42)
         self.assertTrue(SCENARIO.valid_ping_header(header, 42))
