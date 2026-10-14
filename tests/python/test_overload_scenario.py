@@ -64,6 +64,16 @@ class PingValidationTest(unittest.TestCase):
 
 
 class OutputSafetyTest(unittest.TestCase):
+    def test_server_log_collision_is_reported_without_replacement(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            log_path = pathlib.Path(directory) / "result.server.log"
+            log_path.write_bytes(b"earlier evidence\n")
+
+            with self.assertRaisesRegex(SystemExit, "refusing to overwrite"):
+                SCENARIO.open_log_exclusive(log_path)
+
+            self.assertEqual(log_path.read_bytes(), b"earlier evidence\n")
+
     def test_result_writer_never_replaces_existing_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = pathlib.Path(directory) / "result.json"

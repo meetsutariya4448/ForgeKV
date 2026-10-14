@@ -15,6 +15,7 @@ import struct
 import subprocess
 import tempfile
 import time
+from typing import BinaryIO
 
 
 POLY = 0x82F63B78
@@ -155,6 +156,14 @@ def write_json_exclusive(path: pathlib.Path, value: object) -> None:
             temporary_path.unlink(missing_ok=True)
 
 
+def open_log_exclusive(path: pathlib.Path) -> BinaryIO:
+    """Open the server log without replacing evidence from an earlier run."""
+    try:
+        return path.open("xb")
+    except FileExistsError as error:
+        raise SystemExit(f"refusing to overwrite {path}") from error
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--server", required=True, type=pathlib.Path)
@@ -182,7 +191,7 @@ def main() -> int:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     log_path = args.output.with_suffix(".server.log")
     port = reserve_port(args.host)
-    server_log = log_path.open("xb")
+    server_log = open_log_exclusive(log_path)
     data_directory: pathlib.Path | None = None
     process: subprocess.Popen[bytes] | None = None
     slow_clients: list[socket.socket] = []
