@@ -21,6 +21,7 @@ from typing import BinaryIO
 POLY = 0x82F63B78
 HEADER_SIZE = 40
 MAX_REQUEST_ID = (1 << 64) - 1
+REQUIRED_RESOURCE_FIELDS = frozenset({"VmRSS", "VmHWM", "VmPeak", "Threads"})
 
 
 def crc32c(data: bytes) -> int:
@@ -89,12 +90,22 @@ def ping(host: str, port: int, request_id: int, timeout: float) -> bool:
         return False
 
 
-def resources(pid: int) -> dict[str, int]:
+def parse_proc_status(text: str) -> dict[str, int]:
     status: dict[str, int] = {}
-    for line in pathlib.Path(f"/proc/{pid}/status").read_text().splitlines():
+    for line in text.splitlines():
         name, _, value = line.partition(":")
-        if name in {"VmRSS", "VmHWM", "VmPeak", "Threads"}:
+        if name in REQUIRED_RESOURCE_FIELDS:
             status[name] = int(value.strip().split()[0])
+    missing = sorted(REQUIRED_RESOURCE_FIELDS - status.keys())
+    if missing:
+        raise ValueError(f"process status is missing required fields: {', '.join(missing)}")
+    return status
+
+
+def resources(pid: int) -> dict[str, int]:
+    status = parse_proc_status(
+        pathlib.Path(f"/proc/{pid}/status").read_text(encoding="utf-8")
+    )
     status["open_fds"] = len(list(pathlib.Path(f"/proc/{pid}/fd").iterdir()))
     return status
 

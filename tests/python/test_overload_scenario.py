@@ -112,5 +112,16 @@ class PortReservationTest(unittest.TestCase):
         self.assertLessEqual(port, 65535)
 
 
+class ResourceParsingTest(unittest.TestCase):
+    def test_requires_complete_process_resource_metrics(self) -> None:
+        status = "VmPeak:\t100 kB\nVmHWM:\t80 kB\nVmRSS:\t60 kB\nThreads:\t4\n"
+        self.assertEqual(
+            SCENARIO.parse_proc_status(status),
+            {"VmPeak": 100, "VmHWM": 80, "VmRSS": 60, "Threads": 4},
+        )
+
+        with self.assertRaisesRegex(ValueError, "missing required fields: VmHWM"):
+            SCENARIO.parse_proc_status("VmPeak: 100 kB\nVmRSS: 60 kB\nThreads: 4\n")
+
 if __name__ == "__main__":
     unittest.main()
