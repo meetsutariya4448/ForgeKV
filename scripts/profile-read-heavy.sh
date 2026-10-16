@@ -18,9 +18,14 @@ case "$run_id" in
         exit 2
         ;;
 esac
-case "$duration:$connections:$workers" in
-    *[!0-9:]*|0:*|*:0:*|*:0) echo "duration, connections, and workers must be positive integers" >&2; exit 2 ;;
-esac
+for numeric_value in "$duration" "$connections" "$workers"; do
+    case "$numeric_value" in
+        ''|*[!0-9]*|0|0[0-9]*)
+            echo "duration, connections, and workers must be canonical positive integers" >&2
+            exit 2
+            ;;
+    esac
+done
 case "$port" in
     ''|*[!0-9]*|??????*) echo "FORGEKV_PROFILE_PORT must be an integer from 1 to 65535" >&2; exit 2 ;;
 esac
