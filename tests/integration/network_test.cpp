@@ -594,6 +594,7 @@ TEST(NetworkFailureTest, ConnectionResetIsReported) {
     std::jthread peer([listener] {
         const int accepted = ::accept(listener, nullptr, nullptr);
         if (accepted >= 0) {
+            static_cast<void>(receive_frame(accepted));
             linger reset{1, 0};
             static_cast<void>(::setsockopt(accepted, SOL_SOCKET, SO_LINGER, &reset,
                                            sizeof(reset)));
