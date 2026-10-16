@@ -559,7 +559,7 @@ TEST(StorageEngineTest, LaterExpirationSurvivesOlderHeapEntry) {
     StorageEngine engine = StorageEngine::open(temporary.path());
     const Bytes key = bytes("key");
     static_cast<void>(engine.put_ex(key, bytes("old"), std::chrono::milliseconds{25}));
-    static_cast<void>(engine.put_ex(key, bytes("new"), std::chrono::milliseconds{200}));
+    static_cast<void>(engine.put_ex(key, bytes("new"), std::chrono::seconds{5}));
 
     std::this_thread::sleep_for(std::chrono::milliseconds{55});
     EXPECT_EQ(engine.get(key), std::optional<Bytes>(bytes("new")));
