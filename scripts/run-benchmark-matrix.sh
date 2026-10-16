@@ -49,7 +49,11 @@ port = int(port_text)
 if not 1 <= port <= 65535:
     print("FORGEKV_BENCH_PORT must be an integer from 1 to 65535", file=sys.stderr)
     raise SystemExit(2)
-if not seed_text or any(character not in "0123456789" for character in seed_text):
+if (
+    not seed_text
+    or any(character not in "0123456789" for character in seed_text)
+    or (len(seed_text) > 1 and seed_text.startswith("0"))
+):
     print("FORGEKV_BENCH_SEED must be a nonnegative integer", file=sys.stderr)
     raise SystemExit(2)
 seed = int(seed_text)

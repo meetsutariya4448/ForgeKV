@@ -29,3 +29,21 @@ endif()
 if(NOT seed_error MATCHES "FORGEKV_BENCH_SEED must be a nonnegative integer")
     message(FATAL_ERROR "matrix reported an unexpected seed error: ${seed_output}${seed_error}")
 endif()
+
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        "FORGEKV_BENCH_SEED=08"
+        /bin/sh "${MATRIX_RUNNER}" quick
+    RESULT_VARIABLE noncanonical_seed_result
+    OUTPUT_VARIABLE noncanonical_seed_output
+    ERROR_VARIABLE noncanonical_seed_error
+)
+if(noncanonical_seed_result EQUAL 0)
+    message(FATAL_ERROR "benchmark matrix accepted a noncanonical seed")
+endif()
+if(NOT noncanonical_seed_error MATCHES "FORGEKV_BENCH_SEED must be a nonnegative integer")
+    message(FATAL_ERROR
+        "matrix reported an unexpected noncanonical seed error: "
+        "${noncanonical_seed_output}${noncanonical_seed_error}")
+endif()
