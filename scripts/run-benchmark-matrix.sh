@@ -36,7 +36,10 @@ case "$mode" in
 esac
 trials=${FORGEKV_BENCH_TRIALS:-$default_trials}
 case "$trials" in
-    ''|*[!0-9]*|0) echo "FORGEKV_BENCH_TRIALS must be a positive integer" >&2; exit 2 ;;
+    ''|*[!0-9]*|0|0[0-9]*)
+        echo "FORGEKV_BENCH_TRIALS must be a canonical positive integer" >&2
+        exit 2
+        ;;
 esac
 if ! python3 - "$port" "$base_seed" "$trials" <<'PY'
 import sys

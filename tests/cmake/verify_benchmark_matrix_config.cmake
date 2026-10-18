@@ -47,3 +47,21 @@ if(NOT noncanonical_seed_error MATCHES "FORGEKV_BENCH_SEED must be a nonnegative
         "matrix reported an unexpected noncanonical seed error: "
         "${noncanonical_seed_output}${noncanonical_seed_error}")
 endif()
+
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        "FORGEKV_BENCH_TRIALS=03"
+        /bin/sh "${MATRIX_RUNNER}" quick
+    RESULT_VARIABLE noncanonical_trials_result
+    OUTPUT_VARIABLE noncanonical_trials_output
+    ERROR_VARIABLE noncanonical_trials_error
+)
+if(noncanonical_trials_result EQUAL 0)
+    message(FATAL_ERROR "benchmark matrix accepted a noncanonical trial count")
+endif()
+if(NOT noncanonical_trials_error MATCHES "FORGEKV_BENCH_TRIALS must be a canonical positive integer")
+    message(FATAL_ERROR
+        "matrix reported an unexpected trial-count error: "
+        "${noncanonical_trials_output}${noncanonical_trials_error}")
+endif()
