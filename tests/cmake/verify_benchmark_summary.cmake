@@ -231,6 +231,24 @@ endif()
 
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,read-ratio,0.8,01,007,invalid,result\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE invalid_identity_result
+    OUTPUT_VARIABLE invalid_identity_output
+    ERROR_VARIABLE invalid_identity_error
+)
+if(invalid_identity_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted noncanonical invalid-trial identities")
+endif()
+if(NOT invalid_identity_error MATCHES "canonical decimal form")
+    message(FATAL_ERROR
+        "summary reported an unexpected invalid-trial identity error: "
+        "${invalid_identity_output}${invalid_identity_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,../result\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"

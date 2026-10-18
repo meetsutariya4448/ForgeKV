@@ -27,16 +27,6 @@ def unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
 
 
 def validate_result_metadata(result_path: Path, row: dict[str, str], result: dict) -> None:
-    if not re.fullmatch(r"[1-9][0-9]*", row["trial"]):
-        raise ValueError(
-            f"{result_path.name} manifest trial must be a positive integer "
-            "in canonical decimal form"
-        )
-    if not re.fullmatch(r"0|[1-9][0-9]*", row["seed"]):
-        raise ValueError(
-            f"{result_path.name} manifest seed must be a nonnegative integer "
-            "in canonical decimal form"
-        )
     repetition = int(row["trial"])
     seed = int(row["seed"])
     expected = {
@@ -152,6 +142,14 @@ def main() -> int:
             elif row["run_id"] != run_id:
                 raise ValueError(
                     f"manifest mixes run ids {run_id!r} and {row['run_id']!r}"
+                )
+            if not re.fullmatch(r"[1-9][0-9]*", row["trial"]):
+                raise ValueError(
+                    "manifest trial must be a positive integer in canonical decimal form"
+                )
+            if not re.fullmatch(r"0|[1-9][0-9]*", row["seed"]):
+                raise ValueError(
+                    "manifest seed must be a nonnegative integer in canonical decimal form"
                 )
             if status == "invalid":
                 continue
