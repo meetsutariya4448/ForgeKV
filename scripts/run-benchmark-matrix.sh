@@ -48,6 +48,9 @@ port_text, seed_text, trials_text = sys.argv[1:]
 if not port_text or any(character not in "0123456789" for character in port_text):
     print("FORGEKV_BENCH_PORT must be an integer from 1 to 65535", file=sys.stderr)
     raise SystemExit(2)
+if len(port_text) > 1 and port_text.startswith("0"):
+    print("FORGEKV_BENCH_PORT must be an integer from 1 to 65535", file=sys.stderr)
+    raise SystemExit(2)
 port = int(port_text)
 if not 1 <= port <= 65535:
     print("FORGEKV_BENCH_PORT must be an integer from 1 to 65535", file=sys.stderr)

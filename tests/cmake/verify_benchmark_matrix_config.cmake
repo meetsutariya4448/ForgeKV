@@ -17,6 +17,24 @@ endif()
 execute_process(
     COMMAND
         "${CMAKE_COMMAND}" -E env
+        "FORGEKV_BENCH_PORT=08080"
+        /bin/sh "${MATRIX_RUNNER}" quick
+    RESULT_VARIABLE noncanonical_port_result
+    OUTPUT_VARIABLE noncanonical_port_output
+    ERROR_VARIABLE noncanonical_port_error
+)
+if(noncanonical_port_result EQUAL 0)
+    message(FATAL_ERROR "benchmark matrix accepted a noncanonical TCP port")
+endif()
+if(NOT noncanonical_port_error MATCHES "FORGEKV_BENCH_PORT must be an integer from 1 to 65535")
+    message(FATAL_ERROR
+        "matrix reported an unexpected noncanonical port error: "
+        "${noncanonical_port_output}${noncanonical_port_error}")
+endif()
+
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
         "FORGEKV_BENCH_SEED=not-a-number"
         /bin/sh "${MATRIX_RUNNER}" quick
     RESULT_VARIABLE seed_result
