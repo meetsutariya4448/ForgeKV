@@ -27,7 +27,10 @@ for numeric_value in "$duration" "$connections" "$workers"; do
     esac
 done
 case "$port" in
-    ''|*[!0-9]*|??????*) echo "FORGEKV_PROFILE_PORT must be an integer from 1 to 65535" >&2; exit 2 ;;
+    ''|*[!0-9]*|0[0-9]*|??????*)
+        echo "FORGEKV_PROFILE_PORT must be an integer from 1 to 65535" >&2
+        exit 2
+        ;;
 esac
 if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
     echo "FORGEKV_PROFILE_PORT must be an integer from 1 to 65535" >&2

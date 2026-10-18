@@ -35,6 +35,24 @@ endif()
 execute_process(
     COMMAND
         "${CMAKE_COMMAND}" -E env
+        "FORGEKV_PROFILE_PORT=017431"
+        /bin/sh "${PROFILE_RUNNER}"
+    RESULT_VARIABLE noncanonical_port_result
+    OUTPUT_VARIABLE noncanonical_port_output
+    ERROR_VARIABLE noncanonical_port_error
+)
+if(noncanonical_port_result EQUAL 0)
+    message(FATAL_ERROR "profile runner accepted a noncanonical TCP port")
+endif()
+if(NOT noncanonical_port_error MATCHES "FORGEKV_PROFILE_PORT must be an integer from 1 to 65535")
+    message(FATAL_ERROR
+        "profile runner reported an unexpected noncanonical port error: "
+        "${noncanonical_port_output}${noncanonical_port_error}")
+endif()
+
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
         "FORGEKV_PROFILE_DURATION=08"
         /bin/sh "${PROFILE_RUNNER}"
     RESULT_VARIABLE duration_result
