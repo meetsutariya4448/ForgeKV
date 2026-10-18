@@ -160,7 +160,7 @@ execute_process(
 if(duplicate_result EQUAL 0)
     message(FATAL_ERROR "benchmark summary accepted a duplicate valid trial")
 endif()
-if(NOT duplicate_error MATCHES "manifest contains duplicate valid trial")
+if(NOT duplicate_error MATCHES "manifest contains duplicate trial")
     message(FATAL_ERROR
         "summary reported an unexpected duplicate error: ${duplicate_output}${duplicate_error}")
 endif()
@@ -182,10 +182,29 @@ execute_process(
 if(duplicate_trial_result EQUAL 0)
     message(FATAL_ERROR "benchmark summary accepted one trial with conflicting seeds")
 endif()
-if(NOT duplicate_trial_error MATCHES "manifest contains duplicate valid trial")
+if(NOT duplicate_trial_error MATCHES "manifest contains duplicate trial")
     message(FATAL_ERROR
         "summary reported an unexpected conflicting-seed error: "
         "${duplicate_trial_output}${duplicate_trial_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,read-ratio,0.8,1,7,valid,result\n"
+    "run-1,read-ratio,0.8,1,7,invalid,result-retry\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE duplicate_failed_result
+    OUTPUT_VARIABLE duplicate_failed_output
+    ERROR_VARIABLE duplicate_failed_error
+)
+if(duplicate_failed_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted a duplicate failed trial")
+endif()
+if(NOT duplicate_failed_error MATCHES "manifest contains duplicate trial")
+    message(FATAL_ERROR
+        "summary reported an unexpected duplicate failed-trial error: "
+        "${duplicate_failed_output}${duplicate_failed_error}")
 endif()
 
 file(WRITE "${run_directory}/manifest.csv"

@@ -151,6 +151,12 @@ def main() -> int:
                 raise ValueError(
                     "manifest seed must be a nonnegative integer in canonical decimal form"
                 )
+            identity = (
+                row["run_id"], row["experiment"], row["variant"], row["trial"]
+            )
+            if identity in seen_trials:
+                raise ValueError(f"manifest contains duplicate trial {identity!r}")
+            seen_trials.add(identity)
             if status == "invalid":
                 continue
             for field in ("experiment", "variant"):
@@ -158,12 +164,6 @@ def main() -> int:
                     raise ValueError(
                         f"manifest valid trial has a blank {field}"
                     )
-            identity = (
-                row["run_id"], row["experiment"], row["variant"], row["trial"]
-            )
-            if identity in seen_trials:
-                raise ValueError(f"manifest contains duplicate valid trial {identity!r}")
-            seen_trials.add(identity)
             output_prefix = row["output_prefix"]
             if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", output_prefix):
                 raise ValueError(
