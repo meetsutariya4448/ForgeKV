@@ -2,6 +2,7 @@
 set -eu
 
 FORGEKV_BENCH_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+FORGEKV_BENCH_BUILD_DIR=${FORGEKV_BENCH_BUILD_DIR:-$FORGEKV_BENCH_ROOT/build}
 FORGEKV_BENCH_THREADS=${FORGEKV_BENCH_THREADS:-4}
 FORGEKV_BENCH_OPERATIONS=${FORGEKV_BENCH_OPERATIONS:-100000}
 FORGEKV_BENCH_KEYS=${FORGEKV_BENCH_KEYS:-4096}
@@ -47,8 +48,13 @@ FORGEKV_BENCH_SHA=$(git -C "$FORGEKV_BENCH_ROOT" rev-parse HEAD)
 FORGEKV_BENCH_TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
 FORGEKV_BENCH_OUTPUT="$FORGEKV_BENCH_ROOT/bench/raw/m3-contention-${FORGEKV_BENCH_TIMESTAMP}-${FORGEKV_BENCH_SHA}.csv"
 
-if [ ! -x "$FORGEKV_BENCH_ROOT/build/forgekv-bench" ]; then
-    echo "build/forgekv-bench is missing; configure and build ForgeKV first" >&2
+if [ ! -x "$FORGEKV_BENCH_BUILD_DIR/forgekv-bench" ]; then
+    echo "forgekv-bench is missing under $FORGEKV_BENCH_BUILD_DIR" >&2
+    exit 1
+fi
+build_type=$(sed -n 's/^CMAKE_BUILD_TYPE:STRING=//p' "$FORGEKV_BENCH_BUILD_DIR/CMakeCache.txt")
+if [ "$build_type" != "Release" ]; then
+    echo "M3 contention benchmark requires a Release build; found ${build_type:-unknown}" >&2
     exit 1
 fi
 
@@ -69,7 +75,7 @@ import json, pathlib, sys
 commands = json.loads(pathlib.Path(sys.argv[1]).read_text())
 match = next(item for item in commands if item["file"].endswith("apps/forgekv-bench/main.cpp"))
 print(match["command"] if "command" in match else " ".join(match["arguments"]))
-' "$FORGEKV_BENCH_ROOT/build/compile_commands.json")
+' "$FORGEKV_BENCH_BUILD_DIR/compile_commands.json")
 
 set -C
 {
@@ -91,7 +97,7 @@ set -C
     echo "# shard_counts,$FORGEKV_BENCH_SHARDS"
     echo "# repetitions,$FORGEKV_BENCH_REPETITIONS"
     echo "# warmup,1000 operations per thread before each workload and shard count"
-    "$FORGEKV_BENCH_ROOT/build/forgekv-bench" contention \
+    "$FORGEKV_BENCH_BUILD_DIR/forgekv-bench" contention \
         --threads "$FORGEKV_BENCH_THREADS" \
         --operations-per-thread "$FORGEKV_BENCH_OPERATIONS" \
         --keys "$FORGEKV_BENCH_KEYS" \
