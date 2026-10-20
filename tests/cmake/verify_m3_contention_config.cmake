@@ -88,3 +88,48 @@ if(failed_evidence)
     message(FATAL_ERROR
         "M3 contention runner left partial evidence after failure: ${failed_evidence}")
 endif()
+
+set(success_build "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-success-build")
+set(success_output "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-success-output")
+set(success_bin "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-success-bin")
+file(REMOVE_RECURSE "${success_build}" "${success_output}" "${success_bin}")
+file(MAKE_DIRECTORY "${success_build}" "${success_output}" "${success_bin}")
+file(WRITE "${success_build}/forgekv-bench"
+    "#!/bin/sh\nprintf 'workload,shards,threads,operations,seconds,ops_per_second\\n'\n")
+execute_process(COMMAND chmod +x "${success_build}/forgekv-bench")
+file(WRITE "${success_build}/CMakeCache.txt" "CMAKE_BUILD_TYPE:STRING=Release\n")
+file(WRITE "${success_build}/compile_commands.json"
+    "[{\"file\":\"apps/forgekv-bench/main.cpp\",\"command\":\"c++ main.cpp\"}]\n")
+file(WRITE "${success_bin}/git" [=[#!/bin/sh
+case "$*" in
+  *"rev-parse HEAD"*) printf '0123456789abcdef\n' ;;
+  *"status --porcelain"*) printf ' M src/benchmark.cpp\n' ;;
+  *) exit 1 ;;
+esac
+]=])
+execute_process(COMMAND chmod +x "${success_bin}/git")
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        "PATH=${success_bin}:$ENV{PATH}"
+        "FORGEKV_BENCH_BUILD_DIR=${success_build}"
+        "FORGEKV_BENCH_OUTPUT_DIR=${success_output}"
+        /bin/sh "${M3_RUNNER}"
+    RESULT_VARIABLE success_result
+    OUTPUT_VARIABLE success_output_text
+    ERROR_VARIABLE success_error
+)
+if(NOT success_result EQUAL 0)
+    message(FATAL_ERROR
+        "valid M3 contention run failed: ${success_output_text}${success_error}")
+endif()
+file(GLOB success_evidence "${success_output}/*.csv")
+list(LENGTH success_evidence success_evidence_count)
+if(NOT success_evidence_count EQUAL 1)
+    message(FATAL_ERROR "M3 contention runner did not publish exactly one result")
+endif()
+list(GET success_evidence 0 success_evidence_path)
+file(READ "${success_evidence_path}" success_evidence_text)
+if(NOT success_evidence_text MATCHES "# working_tree_dirty,true")
+    message(FATAL_ERROR "M3 contention evidence omitted dirty-tree provenance")
+endif()
