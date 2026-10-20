@@ -22,6 +22,26 @@ validate_positive_integer FORGEKV_BENCH_THREADS "$FORGEKV_BENCH_THREADS"
 validate_positive_integer FORGEKV_BENCH_OPERATIONS "$FORGEKV_BENCH_OPERATIONS"
 validate_positive_integer FORGEKV_BENCH_KEYS "$FORGEKV_BENCH_KEYS"
 validate_positive_integer FORGEKV_BENCH_REPETITIONS "$FORGEKV_BENCH_REPETITIONS"
+if ! python3 - "$FORGEKV_BENCH_SHARDS" <<'PY'
+import re
+import sys
+
+text = sys.argv[1]
+if not re.fullmatch(r"[1-9][0-9]*(,[1-9][0-9]*)*", text):
+    print(
+        "FORGEKV_BENCH_SHARDS must be a comma-separated list of canonical "
+        "positive integers",
+        file=sys.stderr,
+    )
+    raise SystemExit(2)
+values = text.split(",")
+if len(values) != len(set(values)):
+    print("FORGEKV_BENCH_SHARDS must not contain duplicates", file=sys.stderr)
+    raise SystemExit(2)
+PY
+then
+    exit 2
+fi
 
 FORGEKV_BENCH_SHA=$(git -C "$FORGEKV_BENCH_ROOT" rev-parse HEAD)
 FORGEKV_BENCH_TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
