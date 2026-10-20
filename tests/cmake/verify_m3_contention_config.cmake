@@ -59,3 +59,32 @@ if(NOT build_type_error MATCHES "requires a Release build; found Debug")
         "M3 contention runner reported an unexpected build-type error: "
         "${build_type_output}${build_type_error}")
 endif()
+
+set(failing_build "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-failing-build")
+set(failing_output "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-failing-output")
+file(REMOVE_RECURSE "${failing_build}" "${failing_output}")
+file(MAKE_DIRECTORY "${failing_build}" "${failing_output}")
+file(WRITE "${failing_build}/forgekv-bench" "#!/bin/sh\nexit 7\n")
+execute_process(COMMAND chmod +x "${failing_build}/forgekv-bench")
+file(WRITE "${failing_build}/CMakeCache.txt" "CMAKE_BUILD_TYPE:STRING=Release\n")
+file(WRITE "${failing_build}/compile_commands.json"
+    "[{\"file\":\"apps/forgekv-bench/main.cpp\",\"command\":\"c++ main.cpp\"}]\n")
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        "FORGEKV_BENCH_BUILD_DIR=${failing_build}"
+        "FORGEKV_BENCH_OUTPUT_DIR=${failing_output}"
+        /bin/sh "${M3_RUNNER}"
+    RESULT_VARIABLE failing_result
+    OUTPUT_VARIABLE failing_output_text
+    ERROR_VARIABLE failing_error
+)
+if(failing_result EQUAL 0)
+    message(FATAL_ERROR "M3 contention runner ignored a benchmark failure")
+endif()
+file(GLOB failed_evidence "${failing_output}/*" "${failing_output}/.*")
+list(FILTER failed_evidence EXCLUDE REGEX "/\\.\\.?$")
+if(failed_evidence)
+    message(FATAL_ERROR
+        "M3 contention runner left partial evidence after failure: ${failed_evidence}")
+endif()

@@ -3,6 +3,7 @@ set -eu
 
 FORGEKV_BENCH_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 FORGEKV_BENCH_BUILD_DIR=${FORGEKV_BENCH_BUILD_DIR:-$FORGEKV_BENCH_ROOT/build}
+FORGEKV_BENCH_OUTPUT_DIR=${FORGEKV_BENCH_OUTPUT_DIR:-$FORGEKV_BENCH_ROOT/bench/raw}
 FORGEKV_BENCH_THREADS=${FORGEKV_BENCH_THREADS:-4}
 FORGEKV_BENCH_OPERATIONS=${FORGEKV_BENCH_OPERATIONS:-100000}
 FORGEKV_BENCH_KEYS=${FORGEKV_BENCH_KEYS:-4096}
@@ -46,7 +47,7 @@ fi
 
 FORGEKV_BENCH_SHA=$(git -C "$FORGEKV_BENCH_ROOT" rev-parse HEAD)
 FORGEKV_BENCH_TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
-FORGEKV_BENCH_OUTPUT="$FORGEKV_BENCH_ROOT/bench/raw/m3-contention-${FORGEKV_BENCH_TIMESTAMP}-${FORGEKV_BENCH_SHA}.csv"
+FORGEKV_BENCH_OUTPUT="$FORGEKV_BENCH_OUTPUT_DIR/m3-contention-${FORGEKV_BENCH_TIMESTAMP}-${FORGEKV_BENCH_SHA}.csv"
 
 if [ ! -x "$FORGEKV_BENCH_BUILD_DIR/forgekv-bench" ]; then
     echo "forgekv-bench is missing under $FORGEKV_BENCH_BUILD_DIR" >&2
@@ -77,7 +78,17 @@ match = next(item for item in commands if item["file"].endswith("apps/forgekv-be
 print(match["command"] if "command" in match else " ".join(match["arguments"]))
 ' "$FORGEKV_BENCH_BUILD_DIR/compile_commands.json")
 
-set -C
+if [ ! -d "$FORGEKV_BENCH_OUTPUT_DIR" ]; then
+    echo "benchmark output directory does not exist: $FORGEKV_BENCH_OUTPUT_DIR" >&2
+    exit 1
+fi
+temporary_output=$(mktemp "$FORGEKV_BENCH_OUTPUT_DIR/.m3-contention.XXXXXX")
+cleanup() {
+    if [ -n "$temporary_output" ]; then
+        rm -f "$temporary_output"
+    fi
+}
+trap cleanup EXIT INT TERM
 {
     echo "# date_utc,$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "# git_commit,$FORGEKV_BENCH_SHA"
@@ -103,6 +114,13 @@ set -C
         --keys "$FORGEKV_BENCH_KEYS" \
         --repetitions "$FORGEKV_BENCH_REPETITIONS" \
         --shards "$FORGEKV_BENCH_SHARDS"
-} > "$FORGEKV_BENCH_OUTPUT"
+} > "$temporary_output"
+
+if ! ln "$temporary_output" "$FORGEKV_BENCH_OUTPUT"; then
+    echo "refusing to replace existing benchmark evidence: $FORGEKV_BENCH_OUTPUT" >&2
+    exit 1
+fi
+rm -f "$temporary_output"
+temporary_output=""
 
 echo "$FORGEKV_BENCH_OUTPUT"
