@@ -102,6 +102,13 @@ add_test(
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_benchmark_matrix_config.cmake
 )
 add_test(
+    NAME ForgeKVBenchTest.RejectsInvalidM3ContentionConfiguration
+    COMMAND
+        ${CMAKE_COMMAND}
+        "-DM3_RUNNER=${CMAKE_SOURCE_DIR}/scripts/run-m3-contention-benchmark.sh"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_m3_contention_config.cmake
+)
+add_test(
     NAME ForgeKVBenchTest.RejectsInvalidProfileConfiguration
     COMMAND
         ${CMAKE_COMMAND}
@@ -194,6 +201,7 @@ set_tests_properties(
     ForgeKVBenchTest.RejectsMalformedShardLists
     ForgeKVBenchTest.RejectsUnsafeRunIds
     ForgeKVBenchTest.RejectsInvalidMatrixConfiguration
+    ForgeKVBenchTest.RejectsInvalidM3ContentionConfiguration
     ForgeKVBenchTest.RejectsInvalidProfileConfiguration
     ForgeKVBenchTest.ValidatesSummaryMetadata
     ForgeKVBenchTest.RejectsPreloadRequestIdExhaustion

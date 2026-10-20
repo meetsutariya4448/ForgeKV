@@ -7,6 +7,22 @@ FORGEKV_BENCH_OPERATIONS=${FORGEKV_BENCH_OPERATIONS:-100000}
 FORGEKV_BENCH_KEYS=${FORGEKV_BENCH_KEYS:-4096}
 FORGEKV_BENCH_REPETITIONS=${FORGEKV_BENCH_REPETITIONS:-3}
 FORGEKV_BENCH_SHARDS=${FORGEKV_BENCH_SHARDS:-1,4,16,64,256}
+
+validate_positive_integer() {
+    name=$1
+    value=$2
+    case "$value" in
+        ''|*[!0-9]*|0|0[0-9]*)
+            echo "$name must be a canonical positive integer" >&2
+            exit 2
+            ;;
+    esac
+}
+validate_positive_integer FORGEKV_BENCH_THREADS "$FORGEKV_BENCH_THREADS"
+validate_positive_integer FORGEKV_BENCH_OPERATIONS "$FORGEKV_BENCH_OPERATIONS"
+validate_positive_integer FORGEKV_BENCH_KEYS "$FORGEKV_BENCH_KEYS"
+validate_positive_integer FORGEKV_BENCH_REPETITIONS "$FORGEKV_BENCH_REPETITIONS"
+
 FORGEKV_BENCH_SHA=$(git -C "$FORGEKV_BENCH_ROOT" rev-parse HEAD)
 FORGEKV_BENCH_TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
 FORGEKV_BENCH_OUTPUT="$FORGEKV_BENCH_ROOT/bench/raw/m3-contention-${FORGEKV_BENCH_TIMESTAMP}-${FORGEKV_BENCH_SHA}.csv"
