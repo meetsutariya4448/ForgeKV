@@ -28,6 +28,13 @@ jobs:
         run: cmake --build build --parallel 4
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Upload CTest failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-failure-${{ matrix.os }}
+          path: build/Testing/Temporary/LastTest.log
+          if-no-files-found: warn
 
   sanitizers:
     strategy:
@@ -50,6 +57,13 @@ jobs:
         run: cmake --build build-${{ matrix.sanitizer.name }} --parallel 4
       - name: Test ${{ matrix.sanitizer.name }}
         run: ctest --test-dir build-${{ matrix.sanitizer.name }} --output-on-failure
+      - name: Upload CTest failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-failure-${{ matrix.sanitizer.name }}
+          path: build-${{ matrix.sanitizer.name }}/Testing/Temporary/LastTest.log
+          if-no-files-found: warn
 
   fuzz-smoke:
     runs-on: ubuntu-24.04
