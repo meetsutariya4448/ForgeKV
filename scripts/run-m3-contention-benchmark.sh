@@ -63,6 +63,10 @@ if [ "$build_type" != "Release" ]; then
     echo "M3 contention benchmark requires a Release build; found ${build_type:-unknown}" >&2
     exit 1
 fi
+if [ ! -r "$FORGEKV_BENCH_BUILD_DIR/compile_commands.json" ]; then
+    echo "M3 contention benchmark requires compile_commands.json under $FORGEKV_BENCH_BUILD_DIR" >&2
+    exit 1
+fi
 
 FORGEKV_BENCH_OS=$(uname -srv)
 FORGEKV_BENCH_ARCH=$(uname -m)

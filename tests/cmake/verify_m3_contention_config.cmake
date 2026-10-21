@@ -60,6 +60,30 @@ if(NOT build_type_error MATCHES "requires a Release build; found Debug")
         "${build_type_output}${build_type_error}")
 endif()
 
+set(missing_metadata_build "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-missing-metadata-build")
+file(REMOVE_RECURSE "${missing_metadata_build}")
+file(MAKE_DIRECTORY "${missing_metadata_build}")
+file(WRITE "${missing_metadata_build}/forgekv-bench" "#!/bin/sh\nexit 0\n")
+execute_process(COMMAND chmod +x "${missing_metadata_build}/forgekv-bench")
+file(WRITE "${missing_metadata_build}/CMakeCache.txt" "CMAKE_BUILD_TYPE:STRING=Release\n")
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        "FORGEKV_BENCH_BUILD_DIR=${missing_metadata_build}"
+        /bin/sh "${M3_RUNNER}"
+    RESULT_VARIABLE missing_metadata_result
+    OUTPUT_VARIABLE missing_metadata_output
+    ERROR_VARIABLE missing_metadata_error
+)
+if(missing_metadata_result EQUAL 0)
+    message(FATAL_ERROR "M3 contention runner accepted missing compilation metadata")
+endif()
+if(NOT missing_metadata_error MATCHES "requires compile_commands.json")
+    message(FATAL_ERROR
+        "M3 contention runner reported an unexpected metadata error: "
+        "${missing_metadata_output}${missing_metadata_error}")
+endif()
+
 set(failing_build "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-failing-build")
 set(failing_output "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-failing-output")
 file(REMOVE_RECURSE "${failing_build}" "${failing_output}")
