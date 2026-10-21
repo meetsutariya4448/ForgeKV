@@ -79,7 +79,12 @@ FORGEKV_BENCH_RAM=$(sysctl -n hw.memsize 2>/dev/null || true)
 if [ -z "$FORGEKV_BENCH_RAM" ] && [ -r /proc/meminfo ]; then
     FORGEKV_BENCH_RAM=$(awk '/MemTotal/ {print $2 " kB"; exit}' /proc/meminfo)
 fi
-FORGEKV_BENCH_COMPILER=$(/usr/bin/c++ --version | sed -n '1p')
+FORGEKV_BENCH_CXX=$(sed -n 's/^CMAKE_CXX_COMPILER:FILEPATH=//p' "$FORGEKV_BENCH_BUILD_DIR/CMakeCache.txt")
+if [ -z "$FORGEKV_BENCH_CXX" ] || [ ! -x "$FORGEKV_BENCH_CXX" ]; then
+    echo "M3 contention benchmark cannot identify the configured C++ compiler" >&2
+    exit 1
+fi
+FORGEKV_BENCH_COMPILER=$("$FORGEKV_BENCH_CXX" --version | sed -n '1p')
 FORGEKV_BENCH_COMPILE_COMMAND=$(python3 -c '
 import json, pathlib, sys
 commands = json.loads(pathlib.Path(sys.argv[1]).read_text())

@@ -90,7 +90,10 @@ file(REMOVE_RECURSE "${failing_build}" "${failing_output}")
 file(MAKE_DIRECTORY "${failing_build}" "${failing_output}")
 file(WRITE "${failing_build}/forgekv-bench" "#!/bin/sh\nexit 7\n")
 execute_process(COMMAND chmod +x "${failing_build}/forgekv-bench")
-file(WRITE "${failing_build}/CMakeCache.txt" "CMAKE_BUILD_TYPE:STRING=Release\n")
+file(WRITE "${failing_build}/fake-cxx" "#!/bin/sh\nprintf 'fake c++ 1.0\\n'\n")
+execute_process(COMMAND chmod +x "${failing_build}/fake-cxx")
+file(WRITE "${failing_build}/CMakeCache.txt"
+    "CMAKE_BUILD_TYPE:STRING=Release\nCMAKE_CXX_COMPILER:FILEPATH=${failing_build}/fake-cxx\n")
 file(WRITE "${failing_build}/compile_commands.json"
     "[{\"file\":\"apps/forgekv-bench/main.cpp\",\"command\":\"c++ main.cpp\"}]\n")
 execute_process(
@@ -121,7 +124,10 @@ file(MAKE_DIRECTORY "${success_build}" "${success_output}" "${success_bin}")
 file(WRITE "${success_build}/forgekv-bench"
     "#!/bin/sh\nprintf 'workload,shards,threads,operations,seconds,ops_per_second\\n'\n")
 execute_process(COMMAND chmod +x "${success_build}/forgekv-bench")
-file(WRITE "${success_build}/CMakeCache.txt" "CMAKE_BUILD_TYPE:STRING=Release\n")
+file(WRITE "${success_build}/fake-cxx" "#!/bin/sh\nprintf 'fake c++ 1.0\\n'\n")
+execute_process(COMMAND chmod +x "${success_build}/fake-cxx")
+file(WRITE "${success_build}/CMakeCache.txt"
+    "CMAKE_BUILD_TYPE:STRING=Release\nCMAKE_CXX_COMPILER:FILEPATH=${success_build}/fake-cxx\n")
 file(WRITE "${success_build}/compile_commands.json"
     "[{\"file\":\"apps/forgekv-bench/main.cpp\",\"command\":\"c++ main.cpp\"}]\n")
 file(WRITE "${success_bin}/git" [=[#!/bin/sh
@@ -156,4 +162,7 @@ list(GET success_evidence 0 success_evidence_path)
 file(READ "${success_evidence_path}" success_evidence_text)
 if(NOT success_evidence_text MATCHES "# working_tree_dirty,true")
     message(FATAL_ERROR "M3 contention evidence omitted dirty-tree provenance")
+endif()
+if(NOT success_evidence_text MATCHES "# compiler,fake c\\+\\+ 1.0")
+    message(FATAL_ERROR "M3 contention evidence did not identify the configured compiler")
 endif()
