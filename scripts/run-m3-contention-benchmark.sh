@@ -85,6 +85,10 @@ if [ -z "$FORGEKV_BENCH_CXX" ] || [ ! -x "$FORGEKV_BENCH_CXX" ]; then
     exit 1
 fi
 FORGEKV_BENCH_COMPILER=$("$FORGEKV_BENCH_CXX" --version | sed -n '1p')
+FORGEKV_BENCH_BINARY_SHA256=$(python3 -c '
+import hashlib, pathlib, sys
+print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
+' "$FORGEKV_BENCH_BUILD_DIR/forgekv-bench")
 FORGEKV_BENCH_COMPILE_COMMAND=$(python3 -c '
 import json, pathlib, sys
 commands = json.loads(pathlib.Path(sys.argv[1]).read_text())
@@ -107,6 +111,7 @@ trap cleanup EXIT INT TERM
     echo "# date_utc,$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "# git_commit,$FORGEKV_BENCH_SHA"
     echo "# working_tree_dirty,$FORGEKV_BENCH_DIRTY"
+    echo "# benchmark_binary_sha256,$FORGEKV_BENCH_BINARY_SHA256"
     echo "# compiler,$FORGEKV_BENCH_COMPILER"
     echo "# compile_command,$FORGEKV_BENCH_COMPILE_COMMAND"
     echo "# os,$FORGEKV_BENCH_OS"
