@@ -380,24 +380,27 @@ TEST(StorageEngineTest, MultipleOverwritesRecoverLatestSequence) {
     EXPECT_EQ(reopened.put(bytes("next"), bytes("value")), 4U);
 }
 
-TEST(StorageEngineTest, TruncatedFinalHeaderIsRemovedAndPrecedingStateSurvives) {
+class TruncatedFinalHeaderTest : public testing::TestWithParam<std::size_t> {};
+
+TEST_P(TruncatedFinalHeaderTest, IsRemovedAndPrecedingStateSurvives) {
     const Bytes first = encode_record(Operation::kPut, 1, bytes("key"), bytes("value"));
     const Bytes second = encode_record(Operation::kPut, 2, bytes("other"), bytes("later"));
-    for (std::size_t tail_size = 1; tail_size < kRecordHeaderSize; ++tail_size) {
-        SCOPED_TRACE(tail_size);
-        TemporaryDirectory temporary;
-        const auto segment =
-            StorageEngine::segment_path_for_id(temporary.path(), kInitialSegmentId);
-        std::filesystem::create_directories(temporary.path());
-        append_bytes(segment, first);
-        append_bytes(segment, std::span<const std::byte>(second).first(tail_size));
+    const std::size_t tail_size = GetParam();
+    TemporaryDirectory temporary;
+    const auto segment =
+        StorageEngine::segment_path_for_id(temporary.path(), kInitialSegmentId);
+    std::filesystem::create_directories(temporary.path());
+    append_bytes(segment, first);
+    append_bytes(segment, std::span<const std::byte>(second).first(tail_size));
 
-        StorageEngine engine = StorageEngine::open(temporary.path());
-        EXPECT_EQ(engine.get(bytes("key")), std::optional<Bytes>(bytes("value")));
-        EXPECT_EQ(engine.last_sequence(), 1U);
-        EXPECT_EQ(std::filesystem::file_size(segment), first.size());
-    }
+    StorageEngine engine = StorageEngine::open(temporary.path());
+    EXPECT_EQ(engine.get(bytes("key")), std::optional<Bytes>(bytes("value")));
+    EXPECT_EQ(engine.last_sequence(), 1U);
+    EXPECT_EQ(std::filesystem::file_size(segment), first.size());
 }
+
+INSTANTIATE_TEST_SUITE_P(EveryTruncatedHeaderBoundary, TruncatedFinalHeaderTest,
+                         testing::Range(std::size_t{1}, kRecordHeaderSize));
 
 TEST(StorageEngineTest, TruncatedFinalPayloadIsRemovedAndPrecedingStateSurvives) {
     TemporaryDirectory temporary;
