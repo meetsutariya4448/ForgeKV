@@ -179,7 +179,7 @@ set(success_bin "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-success-bin")
 file(REMOVE_RECURSE "${success_build}" "${success_output}" "${success_bin}")
 file(MAKE_DIRECTORY "${success_build}" "${success_output}" "${success_bin}")
 file(WRITE "${success_build}/forgekv-bench"
-    "#!/bin/sh\nprintf 'workload,shards,threads,operations,seconds,ops_per_second\\n'\n")
+    "#!/bin/sh\nprintf 'workload,shards,threads,keys,operations,repetition,seconds,ops_per_second,checksum\\nsame-key,1,1,1,1,1,0.1,10,1\\ndistributed-key,1,1,1,1,1,0.1,10,1\\n'\n")
 execute_process(COMMAND chmod +x "${success_build}/forgekv-bench")
 file(WRITE "${success_build}/fake-cxx" "#!/bin/sh\nprintf 'fake c++ 1.0\\n'\n")
 execute_process(COMMAND chmod +x "${success_build}/fake-cxx")
@@ -201,6 +201,11 @@ execute_process(
         "PATH=${success_bin}:$ENV{PATH}"
         "FORGEKV_BENCH_BUILD_DIR=${success_build}"
         "FORGEKV_BENCH_OUTPUT_DIR=${success_output}"
+        "FORGEKV_BENCH_THREADS=1"
+        "FORGEKV_BENCH_OPERATIONS=1"
+        "FORGEKV_BENCH_KEYS=1"
+        "FORGEKV_BENCH_REPETITIONS=1"
+        "FORGEKV_BENCH_SHARDS=1"
         /bin/sh "${M3_RUNNER}"
     RESULT_VARIABLE success_result
     OUTPUT_VARIABLE success_output_text
@@ -226,4 +231,38 @@ endif()
 file(SHA256 "${success_build}/forgekv-bench" success_binary_sha256)
 if(NOT success_evidence_text MATCHES "# benchmark_binary_sha256,${success_binary_sha256}")
     message(FATAL_ERROR "M3 contention evidence omitted the benchmark binary digest")
+endif()
+
+set(malformed_output "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-malformed-output")
+file(REMOVE_RECURSE "${malformed_output}")
+file(MAKE_DIRECTORY "${malformed_output}")
+file(WRITE "${success_build}/forgekv-bench"
+    "#!/bin/sh\nprintf 'workload,shards,threads,keys,operations,repetition,seconds,ops_per_second,checksum\\n'\n")
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        "PATH=${success_bin}:$ENV{PATH}"
+        "FORGEKV_BENCH_BUILD_DIR=${success_build}"
+        "FORGEKV_BENCH_OUTPUT_DIR=${malformed_output}"
+        "FORGEKV_BENCH_THREADS=1"
+        "FORGEKV_BENCH_OPERATIONS=1"
+        "FORGEKV_BENCH_KEYS=1"
+        "FORGEKV_BENCH_REPETITIONS=1"
+        "FORGEKV_BENCH_SHARDS=1"
+        /bin/sh "${M3_RUNNER}"
+    RESULT_VARIABLE malformed_result
+    OUTPUT_VARIABLE malformed_output_text
+    ERROR_VARIABLE malformed_error
+)
+if(malformed_result EQUAL 0)
+    message(FATAL_ERROR "M3 contention runner published incomplete benchmark output")
+endif()
+if(NOT malformed_error MATCHES "invalid M3 contention output")
+    message(FATAL_ERROR
+        "M3 contention runner reported an unexpected output-validation error: "
+        "${malformed_output_text}${malformed_error}")
+endif()
+file(GLOB malformed_evidence "${malformed_output}/*.csv")
+if(malformed_evidence)
+    message(FATAL_ERROR "M3 contention runner published invalid evidence: ${malformed_evidence}")
 endif()

@@ -184,6 +184,14 @@ trap cleanup EXIT INT TERM
         --shards "$FORGEKV_BENCH_SHARDS"
 } > "$temporary_output"
 
+python3 "$FORGEKV_BENCH_ROOT/scripts/validate-m3-contention-output.py" \
+    "$temporary_output" \
+    --threads "$FORGEKV_BENCH_THREADS" \
+    --operations-per-thread "$FORGEKV_BENCH_OPERATIONS" \
+    --keys "$FORGEKV_BENCH_KEYS" \
+    --repetitions "$FORGEKV_BENCH_REPETITIONS" \
+    --shards "$FORGEKV_BENCH_SHARDS"
+
 if ! ln "$temporary_output" "$FORGEKV_BENCH_OUTPUT"; then
     echo "refusing to replace existing benchmark evidence: $FORGEKV_BENCH_OUTPUT" >&2
     exit 1
