@@ -89,12 +89,56 @@ FORGEKV_BENCH_BINARY_SHA256=$(python3 -c '
 import hashlib, pathlib, sys
 print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
 ' "$FORGEKV_BENCH_BUILD_DIR/forgekv-bench")
-FORGEKV_BENCH_COMPILE_COMMAND=$(python3 -c '
-import json, pathlib, sys
-commands = json.loads(pathlib.Path(sys.argv[1]).read_text())
-match = next(item for item in commands if item["file"].endswith("apps/forgekv-bench/main.cpp"))
-print(match["command"] if "command" in match else " ".join(match["arguments"]))
-' "$FORGEKV_BENCH_BUILD_DIR/compile_commands.json")
+FORGEKV_BENCH_COMPILE_COMMAND=$(python3 - "$FORGEKV_BENCH_BUILD_DIR/compile_commands.json" <<'PY'
+import json
+import pathlib
+import shlex
+import sys
+
+path = pathlib.Path(sys.argv[1])
+try:
+    commands = json.loads(path.read_text())
+except (OSError, UnicodeError, json.JSONDecodeError) as error:
+    print(f"invalid compile_commands.json: {error}", file=sys.stderr)
+    raise SystemExit(1)
+
+if not isinstance(commands, list):
+    print("invalid compile_commands.json: top-level value must be an array", file=sys.stderr)
+    raise SystemExit(1)
+
+matches = [
+    item
+    for item in commands
+    if isinstance(item, dict)
+    and isinstance(item.get("file"), str)
+    and item["file"].endswith("apps/forgekv-bench/main.cpp")
+]
+if len(matches) != 1:
+    print(
+        "invalid compile_commands.json: expected exactly one forgekv-bench translation unit",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+match = matches[0]
+command = match.get("command")
+arguments = match.get("arguments")
+if isinstance(command, str) and command:
+    print(command)
+elif (
+    isinstance(arguments, list)
+    and arguments
+    and all(isinstance(argument, str) for argument in arguments)
+):
+    print(shlex.join(arguments))
+else:
+    print(
+        "invalid compile_commands.json: forgekv-bench entry has no usable command",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+PY
+)
 
 if [ ! -d "$FORGEKV_BENCH_OUTPUT_DIR" ]; then
     echo "benchmark output directory does not exist: $FORGEKV_BENCH_OUTPUT_DIR" >&2

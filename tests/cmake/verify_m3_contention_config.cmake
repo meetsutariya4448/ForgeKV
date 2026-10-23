@@ -84,6 +84,34 @@ if(NOT missing_metadata_error MATCHES "requires compile_commands.json")
         "${missing_metadata_output}${missing_metadata_error}")
 endif()
 
+set(invalid_metadata_build "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-invalid-metadata-build")
+file(REMOVE_RECURSE "${invalid_metadata_build}")
+file(MAKE_DIRECTORY "${invalid_metadata_build}")
+file(WRITE "${invalid_metadata_build}/forgekv-bench" "#!/bin/sh\nexit 0\n")
+execute_process(COMMAND chmod +x "${invalid_metadata_build}/forgekv-bench")
+file(WRITE "${invalid_metadata_build}/fake-cxx" "#!/bin/sh\nprintf 'fake c++ 1.0\\n'\n")
+execute_process(COMMAND chmod +x "${invalid_metadata_build}/fake-cxx")
+file(WRITE "${invalid_metadata_build}/CMakeCache.txt"
+    "CMAKE_BUILD_TYPE:STRING=Release\nCMAKE_CXX_COMPILER:FILEPATH=${invalid_metadata_build}/fake-cxx\n")
+file(WRITE "${invalid_metadata_build}/compile_commands.json" "not-json\n")
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        "FORGEKV_BENCH_BUILD_DIR=${invalid_metadata_build}"
+        /bin/sh "${M3_RUNNER}"
+    RESULT_VARIABLE invalid_metadata_result
+    OUTPUT_VARIABLE invalid_metadata_output
+    ERROR_VARIABLE invalid_metadata_error
+)
+if(invalid_metadata_result EQUAL 0)
+    message(FATAL_ERROR "M3 contention runner accepted invalid compilation metadata")
+endif()
+if(NOT invalid_metadata_error MATCHES "invalid compile_commands.json")
+    message(FATAL_ERROR
+        "M3 contention runner reported an unexpected invalid-metadata error: "
+        "${invalid_metadata_output}${invalid_metadata_error}")
+endif()
+
 set(failing_build "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-failing-build")
 set(failing_output "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-failing-output")
 file(REMOVE_RECURSE "${failing_build}" "${failing_output}")
