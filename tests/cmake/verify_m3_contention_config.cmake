@@ -112,6 +112,35 @@ if(NOT invalid_metadata_error MATCHES "invalid compile_commands.json")
         "${invalid_metadata_output}${invalid_metadata_error}")
 endif()
 
+set(silent_compiler_build "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-silent-compiler-build")
+file(REMOVE_RECURSE "${silent_compiler_build}")
+file(MAKE_DIRECTORY "${silent_compiler_build}")
+file(WRITE "${silent_compiler_build}/forgekv-bench" "#!/bin/sh\nexit 0\n")
+execute_process(COMMAND chmod +x "${silent_compiler_build}/forgekv-bench")
+file(WRITE "${silent_compiler_build}/fake-cxx" "#!/bin/sh\nexit 0\n")
+execute_process(COMMAND chmod +x "${silent_compiler_build}/fake-cxx")
+file(WRITE "${silent_compiler_build}/CMakeCache.txt"
+    "CMAKE_BUILD_TYPE:STRING=Release\nCMAKE_CXX_COMPILER:FILEPATH=${silent_compiler_build}/fake-cxx\n")
+file(WRITE "${silent_compiler_build}/compile_commands.json"
+    "[{\"file\":\"apps/forgekv-bench/main.cpp\",\"command\":\"c++ main.cpp\"}]\n")
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        "FORGEKV_BENCH_BUILD_DIR=${silent_compiler_build}"
+        /bin/sh "${M3_RUNNER}"
+    RESULT_VARIABLE silent_compiler_result
+    OUTPUT_VARIABLE silent_compiler_output
+    ERROR_VARIABLE silent_compiler_error
+)
+if(silent_compiler_result EQUAL 0)
+    message(FATAL_ERROR "M3 contention runner accepted missing compiler provenance")
+endif()
+if(NOT silent_compiler_error MATCHES "cannot read the configured C\\+\\+ compiler version")
+    message(FATAL_ERROR
+        "M3 contention runner reported an unexpected compiler-provenance error: "
+        "${silent_compiler_output}${silent_compiler_error}")
+endif()
+
 set(failing_build "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-failing-build")
 set(failing_output "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-failing-output")
 file(REMOVE_RECURSE "${failing_build}" "${failing_output}")

@@ -84,7 +84,11 @@ if [ -z "$FORGEKV_BENCH_CXX" ] || [ ! -x "$FORGEKV_BENCH_CXX" ]; then
     echo "M3 contention benchmark cannot identify the configured C++ compiler" >&2
     exit 1
 fi
-FORGEKV_BENCH_COMPILER=$("$FORGEKV_BENCH_CXX" --version | sed -n '1p')
+FORGEKV_BENCH_COMPILER=$("$FORGEKV_BENCH_CXX" --version 2>/dev/null | sed -n '1p')
+if [ -z "$FORGEKV_BENCH_COMPILER" ]; then
+    echo "M3 contention benchmark cannot read the configured C++ compiler version" >&2
+    exit 1
+fi
 FORGEKV_BENCH_BINARY_SHA256=$(python3 -c '
 import hashlib, pathlib, sys
 print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
