@@ -94,6 +94,14 @@ FORGEKV_BENCH_BINARY_SHA256=$(python3 -c '
 import hashlib, pathlib, sys
 print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
 ' "$FORGEKV_BENCH_BUILD_DIR/forgekv-bench")
+FORGEKV_BENCH_RUNNER_SHA256=$(python3 -c '
+import hashlib, pathlib, sys
+print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
+' "$FORGEKV_BENCH_ROOT/scripts/run-m3-contention-benchmark.sh")
+FORGEKV_BENCH_VALIDATOR_SHA256=$(python3 -c '
+import hashlib, pathlib, sys
+print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
+' "$FORGEKV_BENCH_ROOT/scripts/validate-m3-contention-output.py")
 FORGEKV_BENCH_COMPILE_COMMAND=$(python3 - "$FORGEKV_BENCH_BUILD_DIR/compile_commands.json" <<'PY'
 import json
 import pathlib
@@ -161,6 +169,8 @@ trap cleanup EXIT INT TERM
     echo "# git_commit,$FORGEKV_BENCH_SHA"
     echo "# working_tree_dirty,$FORGEKV_BENCH_DIRTY"
     echo "# benchmark_binary_sha256,$FORGEKV_BENCH_BINARY_SHA256"
+    echo "# benchmark_runner_sha256,$FORGEKV_BENCH_RUNNER_SHA256"
+    echo "# output_validator_sha256,$FORGEKV_BENCH_VALIDATOR_SHA256"
     echo "# compiler,$FORGEKV_BENCH_COMPILER"
     echo "# compile_command,$FORGEKV_BENCH_COMPILE_COMMAND"
     echo "# os,$FORGEKV_BENCH_OS"
