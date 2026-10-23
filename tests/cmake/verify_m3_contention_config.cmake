@@ -195,6 +195,8 @@ case "$*" in
 esac
 ]=])
 execute_process(COMMAND chmod +x "${success_bin}/git")
+file(WRITE "${success_bin}/date" "#!/bin/sh\nprintf '2026-10-22T23:59:59Z\\n'\n")
+execute_process(COMMAND chmod +x "${success_bin}/date")
 execute_process(
     COMMAND
         "${CMAKE_COMMAND}" -E env
@@ -222,6 +224,12 @@ if(NOT success_evidence_count EQUAL 1)
 endif()
 list(GET success_evidence 0 success_evidence_path)
 file(READ "${success_evidence_path}" success_evidence_text)
+if(NOT success_evidence_path MATCHES "m3-contention-20261022T235959Z-")
+    message(FATAL_ERROR "M3 contention evidence filename did not use the captured timestamp")
+endif()
+if(NOT success_evidence_text MATCHES "# date_utc,2026-10-22T23:59:59Z")
+    message(FATAL_ERROR "M3 contention evidence metadata did not use the captured timestamp")
+endif()
 if(NOT success_evidence_text MATCHES "# working_tree_dirty,true")
     message(FATAL_ERROR "M3 contention evidence omitted dirty-tree provenance")
 endif()

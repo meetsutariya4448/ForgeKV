@@ -51,7 +51,8 @@ if [ -n "$(git -C "$FORGEKV_BENCH_ROOT" status --porcelain)" ]; then
 else
     FORGEKV_BENCH_DIRTY=false
 fi
-FORGEKV_BENCH_TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
+FORGEKV_BENCH_DATE_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+FORGEKV_BENCH_TIMESTAMP=$(printf '%s' "$FORGEKV_BENCH_DATE_UTC" | tr -d ':-')
 FORGEKV_BENCH_OUTPUT="$FORGEKV_BENCH_OUTPUT_DIR/m3-contention-${FORGEKV_BENCH_TIMESTAMP}-${FORGEKV_BENCH_SHA}.csv"
 
 if [ ! -x "$FORGEKV_BENCH_BUILD_DIR/forgekv-bench" ]; then
@@ -156,7 +157,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 {
-    echo "# date_utc,$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "# date_utc,$FORGEKV_BENCH_DATE_UTC"
     echo "# git_commit,$FORGEKV_BENCH_SHA"
     echo "# working_tree_dirty,$FORGEKV_BENCH_DIRTY"
     echo "# benchmark_binary_sha256,$FORGEKV_BENCH_BINARY_SHA256"
