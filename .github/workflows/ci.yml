@@ -8,6 +8,16 @@ permissions:
   contents: read
 
 jobs:
+  script-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate shell syntax
+        run: sh -n scripts/*.sh
+      - name: Validate Python syntax
+        run: python3 -m py_compile scripts/*.py tests/python/*.py
+
   build-and-test:
     strategy:
       fail-fast: false
