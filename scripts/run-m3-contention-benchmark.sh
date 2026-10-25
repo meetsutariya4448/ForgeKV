@@ -60,6 +60,22 @@ else
     FORGEKV_BENCH_DIRTY=false
 fi
 FORGEKV_BENCH_DATE_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+if ! python3 - "$FORGEKV_BENCH_DATE_UTC" <<'PY'
+import datetime
+import sys
+
+text = sys.argv[1]
+try:
+    parsed = datetime.datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ")
+except ValueError:
+    raise SystemExit(1)
+if parsed.strftime("%Y-%m-%dT%H:%M:%SZ") != text:
+    raise SystemExit(1)
+PY
+then
+    echo "M3 contention benchmark received an invalid UTC timestamp" >&2
+    exit 1
+fi
 FORGEKV_BENCH_TIMESTAMP=$(printf '%s' "$FORGEKV_BENCH_DATE_UTC" | tr -d ':-')
 FORGEKV_BENCH_OUTPUT="$FORGEKV_BENCH_OUTPUT_DIR/m3-contention-${FORGEKV_BENCH_TIMESTAMP}-${FORGEKV_BENCH_SHA}.csv"
 

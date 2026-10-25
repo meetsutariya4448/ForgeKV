@@ -59,6 +59,37 @@ if(NOT invalid_git_error MATCHES "cannot identify a 40-character Git commit")
         "${invalid_git_output}${invalid_git_error}")
 endif()
 
+set(invalid_date_bin "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-invalid-date-bin")
+file(REMOVE_RECURSE "${invalid_date_bin}")
+file(MAKE_DIRECTORY "${invalid_date_bin}")
+file(WRITE "${invalid_date_bin}/git" [=[#!/bin/sh
+case "$*" in
+  *"rev-parse HEAD"*) printf '0123456789abcdef0123456789abcdef01234567\n' ;;
+  *"status --porcelain"*) exit 0 ;;
+  *) exit 1 ;;
+esac
+]=])
+execute_process(COMMAND chmod +x "${invalid_date_bin}/git")
+file(WRITE "${invalid_date_bin}/date" "#!/bin/sh\nprintf '../../escape\\n'\n")
+execute_process(COMMAND chmod +x "${invalid_date_bin}/date")
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        "PATH=${invalid_date_bin}:$ENV{PATH}"
+        /bin/sh "${M3_RUNNER}"
+    RESULT_VARIABLE invalid_date_result
+    OUTPUT_VARIABLE invalid_date_output
+    ERROR_VARIABLE invalid_date_error
+)
+if(invalid_date_result EQUAL 0)
+    message(FATAL_ERROR "M3 contention runner accepted an invalid UTC timestamp")
+endif()
+if(NOT invalid_date_error MATCHES "received an invalid UTC timestamp")
+    message(FATAL_ERROR
+        "M3 contention runner reported an unexpected timestamp error: "
+        "${invalid_date_output}${invalid_date_error}")
+endif()
+
 set(debug_build "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-debug-build")
 file(REMOVE_RECURSE "${debug_build}")
 file(MAKE_DIRECTORY "${debug_build}")
