@@ -177,6 +177,25 @@ else:
 PY
 )
 
+if ! python3 - \
+    compiler "$FORGEKV_BENCH_COMPILER" \
+    compile_command "$FORGEKV_BENCH_COMPILE_COMMAND" \
+    os "$FORGEKV_BENCH_OS" \
+    architecture "$FORGEKV_BENCH_ARCH" \
+    cpu "$FORGEKV_BENCH_CPU" \
+    logical_cores "$FORGEKV_BENCH_CORES" \
+    ram "$FORGEKV_BENCH_RAM" <<'PY'
+import sys
+
+for name, value in zip(sys.argv[1::2], sys.argv[2::2]):
+    if "\n" in value or "\r" in value:
+        print(f"invalid multiline benchmark metadata: {name}", file=sys.stderr)
+        raise SystemExit(1)
+PY
+then
+    exit 1
+fi
+
 if [ ! -d "$FORGEKV_BENCH_OUTPUT_DIR" ]; then
     echo "benchmark output directory does not exist: $FORGEKV_BENCH_OUTPUT_DIR" >&2
     exit 1

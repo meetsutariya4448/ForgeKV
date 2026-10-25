@@ -195,6 +195,36 @@ if(NOT silent_compiler_error MATCHES "cannot read the configured C\\+\\+ compile
         "${silent_compiler_output}${silent_compiler_error}")
 endif()
 
+set(multiline_metadata_build "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-multiline-metadata-build")
+file(REMOVE_RECURSE "${multiline_metadata_build}")
+file(MAKE_DIRECTORY "${multiline_metadata_build}")
+file(WRITE "${multiline_metadata_build}/forgekv-bench" "#!/bin/sh\nexit 0\n")
+execute_process(COMMAND chmod +x "${multiline_metadata_build}/forgekv-bench")
+file(WRITE "${multiline_metadata_build}/fake-cxx" "#!/bin/sh\nprintf 'fake c++ 1.0\\n'\n")
+execute_process(COMMAND chmod +x "${multiline_metadata_build}/fake-cxx")
+file(WRITE "${multiline_metadata_build}/CMakeCache.txt"
+    "CMAKE_BUILD_TYPE:STRING=Release\nCMAKE_CXX_COMPILER:FILEPATH=${multiline_metadata_build}/fake-cxx\n")
+file(WRITE "${multiline_metadata_build}/compile_commands.json" [=[
+[{"file":"apps/forgekv-bench/main.cpp","command":"c++ main.cpp\n# forged metadata"}]
+]=])
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        "FORGEKV_BENCH_BUILD_DIR=${multiline_metadata_build}"
+        /bin/sh "${M3_RUNNER}"
+    RESULT_VARIABLE multiline_metadata_result
+    OUTPUT_VARIABLE multiline_metadata_output
+    ERROR_VARIABLE multiline_metadata_error
+)
+if(multiline_metadata_result EQUAL 0)
+    message(FATAL_ERROR "M3 contention runner accepted multiline evidence metadata")
+endif()
+if(NOT multiline_metadata_error MATCHES "invalid multiline benchmark metadata: compile_command")
+    message(FATAL_ERROR
+        "M3 contention runner reported an unexpected multiline-metadata error: "
+        "${multiline_metadata_output}${multiline_metadata_error}")
+endif()
+
 set(failing_build "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-failing-build")
 set(failing_output "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-failing-output")
 file(REMOVE_RECURSE "${failing_build}" "${failing_output}")
