@@ -255,7 +255,7 @@ set(malformed_output "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-malformed-output
 file(REMOVE_RECURSE "${malformed_output}")
 file(MAKE_DIRECTORY "${malformed_output}")
 file(WRITE "${success_build}/forgekv-bench"
-    "#!/bin/sh\nprintf 'workload,shards,threads,keys,operations,repetition,seconds,ops_per_second,checksum\\n'\n")
+    "#!/bin/sh\nprintf 'workload,shards,threads,keys,operations,repetition,seconds,ops_per_second,checksum\\nsame-key,1,1,1,1,1,0.1,11,1\\ndistributed-key,1,1,1,1,1,0.1,10,1\\n'\n")
 execute_process(
     COMMAND
         "${CMAKE_COMMAND}" -E env
@@ -275,7 +275,7 @@ execute_process(
 if(malformed_result EQUAL 0)
     message(FATAL_ERROR "M3 contention runner published incomplete benchmark output")
 endif()
-if(NOT malformed_error MATCHES "invalid M3 contention output")
+if(NOT malformed_error MATCHES "throughput inconsistent with operations/time")
     message(FATAL_ERROR
         "M3 contention runner reported an unexpected output-validation error: "
         "${malformed_output_text}${malformed_error}")

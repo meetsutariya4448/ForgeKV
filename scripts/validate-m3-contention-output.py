@@ -93,6 +93,11 @@ def main() -> int:
                 raise ValueError(f"benchmark row {line_number} has invalid elapsed time")
             if not math.isfinite(throughput) or throughput <= 0:
                 raise ValueError(f"benchmark row {line_number} has invalid throughput")
+            expected_throughput = operations / seconds
+            if not math.isclose(throughput, expected_throughput, rel_tol=1e-4):
+                raise ValueError(
+                    f"benchmark row {line_number} has throughput inconsistent with operations/time"
+                )
             if shards not in expected_shards:
                 raise ValueError(f"benchmark row {line_number} has an unexpected shard count")
             if threads != arguments.threads or keys != arguments.keys:
