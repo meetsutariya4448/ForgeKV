@@ -46,6 +46,14 @@ then
 fi
 
 FORGEKV_BENCH_SHA=$(git -C "$FORGEKV_BENCH_ROOT" rev-parse HEAD)
+case "$FORGEKV_BENCH_SHA" in
+    ''|*[!0-9a-f]*) valid_git_sha=false ;;
+    *) valid_git_sha=true ;;
+esac
+if [ "$valid_git_sha" != true ] || [ "${#FORGEKV_BENCH_SHA}" -ne 40 ]; then
+    echo "M3 contention benchmark cannot identify a 40-character Git commit" >&2
+    exit 1
+fi
 if [ -n "$(git -C "$FORGEKV_BENCH_ROOT" status --porcelain)" ]; then
     FORGEKV_BENCH_DIRTY=true
 else

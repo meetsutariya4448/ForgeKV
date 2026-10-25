@@ -36,6 +36,29 @@ if(NOT threads_error MATCHES "FORGEKV_BENCH_THREADS must be a canonical positive
         "${threads_output}${threads_error}")
 endif()
 
+set(invalid_git_bin "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-invalid-git-bin")
+file(REMOVE_RECURSE "${invalid_git_bin}")
+file(MAKE_DIRECTORY "${invalid_git_bin}")
+file(WRITE "${invalid_git_bin}/git" "#!/bin/sh\nprintf 'not-a-commit\\n'\n")
+execute_process(COMMAND chmod +x "${invalid_git_bin}/git")
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        "PATH=${invalid_git_bin}:$ENV{PATH}"
+        /bin/sh "${M3_RUNNER}"
+    RESULT_VARIABLE invalid_git_result
+    OUTPUT_VARIABLE invalid_git_output
+    ERROR_VARIABLE invalid_git_error
+)
+if(invalid_git_result EQUAL 0)
+    message(FATAL_ERROR "M3 contention runner accepted an invalid Git identity")
+endif()
+if(NOT invalid_git_error MATCHES "cannot identify a 40-character Git commit")
+    message(FATAL_ERROR
+        "M3 contention runner reported an unexpected Git identity error: "
+        "${invalid_git_output}${invalid_git_error}")
+endif()
+
 set(debug_build "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-debug-build")
 file(REMOVE_RECURSE "${debug_build}")
 file(MAKE_DIRECTORY "${debug_build}")
@@ -189,7 +212,7 @@ file(WRITE "${success_build}/compile_commands.json"
     "[{\"file\":\"apps/forgekv-bench/main.cpp\",\"command\":\"c++ main.cpp\"}]\n")
 file(WRITE "${success_bin}/git" [=[#!/bin/sh
 case "$*" in
-  *"rev-parse HEAD"*) printf '0123456789abcdef\n' ;;
+  *"rev-parse HEAD"*) printf '0123456789abcdef0123456789abcdef01234567\n' ;;
   *"status --porcelain"*) printf ' M src/benchmark.cpp\n' ;;
   *) exit 1 ;;
 esac
