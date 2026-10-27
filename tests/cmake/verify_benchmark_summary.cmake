@@ -187,6 +187,26 @@ endif()
 file(WRITE "${run_directory}/result.json"
     "{\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
     "\"repetition\":1,\"seed\":7,\"operations_per_second\":10,"
+    "\"latency_us\":{\"p50\":5,\"p95\":4,\"p99\":6,\"max\":7},"
+    "\"errors\":0,\"connection_errors\":0}\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE unordered_latency_result
+    OUTPUT_VARIABLE unordered_latency_output
+    ERROR_VARIABLE unordered_latency_error
+)
+if(unordered_latency_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted unordered latency percentiles")
+endif()
+if(NOT unordered_latency_error MATCHES "latency percentiles are not ordered")
+    message(FATAL_ERROR
+        "summary reported an unexpected latency error: "
+        "${unordered_latency_output}${unordered_latency_error}")
+endif()
+
+file(WRITE "${run_directory}/result.json"
+    "{\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
+    "\"repetition\":1,\"seed\":7,\"operations_per_second\":10,"
     "\"latency_us\":{\"p99\":2},\"errors\":0,\"connection_errors\":0}\n")
 file(APPEND "${run_directory}/manifest.csv"
     "run-1,read-ratio,0.8,1,7,valid,result\n")

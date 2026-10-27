@@ -81,6 +81,27 @@ def validate_result_metadata(result_path: Path, row: dict[str, str], result: dic
                 f"{result_path.name} throughput is inconsistent with operations and seconds"
             )
 
+    latency = result.get("latency_us")
+    if isinstance(latency, dict) and any(
+        field in latency for field in ("p50", "p95", "max")
+    ):
+        ordered_latency_fields = ("p50", "p95", "p99", "max")
+        ordered_latencies = []
+        for field in ordered_latency_fields:
+            value = latency.get(field)
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or value < 0
+            ):
+                raise ValueError(
+                    f"{result_path.name} latency_us.{field} must be a finite nonnegative number"
+                )
+            ordered_latencies.append(float(value))
+        if ordered_latencies != sorted(ordered_latencies):
+            raise ValueError(f"{result_path.name} latency percentiles are not ordered")
+
     for field in ("errors", "connection_errors"):
         value = result.get(field)
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
