@@ -62,6 +62,25 @@ def validate_result_metadata(result_path: Path, row: dict[str, str], result: dic
         ):
             raise ValueError(f"{result_path.name} {field} must be a finite nonnegative number")
 
+    if "operations" in result or "seconds" in result:
+        operations = result.get("operations")
+        seconds = result.get("seconds")
+        if isinstance(operations, bool) or not isinstance(operations, int) or operations <= 0:
+            raise ValueError(f"{result_path.name} operations must be a positive integer")
+        if (
+            isinstance(seconds, bool)
+            or not isinstance(seconds, (int, float))
+            or not math.isfinite(seconds)
+            or seconds <= 0
+        ):
+            raise ValueError(f"{result_path.name} seconds must be a finite positive number")
+        if not math.isclose(
+            float(result["operations_per_second"]), operations / seconds, rel_tol=1e-5
+        ):
+            raise ValueError(
+                f"{result_path.name} throughput is inconsistent with operations and seconds"
+            )
+
     for field in ("errors", "connection_errors"):
         value = result.get(field)
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:

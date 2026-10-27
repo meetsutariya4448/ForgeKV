@@ -165,6 +165,27 @@ endif()
 
 file(WRITE "${run_directory}/result.json"
     "{\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
+    "\"repetition\":1,\"seed\":7,\"operations\":100,\"seconds\":2,"
+    "\"operations_per_second\":99,\"latency_us\":{\"p99\":2},"
+    "\"errors\":0,\"connection_errors\":0}\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE inconsistent_throughput_result
+    OUTPUT_VARIABLE inconsistent_throughput_output
+    ERROR_VARIABLE inconsistent_throughput_error
+)
+if(inconsistent_throughput_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted inconsistent throughput evidence")
+endif()
+if(NOT inconsistent_throughput_error MATCHES
+   "throughput is inconsistent with operations and seconds")
+    message(FATAL_ERROR
+        "summary reported an unexpected throughput error: "
+        "${inconsistent_throughput_output}${inconsistent_throughput_error}")
+endif()
+
+file(WRITE "${run_directory}/result.json"
+    "{\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
     "\"repetition\":1,\"seed\":7,\"operations_per_second\":10,"
     "\"latency_us\":{\"p99\":2},\"errors\":0,\"connection_errors\":0}\n")
 file(APPEND "${run_directory}/manifest.csv"
