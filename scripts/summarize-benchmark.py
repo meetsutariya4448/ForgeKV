@@ -172,6 +172,8 @@ def main() -> int:
                     f"manifest output prefix {output_prefix!r} is not a safe filename"
                 )
             result_path = run_directory / (output_prefix + ".json")
+            if result_path.is_symlink():
+                raise ValueError(f"{result_path.name} must not be a symbolic link")
             result = json.loads(
                 result_path.read_text(encoding="utf-8"),
                 object_pairs_hook=unique_json_object,

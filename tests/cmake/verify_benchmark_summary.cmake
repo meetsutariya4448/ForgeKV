@@ -105,10 +105,6 @@ endif()
 
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
-    "run-1,read-ratio,0.8,1,7,valid,result\n")
-
-file(WRITE "${run_directory}/manifest.csv"
-    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "../run-1,read-ratio,0.8,1,7,valid,result\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
@@ -358,6 +354,35 @@ if(NOT empty_error MATCHES "manifest contains no valid trials")
         "summary reported an unexpected empty-run error: ${empty_output}${empty_error}")
 endif()
 
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,read-ratio,0.8,1,7,valid,result\n")
+set(external_result "${CMAKE_CURRENT_BINARY_DIR}/benchmark-summary-external-result.json")
+file(WRITE "${external_result}"
+    "{\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
+    "\"repetition\":1,\"seed\":7,\"operations_per_second\":10,"
+    "\"latency_us\":{\"p99\":2},\"errors\":0,\"connection_errors\":0}\n")
+file(REMOVE "${run_directory}/result.json")
+file(CREATE_LINK "${external_result}" "${run_directory}/result.json" SYMBOLIC)
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE symlink_result
+    OUTPUT_VARIABLE symlink_output
+    ERROR_VARIABLE symlink_error
+)
+if(symlink_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary followed a result symlink")
+endif()
+if(NOT symlink_error MATCHES "result.json must not be a symbolic link")
+    message(FATAL_ERROR
+        "summary reported an unexpected result symlink error: ${symlink_output}${symlink_error}")
+endif()
+
+file(REMOVE "${run_directory}/result.json")
+file(WRITE "${run_directory}/result.json"
+    "{\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
+    "\"repetition\":1,\"seed\":7,\"operations_per_second\":10,"
+    "\"latency_us\":{\"p99\":2},\"errors\":0,\"connection_errors\":0}\n")
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,result\n")
