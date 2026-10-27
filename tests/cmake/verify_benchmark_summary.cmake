@@ -205,6 +205,28 @@ if(NOT unordered_latency_error MATCHES "latency percentiles are not ordered")
 endif()
 
 file(WRITE "${run_directory}/result.json"
+    "{\"timestamp_utc\":\"2026-10-26T23:59:59Z\",\"git_sha\":\"main\","
+    "\"working_tree_dirty\":false,\"compiler\":\"Clang 17\",\"build\":\"Release\","
+    "\"system\":\"test system\",\"hardware_threads\":8,"
+    "\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
+    "\"repetition\":1,\"seed\":7,\"operations_per_second\":10,"
+    "\"latency_us\":{\"p99\":2},\"errors\":0,\"connection_errors\":0}\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE invalid_provenance_result
+    OUTPUT_VARIABLE invalid_provenance_output
+    ERROR_VARIABLE invalid_provenance_error
+)
+if(invalid_provenance_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted invalid build provenance")
+endif()
+if(NOT invalid_provenance_error MATCHES "git_sha must be a 40-character commit")
+    message(FATAL_ERROR
+        "summary reported an unexpected provenance error: "
+        "${invalid_provenance_output}${invalid_provenance_error}")
+endif()
+
+file(WRITE "${run_directory}/result.json"
     "{\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
     "\"repetition\":1,\"seed\":7,\"operations_per_second\":10,"
     "\"latency_us\":{\"p99\":2},\"errors\":0,\"connection_errors\":0}\n")

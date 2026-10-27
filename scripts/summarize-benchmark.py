@@ -2,6 +2,7 @@
 """Summarize immutable ForgeKV benchmark trial JSON without third-party packages."""
 
 import csv
+import datetime as dt
 import json
 import math
 import os
@@ -101,6 +102,43 @@ def validate_result_metadata(result_path: Path, row: dict[str, str], result: dic
             ordered_latencies.append(float(value))
         if ordered_latencies != sorted(ordered_latencies):
             raise ValueError(f"{result_path.name} latency percentiles are not ordered")
+
+    provenance_fields = {
+        "timestamp_utc", "git_sha", "working_tree_dirty", "compiler", "build", "system",
+        "hardware_threads",
+    }
+    if provenance_fields.intersection(result):
+        missing_provenance = sorted(provenance_fields - result.keys())
+        if missing_provenance:
+            raise ValueError(
+                f"{result_path.name} is missing provenance fields: "
+                f"{', '.join(missing_provenance)}"
+            )
+        try:
+            timestamp = dt.datetime.strptime(result["timestamp_utc"], "%Y-%m-%dT%H:%M:%SZ")
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"{result_path.name} timestamp_utc is invalid") from error
+        if timestamp.strftime("%Y-%m-%dT%H:%M:%SZ") != result["timestamp_utc"]:
+            raise ValueError(f"{result_path.name} timestamp_utc is invalid")
+        if not isinstance(result["git_sha"], str) or not re.fullmatch(
+            r"[0-9a-f]{40}", result["git_sha"]
+        ):
+            raise ValueError(f"{result_path.name} git_sha must be a 40-character commit")
+        if not isinstance(result["working_tree_dirty"], bool):
+            raise ValueError(f"{result_path.name} working_tree_dirty must be boolean")
+        for field in ("compiler", "build", "system"):
+            value = result[field]
+            if not isinstance(value, str) or not value.strip() or "\n" in value or "\r" in value:
+                raise ValueError(f"{result_path.name} {field} must be single-line text")
+        hardware_threads = result["hardware_threads"]
+        if (
+            isinstance(hardware_threads, bool)
+            or not isinstance(hardware_threads, int)
+            or hardware_threads < 0
+        ):
+            raise ValueError(
+                f"{result_path.name} hardware_threads must be a nonnegative integer"
+            )
 
     for field in ("errors", "connection_errors"):
         value = result.get(field)
