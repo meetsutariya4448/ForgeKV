@@ -107,6 +107,28 @@ file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,result\n")
 
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "../run-1,read-ratio,0.8,1,7,valid,result\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE unsafe_run_id_result
+    OUTPUT_VARIABLE unsafe_run_id_output
+    ERROR_VARIABLE unsafe_run_id_error
+)
+if(unsafe_run_id_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an unsafe run identifier")
+endif()
+if(NOT unsafe_run_id_error MATCHES "manifest run_id '../run-1' is not a safe identifier")
+    message(FATAL_ERROR
+        "summary reported an unexpected run identifier error: "
+        "${unsafe_run_id_output}${unsafe_run_id_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,read-ratio,0.8,1,7,valid,result\n")
+
 file(WRITE "${run_directory}/result.json"
     "{\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
     "\"repetition\":1,\"seed\":7,\"operations_per_second\":10,"

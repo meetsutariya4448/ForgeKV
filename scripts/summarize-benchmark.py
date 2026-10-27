@@ -135,8 +135,10 @@ def main() -> int:
             status = row["status"]
             if status not in {"valid", "invalid"}:
                 raise ValueError(f"manifest contains unknown status {status!r}")
-            if not row["run_id"].strip():
-                raise ValueError("manifest trial has a blank run_id")
+            if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", row["run_id"]):
+                raise ValueError(
+                    f"manifest run_id {row['run_id']!r} is not a safe identifier"
+                )
             if run_id is None:
                 run_id = row["run_id"]
             elif row["run_id"] != run_id:
