@@ -501,6 +501,32 @@ if(NOT production_schema_error MATCHES "result.json is missing production fields
         "${production_schema_output}${production_schema_error}")
 endif()
 
+file(WRITE "${run_directory}/result.json"
+    "{\"timestamp_utc\":\"2026-10-27T00:00:00Z\","
+    "\"git_sha\":\"0123456789abcdef0123456789abcdef01234567\","
+    "\"working_tree_dirty\":false,\"compiler\":\"Clang 17\","
+    "\"build\":\"Release\",\"system\":\"test system\",\"hardware_threads\":8,"
+    "\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
+    "\"repetition\":1,\"seed\":7,\"operations\":2,\"seconds\":1,"
+    "\"operations_per_second\":2,"
+    "\"latency_us\":{\"p50\":1,\"p95\":2,\"p99\":2,\"max\":2},"
+    "\"errors\":0,\"connection_errors\":0}\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE latency_evidence_result
+    OUTPUT_VARIABLE latency_evidence_output
+    ERROR_VARIABLE latency_evidence_error
+)
+if(latency_evidence_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted missing latency evidence")
+endif()
+if(NOT latency_evidence_error MATCHES
+   "latency evidence is missing: result-latency-us.csv")
+    message(FATAL_ERROR
+        "summary reported an unexpected latency evidence error: "
+        "${latency_evidence_output}${latency_evidence_error}")
+endif()
+
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,result\n")

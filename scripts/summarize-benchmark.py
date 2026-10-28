@@ -170,6 +170,56 @@ def validate_result_metadata(
             raise ValueError(f"{result_path.name} {field} must be a nonnegative integer")
 
 
+def validate_latency_evidence(
+    run_directory: Path, output_prefix: str, result: dict
+) -> None:
+    latency_path = run_directory / f"{output_prefix}-latency-us.csv"
+    if latency_path.is_symlink():
+        raise ValueError(f"{latency_path.name} must not be a symbolic link")
+    try:
+        with latency_path.open(newline="", encoding="utf-8") as latency_file:
+            reader = csv.reader(latency_file)
+            if next(reader, None) != ["latency_us"]:
+                raise ValueError(f"{latency_path.name} has an invalid header")
+            samples = []
+            for row_number, row in enumerate(reader, start=2):
+                if len(row) != 1:
+                    raise ValueError(
+                        f"{latency_path.name} row {row_number} must contain one value"
+                    )
+                try:
+                    sample = float(row[0])
+                except ValueError as error:
+                    raise ValueError(
+                        f"{latency_path.name} row {row_number} is not numeric"
+                    ) from error
+                if not math.isfinite(sample) or sample < 0:
+                    raise ValueError(
+                        f"{latency_path.name} row {row_number} must be finite and nonnegative"
+                    )
+                samples.append(sample)
+    except FileNotFoundError as error:
+        raise ValueError(f"latency evidence is missing: {latency_path.name}") from error
+
+    if len(samples) != result["operations"]:
+        raise ValueError(
+            f"{latency_path.name} sample count does not match operations"
+        )
+    samples.sort()
+    for field, fraction in (("p50", 0.50), ("p95", 0.95), ("p99", 0.99)):
+        index = max(1, math.ceil(fraction * len(samples))) - 1
+        if not math.isclose(
+            samples[index], float(result["latency_us"][field]), rel_tol=1e-5
+        ):
+            raise ValueError(
+                f"{latency_path.name} {field} does not match JSON result"
+            )
+    if not math.isclose(
+        samples[-1], float(result["latency_us"]["max"]), rel_tol=1e-5
+    ):
+        raise ValueError(f"{latency_path.name} max does not match JSON result")
+
+
 def publish_summary(output_path: Path, grouped: dict[tuple[str, str], list[dict]]) -> None:
     temporary_path: Path | None = None
     try:
@@ -305,6 +355,8 @@ def main() -> int:
             if not isinstance(result, dict):
                 raise ValueError(f"{result_path.name} must contain a JSON object")
             validate_result_metadata(result_path, row, result, production_manifest)
+            if production_manifest:
+                validate_latency_evidence(run_directory, output_prefix, result)
         except (OSError, KeyError, TypeError, ValueError) as error:
             print(f"invalid benchmark result: {error}", file=sys.stderr)
             return 1
