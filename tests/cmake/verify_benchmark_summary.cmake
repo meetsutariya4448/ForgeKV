@@ -527,6 +527,22 @@ if(NOT latency_evidence_error MATCHES
         "${latency_evidence_output}${latency_evidence_error}")
 endif()
 
+file(WRITE "${run_directory}/result-latency-us.csv" "latency_us\n1\n2\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE csv_evidence_result
+    OUTPUT_VARIABLE csv_evidence_output
+    ERROR_VARIABLE csv_evidence_error
+)
+if(csv_evidence_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted missing CSV evidence")
+endif()
+if(NOT csv_evidence_error MATCHES "CSV evidence is missing: result.csv")
+    message(FATAL_ERROR
+        "summary reported an unexpected CSV evidence error: "
+        "${csv_evidence_output}${csv_evidence_error}")
+endif()
+
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,result\n")

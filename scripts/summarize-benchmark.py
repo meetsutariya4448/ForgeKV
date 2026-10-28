@@ -220,6 +220,72 @@ def validate_latency_evidence(
         raise ValueError(f"{latency_path.name} max does not match JSON result")
 
 
+def validate_csv_evidence(
+    run_directory: Path, output_prefix: str, result: dict
+) -> None:
+    csv_path = run_directory / f"{output_prefix}.csv"
+    if csv_path.is_symlink():
+        raise ValueError(f"{csv_path.name} must not be a symbolic link")
+    try:
+        with csv_path.open(newline="", encoding="utf-8") as csv_file:
+            reader = csv.DictReader(csv_file)
+            fields = reader.fieldnames or []
+            if len(fields) != len(set(fields)):
+                raise ValueError(f"{csv_path.name} contains duplicate columns")
+            required_fields = {
+                "timestamp_utc", "run_id", "experiment", "variant", "git_sha",
+                "working_tree_dirty", "compiler", "build", "system", "seed",
+                "repetition", "operations", "seconds", "ops_per_second", "p50_us",
+                "p95_us", "p99_us", "max_us", "errors", "connection_errors",
+            }
+            missing_fields = sorted(required_fields - set(fields))
+            if missing_fields:
+                raise ValueError(
+                    f"{csv_path.name} is missing columns: {', '.join(missing_fields)}"
+                )
+            rows = list(reader)
+    except FileNotFoundError as error:
+        raise ValueError(f"CSV evidence is missing: {csv_path.name}") from error
+    if len(rows) != 1 or None in rows[0]:
+        raise ValueError(f"{csv_path.name} must contain exactly one complete result row")
+    row = rows[0]
+
+    for field in (
+        "timestamp_utc", "run_id", "experiment", "variant", "git_sha", "compiler",
+        "build", "system",
+    ):
+        if row[field] != str(result[field]):
+            raise ValueError(f"{csv_path.name} {field} does not match JSON result")
+    expected_integers = {
+        "working_tree_dirty": int(result["working_tree_dirty"]),
+        "seed": result["seed"],
+        "repetition": result["repetition"],
+        "operations": result["operations"],
+        "errors": result["errors"],
+        "connection_errors": result["connection_errors"],
+    }
+    for field, expected in expected_integers.items():
+        if not re.fullmatch(r"0|[1-9][0-9]*", row[field]) or int(row[field]) != expected:
+            raise ValueError(f"{csv_path.name} {field} does not match JSON result")
+    expected_numbers = {
+        "seconds": result["seconds"],
+        "ops_per_second": result["operations_per_second"],
+        "p50_us": result["latency_us"]["p50"],
+        "p95_us": result["latency_us"]["p95"],
+        "p99_us": result["latency_us"]["p99"],
+        "max_us": result["latency_us"]["max"],
+    }
+    for field, expected in expected_numbers.items():
+        try:
+            actual = float(row[field])
+        except ValueError as error:
+            raise ValueError(f"{csv_path.name} {field} is not numeric") from error
+        if not math.isfinite(actual) or not math.isclose(
+            actual, float(expected), rel_tol=1e-5
+        ):
+            raise ValueError(f"{csv_path.name} {field} does not match JSON result")
+
+
 def publish_summary(output_path: Path, grouped: dict[tuple[str, str], list[dict]]) -> None:
     temporary_path: Path | None = None
     try:
@@ -357,6 +423,7 @@ def main() -> int:
             validate_result_metadata(result_path, row, result, production_manifest)
             if production_manifest:
                 validate_latency_evidence(run_directory, output_prefix, result)
+                validate_csv_evidence(run_directory, output_prefix, result)
         except (OSError, KeyError, TypeError, ValueError) as error:
             print(f"invalid benchmark result: {error}", file=sys.stderr)
             return 1
