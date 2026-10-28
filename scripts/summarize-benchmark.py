@@ -16,6 +16,12 @@ from pathlib import Path
 REQUIRED_MANIFEST_FIELDS = {
     "run_id", "experiment", "variant", "trial", "seed", "status", "output_prefix",
 }
+PRODUCTION_MANIFEST_FIELDS = {"case_order", "reason", "resource_file"}
+REQUIRED_PRODUCTION_RESULT_FIELDS = {
+    "timestamp_utc", "git_sha", "working_tree_dirty", "compiler", "build", "system",
+    "hardware_threads", "operations", "seconds", "operations_per_second", "latency_us",
+    "errors", "connection_errors",
+}
 
 
 def unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -27,7 +33,25 @@ def unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
     return result
 
 
-def validate_result_metadata(result_path: Path, row: dict[str, str], result: dict) -> None:
+def validate_result_metadata(
+    result_path: Path, row: dict[str, str], result: dict, require_complete: bool = False
+) -> None:
+    if require_complete:
+        missing_fields = sorted(REQUIRED_PRODUCTION_RESULT_FIELDS - result.keys())
+        if missing_fields:
+            raise ValueError(
+                f"{result_path.name} is missing production fields: {', '.join(missing_fields)}"
+            )
+        latency = result.get("latency_us")
+        missing_latency = sorted(
+            {"p50", "p95", "p99", "max"}
+            - (latency.keys() if isinstance(latency, dict) else set())
+        )
+        if missing_latency:
+            raise ValueError(
+                f"{result_path.name} is missing latency fields: {', '.join(missing_latency)}"
+            )
+
     repetition = int(row["trial"])
     seed = int(row["seed"])
     expected = {
@@ -199,6 +223,7 @@ def main() -> int:
                     f"manifest is missing required columns: {', '.join(missing_fields)}"
                 )
             rows = list(reader)
+            production_manifest = PRODUCTION_MANIFEST_FIELDS.issubset(fields)
         if any(None in row for row in rows):
             raise ValueError("manifest row contains more fields than its header")
     except (csv.Error, OSError, ValueError) as error:
@@ -279,7 +304,7 @@ def main() -> int:
             )
             if not isinstance(result, dict):
                 raise ValueError(f"{result_path.name} must contain a JSON object")
-            validate_result_metadata(result_path, row, result)
+            validate_result_metadata(result_path, row, result, production_manifest)
         except (OSError, KeyError, TypeError, ValueError) as error:
             print(f"invalid benchmark result: {error}", file=sys.stderr)
             return 1

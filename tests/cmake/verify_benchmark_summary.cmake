@@ -482,6 +482,25 @@ if(NOT resource_error MATCHES "resource evidence is missing: result-resource.txt
         "${resource_output}${resource_error}")
 endif()
 
+file(WRITE "${run_directory}/result-resource.txt" "captured_utc=2026-10-27T00:00:00Z\n")
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
+    "run-1,1,read-ratio,0.8,1,7,valid,none,result,result-resource.txt\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE production_schema_result
+    OUTPUT_VARIABLE production_schema_output
+    ERROR_VARIABLE production_schema_error
+)
+if(production_schema_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an incomplete production result")
+endif()
+if(NOT production_schema_error MATCHES "result.json is missing production fields")
+    message(FATAL_ERROR
+        "summary reported an unexpected production schema error: "
+        "${production_schema_output}${production_schema_error}")
+endif()
+
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,result\n")
