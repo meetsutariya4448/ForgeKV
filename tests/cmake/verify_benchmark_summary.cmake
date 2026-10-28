@@ -543,6 +543,26 @@ if(NOT csv_evidence_error MATCHES "CSV evidence is missing: result.csv")
         "${csv_evidence_output}${csv_evidence_error}")
 endif()
 
+file(WRITE "${run_directory}/result.csv"
+    "timestamp_utc,run_id,experiment,variant,git_sha,working_tree_dirty,compiler,build,system,"
+    "seed,repetition,operations,seconds,ops_per_second,p50_us,p95_us,p99_us,max_us,errors,"
+    "connection_errors\n"
+    "2026-10-27T00:00:00Z,run-1,read-ratio,0.8,"
+    "0123456789abcdef0123456789abcdef01234567,0,Clang 17,Release,test system,"
+    "7,1,2,1,2,1,2,2,2,0,0\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE production_result
+    OUTPUT_VARIABLE production_output
+    ERROR_VARIABLE production_error
+)
+if(NOT production_result EQUAL 0 OR NOT EXISTS "${run_directory}/summary.csv")
+    message(FATAL_ERROR
+        "complete production benchmark evidence failed: "
+        "${production_output}${production_error}")
+endif()
+file(REMOVE "${run_directory}/summary.csv")
+
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,result\n")
