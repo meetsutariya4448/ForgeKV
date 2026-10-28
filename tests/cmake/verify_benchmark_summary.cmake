@@ -447,6 +447,24 @@ file(WRITE "${run_directory}/result.json"
     "\"repetition\":1,\"seed\":7,\"operations_per_second\":10,"
     "\"latency_us\":{\"p99\":2},\"errors\":0,\"connection_errors\":0}\n")
 file(WRITE "${run_directory}/manifest.csv"
+    "run_id,case_order,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,2,read-ratio,0.8,1,7,valid,result\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE case_order_result
+    OUTPUT_VARIABLE case_order_output
+    ERROR_VARIABLE case_order_error
+)
+if(case_order_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted a noncontiguous case order")
+endif()
+if(NOT case_order_error MATCHES "manifest case_order is not contiguous")
+    message(FATAL_ERROR
+        "summary reported an unexpected case order error: "
+        "${case_order_output}${case_order_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,result\n")
 execute_process(

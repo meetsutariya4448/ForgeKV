@@ -207,6 +207,7 @@ def main() -> int:
 
     grouped: dict[tuple[str, str], list[dict]] = {}
     seen_trials: set[tuple[str, str, str, str]] = set()
+    seen_case_orders: set[int] = set()
     run_id: str | None = None
     for row in rows:
         try:
@@ -231,6 +232,15 @@ def main() -> int:
                 raise ValueError(
                     "manifest seed must be a nonnegative integer in canonical decimal form"
                 )
+            if "case_order" in row:
+                if not re.fullmatch(r"[1-9][0-9]*", row["case_order"]):
+                    raise ValueError(
+                        "manifest case_order must be a positive integer in canonical decimal form"
+                    )
+                case_order = int(row["case_order"])
+                if case_order in seen_case_orders:
+                    raise ValueError(f"manifest contains duplicate case_order {case_order}")
+                seen_case_orders.add(case_order)
             identity = (
                 row["run_id"], row["experiment"], row["variant"], row["trial"]
             )
@@ -263,6 +273,10 @@ def main() -> int:
             print(f"invalid benchmark result: {error}", file=sys.stderr)
             return 1
         grouped.setdefault((row["experiment"], row["variant"]), []).append(result)
+
+    if seen_case_orders and seen_case_orders != set(range(1, len(rows) + 1)):
+        print("invalid benchmark result: manifest case_order is not contiguous", file=sys.stderr)
+        return 1
 
     if not grouped:
         print("benchmark manifest contains no valid trials", file=sys.stderr)
