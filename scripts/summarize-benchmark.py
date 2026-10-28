@@ -259,6 +259,17 @@ def main() -> int:
                 raise ValueError(
                     f"manifest output prefix {output_prefix!r} is not a safe filename"
                 )
+            if "resource_file" in row:
+                resource_file = row["resource_file"]
+                if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", resource_file):
+                    raise ValueError(
+                        f"manifest resource file {resource_file!r} is not a safe filename"
+                    )
+                resource_path = run_directory / resource_file
+                if resource_path.is_symlink():
+                    raise ValueError(f"{resource_path.name} must not be a symbolic link")
+                if not resource_path.is_file():
+                    raise ValueError(f"resource evidence is missing: {resource_path.name}")
             result_path = run_directory / (output_prefix + ".json")
             if result_path.is_symlink():
                 raise ValueError(f"{result_path.name} must not be a symbolic link")

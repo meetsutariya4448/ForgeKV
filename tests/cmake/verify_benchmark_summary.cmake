@@ -465,6 +465,24 @@ if(NOT case_order_error MATCHES "manifest case_order is not contiguous")
 endif()
 
 file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix,resource_file\n"
+    "run-1,read-ratio,0.8,1,7,valid,result,result-resource.txt\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE resource_result
+    OUTPUT_VARIABLE resource_output
+    ERROR_VARIABLE resource_error
+)
+if(resource_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted missing resource evidence")
+endif()
+if(NOT resource_error MATCHES "resource evidence is missing: result-resource.txt")
+    message(FATAL_ERROR
+        "summary reported an unexpected resource evidence error: "
+        "${resource_output}${resource_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,result\n")
 execute_process(
