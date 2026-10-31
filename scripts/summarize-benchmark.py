@@ -20,7 +20,10 @@ PRODUCTION_MANIFEST_FIELDS = {"case_order", "reason", "resource_file"}
 REQUIRED_PRODUCTION_RESULT_FIELDS = {
     "timestamp_utc", "git_sha", "working_tree_dirty", "compiler", "build", "system",
     "hardware_threads", "operations", "seconds", "operations_per_second", "latency_us",
-    "errors", "connection_errors",
+    "errors", "connection_errors", "ram", "storage_medium", "connections", "threads",
+    "request_bound", "duration_bound_s", "read_ratio", "key_count", "value_size",
+    "pipeline_depth", "warmup_requests", "preload", "server_workers", "server_shards",
+    "durability",
 }
 
 
@@ -51,6 +54,41 @@ def validate_result_metadata(
             raise ValueError(
                 f"{result_path.name} is missing latency fields: {', '.join(missing_latency)}"
             )
+        for field in (
+            "connections", "threads", "request_bound", "key_count", "value_size",
+            "pipeline_depth", "server_workers", "server_shards",
+        ):
+            value = result[field]
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"{result_path.name} {field} must be a positive integer")
+        warmup_requests = result["warmup_requests"]
+        if (
+            isinstance(warmup_requests, bool)
+            or not isinstance(warmup_requests, int)
+            or warmup_requests < 0
+        ):
+            raise ValueError(
+                f"{result_path.name} warmup_requests must be a nonnegative integer"
+            )
+        duration = result["duration_bound_s"]
+        if isinstance(duration, bool) or not isinstance(duration, int) or duration < 0:
+            raise ValueError(
+                f"{result_path.name} duration_bound_s must be a nonnegative integer"
+            )
+        read_ratio = result["read_ratio"]
+        if (
+            isinstance(read_ratio, bool)
+            or not isinstance(read_ratio, (int, float))
+            or not math.isfinite(read_ratio)
+            or not 0 <= read_ratio <= 1
+        ):
+            raise ValueError(f"{result_path.name} read_ratio must be between zero and one")
+        if not isinstance(result["preload"], bool):
+            raise ValueError(f"{result_path.name} preload must be boolean")
+        for field in ("ram", "storage_medium", "durability"):
+            value = result[field]
+            if not isinstance(value, str) or not value.strip() or "\n" in value or "\r" in value:
+                raise ValueError(f"{result_path.name} {field} must be single-line text")
 
     repetition = int(row["trial"])
     seed = int(row["seed"])
@@ -263,6 +301,9 @@ def validate_csv_evidence(
                 "working_tree_dirty", "compiler", "build", "system", "seed",
                 "repetition", "operations", "seconds", "ops_per_second", "p50_us",
                 "p95_us", "p99_us", "max_us", "errors", "connection_errors",
+                "ram", "storage_medium", "connections", "threads", "requests",
+                "duration_s", "read_ratio", "key_count", "value_size", "pipeline_depth",
+                "warmup", "preload", "workers", "shards", "durability",
             }
             missing_fields = sorted(required_fields - set(fields))
             if missing_fields:
@@ -278,7 +319,7 @@ def validate_csv_evidence(
 
     for field in (
         "timestamp_utc", "run_id", "experiment", "variant", "git_sha", "compiler",
-        "build", "system",
+        "build", "system", "ram", "storage_medium", "durability",
     ):
         if row[field] != str(result[field]):
             raise ValueError(f"{csv_path.name} {field} does not match JSON result")
@@ -289,6 +330,16 @@ def validate_csv_evidence(
         "operations": result["operations"],
         "errors": result["errors"],
         "connection_errors": result["connection_errors"],
+        "connections": result["connections"],
+        "threads": result["threads"],
+        "requests": result["request_bound"],
+        "key_count": result["key_count"],
+        "value_size": result["value_size"],
+        "pipeline_depth": result["pipeline_depth"],
+        "warmup": result["warmup_requests"],
+        "preload": int(result["preload"]),
+        "workers": result["server_workers"],
+        "shards": result["server_shards"],
     }
     for field, expected in expected_integers.items():
         if not re.fullmatch(r"0|[1-9][0-9]*", row[field]) or int(row[field]) != expected:
@@ -300,6 +351,8 @@ def validate_csv_evidence(
         "p95_us": result["latency_us"]["p95"],
         "p99_us": result["latency_us"]["p99"],
         "max_us": result["latency_us"]["max"],
+        "duration_s": result["duration_bound_s"],
+        "read_ratio": result["read_ratio"],
     }
     for field, expected in expected_numbers.items():
         try:

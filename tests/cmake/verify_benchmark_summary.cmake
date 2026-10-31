@@ -577,7 +577,12 @@ file(WRITE "${run_directory}/result.json"
     "\"git_sha\":\"0123456789abcdef0123456789abcdef01234567\","
     "\"working_tree_dirty\":false,\"compiler\":\"Clang 17\","
     "\"build\":\"Release\",\"system\":\"test system\",\"hardware_threads\":8,"
+    "\"ram\":\"test ram\",\"storage_medium\":\"ssd\","
     "\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
+    "\"connections\":1,\"threads\":1,\"request_bound\":2,\"duration_bound_s\":0,"
+    "\"read_ratio\":0.8,\"key_count\":100,\"value_size\":10,\"pipeline_depth\":1,"
+    "\"warmup_requests\":0,\"preload\":false,\"server_workers\":1,"
+    "\"server_shards\":1,\"durability\":\"periodic\","
     "\"repetition\":1,\"seed\":7,\"operations\":2,\"seconds\":1,"
     "\"operations_per_second\":2,"
     "\"latency_us\":{\"p50\":1,\"p95\":2,\"p99\":2,\"max\":2},"
@@ -616,10 +621,35 @@ endif()
 
 file(WRITE "${run_directory}/result.csv"
     "timestamp_utc,run_id,experiment,variant,git_sha,working_tree_dirty,compiler,build,system,"
-    "seed,repetition,operations,seconds,ops_per_second,p50_us,p95_us,p99_us,max_us,errors,"
+    "ram,storage_medium,connections,threads,requests,duration_s,read_ratio,key_count,value_size,"
+    "pipeline_depth,warmup,preload,workers,shards,durability,seed,repetition,operations,seconds,"
+    "ops_per_second,p50_us,p95_us,p99_us,max_us,errors,"
     "connection_errors\n"
     "2026-10-27T00:00:00Z,run-1,read-ratio,0.8,"
     "0123456789abcdef0123456789abcdef01234567,0,Clang 17,Release,test system,"
+    "test ram,ssd,2,1,2,0,0.8,100,10,1,0,0,1,1,periodic,"
+    "7,1,2,1,2,1,2,2,2,0,0\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE workload_result
+    OUTPUT_VARIABLE workload_output
+    ERROR_VARIABLE workload_error
+)
+if(workload_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted mismatched workload evidence")
+endif()
+if(NOT workload_error MATCHES "result.csv connections does not match JSON result")
+    message(FATAL_ERROR
+        "summary reported an unexpected workload error: ${workload_output}${workload_error}")
+endif()
+file(WRITE "${run_directory}/result.csv"
+    "timestamp_utc,run_id,experiment,variant,git_sha,working_tree_dirty,compiler,build,system,"
+    "ram,storage_medium,connections,threads,requests,duration_s,read_ratio,key_count,value_size,"
+    "pipeline_depth,warmup,preload,workers,shards,durability,seed,repetition,operations,seconds,"
+    "ops_per_second,p50_us,p95_us,p99_us,max_us,errors,connection_errors\n"
+    "2026-10-27T00:00:00Z,run-1,read-ratio,0.8,"
+    "0123456789abcdef0123456789abcdef01234567,0,Clang 17,Release,test system,"
+    "test ram,ssd,1,1,2,0,0.8,100,10,1,0,0,1,1,periodic,"
     "7,1,2,1,2,1,2,2,2,0,0\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
