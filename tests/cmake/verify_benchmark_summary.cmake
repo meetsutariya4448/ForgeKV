@@ -467,8 +467,8 @@ file(WRITE "${run_directory}/result.json"
     "\"repetition\":1,\"seed\":7,\"operations_per_second\":10,"
     "\"latency_us\":{\"p99\":2},\"errors\":0,\"connection_errors\":0}\n")
 file(WRITE "${run_directory}/manifest.csv"
-    "run_id,case_order,experiment,variant,trial,seed,status,output_prefix\n"
-    "run-1,2,read-ratio,0.8,1,7,valid,result\n")
+    "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
+    "run-1,2,read-ratio,0.8,1,7,invalid,server-not-ready,result,result-resource.txt\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
     RESULT_VARIABLE case_order_result
@@ -487,6 +487,24 @@ endif()
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix,resource_file\n"
     "run-1,read-ratio,0.8,1,7,valid,result,result-resource.txt\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE partial_production_result
+    OUTPUT_VARIABLE partial_production_output
+    ERROR_VARIABLE partial_production_error
+)
+if(partial_production_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted partial production columns")
+endif()
+if(NOT partial_production_error MATCHES "manifest is missing production columns")
+    message(FATAL_ERROR
+        "summary reported an unexpected production columns error: "
+        "${partial_production_output}${partial_production_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
+    "run-1,1,read-ratio,0.8,1,7,valid,none,result,result-resource.txt\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
     RESULT_VARIABLE resource_result

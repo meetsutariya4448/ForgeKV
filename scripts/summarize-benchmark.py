@@ -341,8 +341,17 @@ def main() -> int:
                 raise ValueError(
                     f"manifest is missing required columns: {', '.join(missing_fields)}"
                 )
+            present_production_fields = PRODUCTION_MANIFEST_FIELDS.intersection(fields)
+            missing_production_fields = sorted(
+                PRODUCTION_MANIFEST_FIELDS - set(fields)
+            )
+            if present_production_fields and missing_production_fields:
+                raise ValueError(
+                    "manifest is missing production columns: "
+                    + ", ".join(missing_production_fields)
+                )
             rows = list(reader)
-            production_manifest = PRODUCTION_MANIFEST_FIELDS.issubset(fields)
+            production_manifest = bool(present_production_fields)
         if any(None in row for row in rows):
             raise ValueError("manifest row contains more fields than its header")
     except (csv.Error, OSError, ValueError) as error:
