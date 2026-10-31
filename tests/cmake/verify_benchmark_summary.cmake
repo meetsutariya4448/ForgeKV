@@ -538,6 +538,22 @@ if(NOT resource_error MATCHES "resource evidence is missing: result-resource.txt
 endif()
 
 file(WRITE "${run_directory}/result-resource.txt" "captured_utc=2026-10-27T00:00:00Z\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE resource_content_result
+    OUTPUT_VARIABLE resource_content_output
+    ERROR_VARIABLE resource_content_error
+)
+if(resource_content_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted incomplete resource evidence")
+endif()
+if(NOT resource_content_error MATCHES "result-resource.txt is missing required fields")
+    message(FATAL_ERROR
+        "summary reported an unexpected resource content error: "
+        "${resource_content_output}${resource_content_error}")
+endif()
+file(WRITE "${run_directory}/result-resource.txt"
+    "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\n")
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
     "run-1,1,read-ratio,0.8,1,7,valid,none,result,result-resource.txt\n")

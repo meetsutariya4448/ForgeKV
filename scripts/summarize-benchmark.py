@@ -220,6 +220,32 @@ def validate_latency_evidence(
         raise ValueError(f"{latency_path.name} max does not match JSON result")
 
 
+def validate_resource_evidence(resource_path: Path) -> None:
+    values: dict[str, str] = {}
+    for line in resource_path.read_text(encoding="utf-8").splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key in values:
+            raise ValueError(f"{resource_path.name} contains duplicate field {key!r}")
+        values[key] = value
+    missing_fields = sorted({"captured_utc", "pid", "system"} - values.keys())
+    if missing_fields:
+        raise ValueError(
+            f"{resource_path.name} is missing required fields: {', '.join(missing_fields)}"
+        )
+    try:
+        timestamp = dt.datetime.strptime(values["captured_utc"], "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError as error:
+        raise ValueError(f"{resource_path.name} captured_utc is invalid") from error
+    if timestamp.strftime("%Y-%m-%dT%H:%M:%SZ") != values["captured_utc"]:
+        raise ValueError(f"{resource_path.name} captured_utc is invalid")
+    if not re.fullmatch(r"[1-9][0-9]*", values["pid"]):
+        raise ValueError(f"{resource_path.name} pid must be a positive integer")
+    if not values["system"].strip() or "\r" in values["system"]:
+        raise ValueError(f"{resource_path.name} system must be nonempty text")
+
+
 def validate_csv_evidence(
     run_directory: Path, output_prefix: str, result: dict
 ) -> None:
@@ -433,6 +459,7 @@ def main() -> int:
                     raise ValueError(f"{resource_path.name} must not be a symbolic link")
                 if not resource_path.is_file():
                     raise ValueError(f"resource evidence is missing: {resource_path.name}")
+                validate_resource_evidence(resource_path)
             result_path = run_directory / (output_prefix + ".json")
             if result_path.is_symlink():
                 raise ValueError(f"{result_path.name} must not be a symbolic link")
