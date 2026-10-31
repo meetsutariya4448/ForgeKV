@@ -367,6 +367,16 @@ def main() -> int:
             status = row["status"]
             if status not in {"valid", "invalid"}:
                 raise ValueError(f"manifest contains unknown status {status!r}")
+            if production_manifest:
+                reason = row["reason"]
+                if status == "valid" and reason != "none":
+                    raise ValueError("manifest valid trial reason must be 'none'")
+                if status == "invalid" and not re.fullmatch(
+                    r"server-not-ready|benchmark-exit-[1-9][0-9]*", reason
+                ):
+                    raise ValueError(
+                        f"manifest invalid trial has unsupported reason {reason!r}"
+                    )
             if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", row["run_id"]):
                 raise ValueError(
                     f"manifest run_id {row['run_id']!r} is not a safe identifier"

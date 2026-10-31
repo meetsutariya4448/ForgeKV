@@ -504,6 +504,23 @@ endif()
 
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
+    "run-1,1,read-ratio,0.8,1,7,valid,server-not-ready,result,result-resource.txt\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE reason_result
+    OUTPUT_VARIABLE reason_output
+    ERROR_VARIABLE reason_error
+)
+if(reason_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an inconsistent status reason")
+endif()
+if(NOT reason_error MATCHES "manifest valid trial reason must be 'none'")
+    message(FATAL_ERROR
+        "summary reported an unexpected reason error: ${reason_output}${reason_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
     "run-1,1,read-ratio,0.8,1,7,valid,none,result,result-resource.txt\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
