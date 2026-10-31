@@ -1,6 +1,26 @@
 set(run_directory "${CMAKE_CURRENT_BINARY_DIR}/benchmark-summary-validation")
 file(REMOVE_RECURSE "${run_directory}")
 file(MAKE_DIRECTORY "${run_directory}")
+set(external_manifest "${CMAKE_CURRENT_BINARY_DIR}/benchmark-summary-external-manifest.csv")
+file(WRITE "${external_manifest}"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n")
+file(CREATE_LINK "${external_manifest}" "${run_directory}/manifest.csv" SYMBOLIC)
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE manifest_symlink_result
+    OUTPUT_VARIABLE manifest_symlink_output
+    ERROR_VARIABLE manifest_symlink_error
+)
+if(manifest_symlink_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary followed a manifest symlink")
+endif()
+if(NOT manifest_symlink_error MATCHES "manifest must not be a symbolic link")
+    message(FATAL_ERROR
+        "summary reported an unexpected manifest symlink error: "
+        "${manifest_symlink_output}${manifest_symlink_error}")
+endif()
+file(REMOVE "${run_directory}/manifest.csv")
+
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,valid,result\n")

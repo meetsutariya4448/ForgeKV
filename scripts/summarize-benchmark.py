@@ -323,6 +323,9 @@ def main() -> int:
         return 2
     run_directory = Path(sys.argv[1])
     manifest_path = run_directory / "manifest.csv"
+    if manifest_path.is_symlink():
+        print(f"manifest must not be a symbolic link: {manifest_path}", file=sys.stderr)
+        return 1
     if not manifest_path.is_file():
         print(f"missing manifest: {manifest_path}", file=sys.stderr)
         return 1
