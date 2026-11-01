@@ -446,6 +446,12 @@ def main() -> int:
             status = row["status"]
             if status not in {"valid", "invalid"}:
                 raise ValueError(f"manifest contains unknown status {status!r}")
+            for field in ("experiment", "variant"):
+                value = row[field]
+                if not value.strip() or "\n" in value or "\r" in value:
+                    raise ValueError(
+                        f"manifest trial has an invalid {field}"
+                    )
             if production_manifest:
                 reason = row["reason"]
                 if status == "valid" and reason != "none":
@@ -491,11 +497,6 @@ def main() -> int:
             seen_trials.add(identity)
             if status == "invalid":
                 continue
-            for field in ("experiment", "variant"):
-                if not row[field].strip():
-                    raise ValueError(
-                        f"manifest valid trial has a blank {field}"
-                    )
             output_prefix = row["output_prefix"]
             if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", output_prefix):
                 raise ValueError(

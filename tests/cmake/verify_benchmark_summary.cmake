@@ -414,7 +414,7 @@ execute_process(
 if(blank_identity_result EQUAL 0)
     message(FATAL_ERROR "benchmark summary accepted a blank trial identity")
 endif()
-if(NOT blank_identity_error MATCHES "manifest valid trial has a blank experiment")
+if(NOT blank_identity_error MATCHES "manifest trial has an invalid experiment")
     message(FATAL_ERROR
         "summary reported an unexpected blank identity error: "
         "${blank_identity_output}${blank_identity_error}")
@@ -466,6 +466,24 @@ file(WRITE "${run_directory}/result.json"
     "{\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
     "\"repetition\":1,\"seed\":7,\"operations_per_second\":10,"
     "\"latency_us\":{\"p99\":2},\"errors\":0,\"connection_errors\":0}\n")
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,,0.8,1,7,invalid,result\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE invalid_identity_text_result
+    OUTPUT_VARIABLE invalid_identity_text_output
+    ERROR_VARIABLE invalid_identity_text_error
+)
+if(invalid_identity_text_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted blank invalid-trial metadata")
+endif()
+if(NOT invalid_identity_text_error MATCHES "manifest trial has an invalid experiment")
+    message(FATAL_ERROR
+        "summary reported an unexpected invalid-trial metadata error: "
+        "${invalid_identity_text_output}${invalid_identity_text_error}")
+endif()
+
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
     "run-1,2,read-ratio,0.8,1,7,invalid,server-not-ready,result,result-resource.txt\n")
