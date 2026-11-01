@@ -552,7 +552,7 @@ execute_process(
 if(case_order_result EQUAL 0)
     message(FATAL_ERROR "benchmark summary accepted a noncontiguous case order")
 endif()
-if(NOT case_order_error MATCHES "manifest case_order is not contiguous")
+if(NOT case_order_error MATCHES "manifest case_order does not match row order")
     message(FATAL_ERROR
         "summary reported an unexpected case order error: "
         "${case_order_output}${case_order_error}")
