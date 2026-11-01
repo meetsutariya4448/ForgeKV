@@ -495,13 +495,13 @@ def main() -> int:
             if identity in seen_trials:
                 raise ValueError(f"manifest contains duplicate trial {identity!r}")
             seen_trials.add(identity)
-            if status == "invalid":
-                continue
             output_prefix = row["output_prefix"]
             if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", output_prefix):
                 raise ValueError(
                     f"manifest output prefix {output_prefix!r} is not a safe filename"
                 )
+            if status == "invalid":
+                continue
             if "resource_file" in row:
                 resource_file = row["resource_file"]
                 if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", resource_file):

@@ -485,6 +485,24 @@ if(NOT invalid_identity_text_error MATCHES "manifest trial has an invalid experi
 endif()
 
 file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,read-ratio,0.8,1,7,invalid,../result\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE invalid_prefix_result
+    OUTPUT_VARIABLE invalid_prefix_output
+    ERROR_VARIABLE invalid_prefix_error
+)
+if(invalid_prefix_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an unsafe invalid-trial output prefix")
+endif()
+if(NOT invalid_prefix_error MATCHES "output prefix '../result' is not a safe filename")
+    message(FATAL_ERROR
+        "summary reported an unexpected invalid-trial prefix error: "
+        "${invalid_prefix_output}${invalid_prefix_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
     "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
     "run-1,2,read-ratio,0.8,1,7,invalid,server-not-ready,result,result-resource.txt\n")
 execute_process(
