@@ -504,6 +504,25 @@ endif()
 
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
+    "run-1,1,read-ratio,0.8,1,7,invalid,server-not-ready,result,../resource.txt\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE invalid_resource_name_result
+    OUTPUT_VARIABLE invalid_resource_name_output
+    ERROR_VARIABLE invalid_resource_name_error
+)
+if(invalid_resource_name_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an unsafe invalid-trial resource name")
+endif()
+if(NOT invalid_resource_name_error MATCHES
+   "resource file '../resource.txt' is not a safe filename")
+    message(FATAL_ERROR
+        "summary reported an unexpected invalid-trial resource error: "
+        "${invalid_resource_name_output}${invalid_resource_name_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
     "run-1,2,read-ratio,0.8,1,7,invalid,server-not-ready,result,result-resource.txt\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
