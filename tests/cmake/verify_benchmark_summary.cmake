@@ -522,6 +522,25 @@ if(NOT invalid_resource_name_error MATCHES
 endif()
 
 file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,read-ratio,0.8,1,7,invalid,result\n"
+    "run-1,read-ratio,0.8,2,8,invalid,result\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE duplicate_prefix_result
+    OUTPUT_VARIABLE duplicate_prefix_output
+    ERROR_VARIABLE duplicate_prefix_error
+)
+if(duplicate_prefix_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted a reused output prefix")
+endif()
+if(NOT duplicate_prefix_error MATCHES "manifest contains duplicate output prefix 'result'")
+    message(FATAL_ERROR
+        "summary reported an unexpected duplicate prefix error: "
+        "${duplicate_prefix_output}${duplicate_prefix_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
     "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
     "run-1,2,read-ratio,0.8,1,7,invalid,server-not-ready,result,result-resource.txt\n")
 execute_process(

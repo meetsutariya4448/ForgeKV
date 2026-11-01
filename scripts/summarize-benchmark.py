@@ -440,6 +440,7 @@ def main() -> int:
     grouped: dict[tuple[str, str], list[dict]] = {}
     seen_trials: set[tuple[str, str, str, str]] = set()
     seen_case_orders: set[int] = set()
+    seen_output_prefixes: set[str] = set()
     run_id: str | None = None
     for row in rows:
         try:
@@ -500,6 +501,11 @@ def main() -> int:
                 raise ValueError(
                     f"manifest output prefix {output_prefix!r} is not a safe filename"
                 )
+            if output_prefix in seen_output_prefixes:
+                raise ValueError(
+                    f"manifest contains duplicate output prefix {output_prefix!r}"
+                )
+            seen_output_prefixes.add(output_prefix)
             resource_file = row.get("resource_file")
             if resource_file is not None and not re.fullmatch(
                 r"[A-Za-z0-9][A-Za-z0-9._-]*", resource_file
