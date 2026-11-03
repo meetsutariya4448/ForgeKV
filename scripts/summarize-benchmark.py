@@ -258,7 +258,7 @@ def validate_latency_evidence(
         raise ValueError(f"{latency_path.name} max does not match JSON result")
 
 
-def validate_resource_evidence(resource_path: Path) -> None:
+def validate_resource_evidence(resource_path: Path) -> dt.datetime:
     values: dict[str, str] = {}
     for line in resource_path.read_text(encoding="utf-8").splitlines():
         if "=" not in line:
@@ -284,6 +284,7 @@ def validate_resource_evidence(resource_path: Path) -> None:
         raise ValueError(f"{resource_path.name} pid must be a positive integer")
     if not values["system"].strip() or "\r" in values["system"]:
         raise ValueError(f"{resource_path.name} system must be nonempty text")
+    return timestamp
 
 
 def validate_csv_evidence(
@@ -532,13 +533,14 @@ def main() -> int:
                 )
             if status == "invalid":
                 continue
+            resource_timestamp: dt.datetime | None = None
             if resource_file is not None:
                 resource_path = run_directory / resource_file
                 if resource_path.is_symlink():
                     raise ValueError(f"{resource_path.name} must not be a symbolic link")
                 if not resource_path.is_file():
                     raise ValueError(f"resource evidence is missing: {resource_path.name}")
-                validate_resource_evidence(resource_path)
+                resource_timestamp = validate_resource_evidence(resource_path)
             result_path = run_directory / (output_prefix + ".json")
             if result_path.is_symlink():
                 raise ValueError(f"{result_path.name} must not be a symbolic link")
@@ -550,6 +552,13 @@ def main() -> int:
                 raise ValueError(f"{result_path.name} must contain a JSON object")
             validate_result_metadata(result_path, row, result, production_manifest)
             if production_manifest:
+                result_timestamp = dt.datetime.strptime(
+                    result["timestamp_utc"], "%Y-%m-%dT%H:%M:%SZ"
+                )
+                if resource_timestamp is None or resource_timestamp < result_timestamp:
+                    raise ValueError(
+                        f"{resource_path.name} predates benchmark result"
+                    )
                 validate_latency_evidence(run_directory, output_prefix, result)
                 validate_csv_evidence(run_directory, output_prefix, result)
         except (OSError, KeyError, TypeError, ValueError) as error:

@@ -716,6 +716,24 @@ file(WRITE "${run_directory}/result.json"
     "\"operations_per_second\":2,"
     "\"latency_us\":{\"p50\":1,\"p95\":2,\"p99\":2,\"max\":2},"
     "\"errors\":0,\"connection_errors\":0}\n")
+file(WRITE "${run_directory}/result-server-resource.txt"
+    "captured_utc=2026-10-26T23:59:59Z\npid=42\nsystem=test system\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE stale_resource_result
+    OUTPUT_VARIABLE stale_resource_output
+    ERROR_VARIABLE stale_resource_error
+)
+if(stale_resource_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted resource evidence predating the result")
+endif()
+if(NOT stale_resource_error MATCHES "predates benchmark result")
+    message(FATAL_ERROR
+        "summary reported an unexpected stale resource error: "
+        "${stale_resource_output}${stale_resource_error}")
+endif()
+file(WRITE "${run_directory}/result-server-resource.txt"
+    "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
     RESULT_VARIABLE latency_evidence_result
