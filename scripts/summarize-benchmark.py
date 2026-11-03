@@ -429,6 +429,14 @@ def main() -> int:
                     "manifest is missing production columns: "
                     + ", ".join(missing_production_fields)
                 )
+            allowed_fields = REQUIRED_MANIFEST_FIELDS | (
+                PRODUCTION_MANIFEST_FIELDS if present_production_fields else set()
+            )
+            unknown_fields = sorted(set(fields) - allowed_fields)
+            if unknown_fields:
+                raise ValueError(
+                    "manifest contains unknown columns: " + ", ".join(unknown_fields)
+                )
             rows = list(reader)
             production_manifest = bool(present_production_fields)
         if any(None in row for row in rows):

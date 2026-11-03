@@ -577,6 +577,24 @@ if(NOT partial_production_error MATCHES "manifest is missing production columns"
 endif()
 
 file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix,notes\n"
+    "run-1,read-ratio,0.8,1,7,valid,result,unreviewed\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE unknown_column_result
+    OUTPUT_VARIABLE unknown_column_output
+    ERROR_VARIABLE unknown_column_error
+)
+if(unknown_column_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an unknown manifest column")
+endif()
+if(NOT unknown_column_error MATCHES "manifest contains unknown columns: notes")
+    message(FATAL_ERROR
+        "summary reported an unexpected unknown column error: "
+        "${unknown_column_output}${unknown_column_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
     "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
     "run-1,1,read-ratio,0.8,1,7,valid,server-not-ready,result,result-resource.txt\n")
 execute_process(
