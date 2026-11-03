@@ -278,6 +278,8 @@ def validate_resource_evidence(resource_path: Path) -> None:
         raise ValueError(f"{resource_path.name} captured_utc is invalid") from error
     if timestamp.strftime("%Y-%m-%dT%H:%M:%SZ") != values["captured_utc"]:
         raise ValueError(f"{resource_path.name} captured_utc is invalid")
+    if timestamp > dt.datetime.utcnow() + dt.timedelta(minutes=5):
+        raise ValueError(f"{resource_path.name} captured_utc is in the future")
     if not re.fullmatch(r"[1-9][0-9]*", values["pid"]):
         raise ValueError(f"{resource_path.name} pid must be a positive integer")
     if not values["system"].strip() or "\r" in values["system"]:

@@ -668,6 +668,24 @@ file(WRITE "${run_directory}/result-server-resource.txt"
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
     "run-1,1,read-ratio,0.8,1,7,valid,none,result,result-server-resource.txt\n")
+file(WRITE "${run_directory}/result-server-resource.txt"
+    "captured_utc=2999-01-01T00:00:00Z\npid=42\nsystem=test system\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE future_resource_result
+    OUTPUT_VARIABLE future_resource_output
+    ERROR_VARIABLE future_resource_error
+)
+if(future_resource_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted future resource evidence")
+endif()
+if(NOT future_resource_error MATCHES "captured_utc is in the future")
+    message(FATAL_ERROR
+        "summary reported an unexpected future resource error: "
+        "${future_resource_output}${future_resource_error}")
+endif()
+file(WRITE "${run_directory}/result-server-resource.txt"
+    "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
     RESULT_VARIABLE production_schema_result
