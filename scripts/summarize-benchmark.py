@@ -521,6 +521,13 @@ def main() -> int:
                 raise ValueError(
                     f"manifest resource file {resource_file!r} is not a safe filename"
                 )
+            if (
+                production_manifest
+                and resource_file != f"{output_prefix}-server-resource.txt"
+            ):
+                raise ValueError(
+                    "manifest resource file does not match its output prefix"
+                )
             if status == "invalid":
                 continue
             if resource_file is not None:

@@ -542,7 +542,7 @@ endif()
 
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
-    "run-1,2,read-ratio,0.8,1,7,invalid,server-not-ready,result,result-resource.txt\n")
+    "run-1,2,read-ratio,0.8,1,7,invalid,server-not-ready,result,result-server-resource.txt\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
     RESULT_VARIABLE case_order_result
@@ -560,7 +560,7 @@ endif()
 
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix,resource_file\n"
-    "run-1,read-ratio,0.8,1,7,valid,result,result-resource.txt\n")
+    "run-1,read-ratio,0.8,1,7,valid,result,result-server-resource.txt\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
     RESULT_VARIABLE partial_production_result
@@ -596,7 +596,7 @@ endif()
 
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
-    "run-1,1,read-ratio,0.8,1,7,valid,server-not-ready,result,result-resource.txt\n")
+    "run-1,1,read-ratio,0.8,1,7,valid,server-not-ready,result,result-server-resource.txt\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
     RESULT_VARIABLE reason_result
@@ -613,7 +613,26 @@ endif()
 
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
-    "run-1,1,read-ratio,0.8,1,7,valid,none,result,result-resource.txt\n")
+    "run-1,1,read-ratio,0.8,1,7,valid,none,result,other-server-resource.txt\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE resource_binding_result
+    OUTPUT_VARIABLE resource_binding_output
+    ERROR_VARIABLE resource_binding_error
+)
+if(resource_binding_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted a resource file from another trial")
+endif()
+if(NOT resource_binding_error MATCHES
+   "manifest resource file does not match its output prefix")
+    message(FATAL_ERROR
+        "summary reported an unexpected resource binding error: "
+        "${resource_binding_output}${resource_binding_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
+    "run-1,1,read-ratio,0.8,1,7,valid,none,result,result-server-resource.txt\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
     RESULT_VARIABLE resource_result
@@ -623,13 +642,13 @@ execute_process(
 if(resource_result EQUAL 0)
     message(FATAL_ERROR "benchmark summary accepted missing resource evidence")
 endif()
-if(NOT resource_error MATCHES "resource evidence is missing: result-resource.txt")
+if(NOT resource_error MATCHES "resource evidence is missing: result-server-resource.txt")
     message(FATAL_ERROR
         "summary reported an unexpected resource evidence error: "
         "${resource_output}${resource_error}")
 endif()
 
-file(WRITE "${run_directory}/result-resource.txt" "captured_utc=2026-10-27T00:00:00Z\n")
+file(WRITE "${run_directory}/result-server-resource.txt" "captured_utc=2026-10-27T00:00:00Z\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
     RESULT_VARIABLE resource_content_result
@@ -639,16 +658,16 @@ execute_process(
 if(resource_content_result EQUAL 0)
     message(FATAL_ERROR "benchmark summary accepted incomplete resource evidence")
 endif()
-if(NOT resource_content_error MATCHES "result-resource.txt is missing required fields")
+if(NOT resource_content_error MATCHES "result-server-resource.txt is missing required fields")
     message(FATAL_ERROR
         "summary reported an unexpected resource content error: "
         "${resource_content_output}${resource_content_error}")
 endif()
-file(WRITE "${run_directory}/result-resource.txt"
+file(WRITE "${run_directory}/result-server-resource.txt"
     "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\n")
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
-    "run-1,1,read-ratio,0.8,1,7,valid,none,result,result-resource.txt\n")
+    "run-1,1,read-ratio,0.8,1,7,valid,none,result,result-server-resource.txt\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
     RESULT_VARIABLE production_schema_result
