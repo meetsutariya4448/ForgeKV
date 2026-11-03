@@ -313,6 +313,12 @@ def validate_csv_evidence(
                 raise ValueError(
                     f"{csv_path.name} is missing columns: {', '.join(missing_fields)}"
                 )
+            unknown_fields = sorted(set(fields) - required_fields)
+            if unknown_fields:
+                raise ValueError(
+                    f"{csv_path.name} contains unknown columns: "
+                    + ", ".join(unknown_fields)
+                )
             rows = list(reader)
     except FileNotFoundError as error:
         raise ValueError(f"CSV evidence is missing: {csv_path.name}") from error
