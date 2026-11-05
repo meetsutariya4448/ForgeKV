@@ -76,6 +76,12 @@ def validate_result_metadata(
             value = result[field]
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise ValueError(f"{result_path.name} {field} must be a positive integer")
+        host = result["host"]
+        if not isinstance(host, str) or not host.strip() or "\n" in host or "\r" in host:
+            raise ValueError(f"{result_path.name} host must be single-line text")
+        port = result["port"]
+        if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+            raise ValueError(f"{result_path.name} port must be an integer from 1 to 65535")
         warmup_requests = result["warmup_requests"]
         if (
             isinstance(warmup_requests, bool)

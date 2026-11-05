@@ -783,6 +783,48 @@ if(NOT future_result_error MATCHES "result.json timestamp_utc is in the future")
         "${future_result_output}${future_result_error}")
 endif()
 file(WRITE "${run_directory}/result.json" "${production_result_json}")
+string(REPLACE
+    "\"host\":\"127.0.0.1\""
+    "\"host\":\"   \""
+    invalid_host_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${invalid_host_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE invalid_host_result
+    OUTPUT_VARIABLE invalid_host_output
+    ERROR_VARIABLE invalid_host_error
+)
+if(invalid_host_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted a blank result host")
+endif()
+if(NOT invalid_host_error MATCHES "result.json host must be single-line text")
+    message(FATAL_ERROR
+        "summary reported an unexpected result host error: "
+        "${invalid_host_output}${invalid_host_error}")
+endif()
+string(REPLACE
+    "\"port\":7391"
+    "\"port\":70000"
+    invalid_port_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${invalid_port_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE invalid_port_result
+    OUTPUT_VARIABLE invalid_port_output
+    ERROR_VARIABLE invalid_port_error
+)
+if(invalid_port_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an out-of-range result port")
+endif()
+if(NOT invalid_port_error MATCHES
+   "result.json port must be an integer from 1 to 65535")
+    message(FATAL_ERROR
+        "summary reported an unexpected result port error: "
+        "${invalid_port_output}${invalid_port_error}")
+endif()
+file(WRITE "${run_directory}/result.json" "${production_result_json}")
 file(WRITE "${run_directory}/result-server-resource.txt"
     "captured_utc=2026-10-26T23:59:59Z\npid=42\nsystem=test system\n")
 execute_process(
