@@ -63,6 +63,12 @@ def validate_result_metadata(
             raise ValueError(
                 f"{result_path.name} is missing latency fields: {', '.join(missing_latency)}"
             )
+        unknown_latency = sorted(latency.keys() - {"p50", "p95", "p99", "max"})
+        if unknown_latency:
+            raise ValueError(
+                f"{result_path.name} contains unknown latency fields: "
+                f"{', '.join(unknown_latency)}"
+            )
         for field in (
             "connections", "threads", "request_bound", "key_count", "value_size",
             "pipeline_depth", "server_workers", "server_shards",

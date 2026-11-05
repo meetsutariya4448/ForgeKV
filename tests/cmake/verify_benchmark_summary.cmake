@@ -740,6 +740,28 @@ if(NOT unknown_result_field_error MATCHES
         "${unknown_result_field_output}${unknown_result_field_error}")
 endif()
 file(WRITE "${run_directory}/result.json" "${production_result_json}")
+string(REPLACE
+    "\"max\":2}"
+    "\"max\":2,\"p999\":2}"
+    unknown_latency_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${unknown_latency_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE unknown_latency_result
+    OUTPUT_VARIABLE unknown_latency_output
+    ERROR_VARIABLE unknown_latency_error
+)
+if(unknown_latency_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an unknown latency field")
+endif()
+if(NOT unknown_latency_error MATCHES
+   "result.json contains unknown latency fields: p999")
+    message(FATAL_ERROR
+        "summary reported an unexpected latency schema error: "
+        "${unknown_latency_output}${unknown_latency_error}")
+endif()
+file(WRITE "${run_directory}/result.json" "${production_result_json}")
 file(WRITE "${run_directory}/result-server-resource.txt"
     "captured_utc=2026-10-26T23:59:59Z\npid=42\nsystem=test system\n")
 execute_process(
