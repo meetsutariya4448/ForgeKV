@@ -762,6 +762,27 @@ if(NOT unknown_latency_error MATCHES
         "${unknown_latency_output}${unknown_latency_error}")
 endif()
 file(WRITE "${run_directory}/result.json" "${production_result_json}")
+string(REPLACE
+    "2026-10-27T00:00:00Z"
+    "2999-10-27T00:00:00Z"
+    future_result_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${future_result_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE future_result_result
+    OUTPUT_VARIABLE future_result_output
+    ERROR_VARIABLE future_result_error
+)
+if(future_result_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted a future result timestamp")
+endif()
+if(NOT future_result_error MATCHES "result.json timestamp_utc is in the future")
+    message(FATAL_ERROR
+        "summary reported an unexpected result timestamp error: "
+        "${future_result_output}${future_result_error}")
+endif()
+file(WRITE "${run_directory}/result.json" "${production_result_json}")
 file(WRITE "${run_directory}/result-server-resource.txt"
     "captured_utc=2026-10-26T23:59:59Z\npid=42\nsystem=test system\n")
 execute_process(

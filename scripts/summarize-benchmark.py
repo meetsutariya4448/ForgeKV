@@ -197,6 +197,8 @@ def validate_result_metadata(
             raise ValueError(f"{result_path.name} timestamp_utc is invalid") from error
         if timestamp.strftime("%Y-%m-%dT%H:%M:%SZ") != result["timestamp_utc"]:
             raise ValueError(f"{result_path.name} timestamp_utc is invalid")
+        if timestamp > dt.datetime.utcnow() + dt.timedelta(minutes=5):
+            raise ValueError(f"{result_path.name} timestamp_utc is in the future")
         if not isinstance(result["git_sha"], str) or not re.fullmatch(
             r"[0-9a-f]{40}", result["git_sha"]
         ):
