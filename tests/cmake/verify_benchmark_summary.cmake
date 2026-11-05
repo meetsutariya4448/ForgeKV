@@ -708,6 +708,7 @@ file(WRITE "${run_directory}/result.json"
     "\"build\":\"Release\",\"system\":\"test system\",\"hardware_threads\":8,"
     "\"ram\":\"test ram\",\"storage_medium\":\"ssd\","
     "\"run_id\":\"run-1\",\"experiment\":\"read-ratio\",\"variant\":\"0.8\","
+    "\"host\":\"127.0.0.1\",\"port\":7391,"
     "\"connections\":1,\"threads\":1,\"request_bound\":2,\"duration_bound_s\":0,"
     "\"read_ratio\":0.8,\"key_count\":100,\"value_size\":10,\"pipeline_depth\":1,"
     "\"warmup_requests\":0,\"preload\":false,\"server_workers\":1,"
@@ -716,6 +717,29 @@ file(WRITE "${run_directory}/result.json"
     "\"operations_per_second\":2,"
     "\"latency_us\":{\"p50\":1,\"p95\":2,\"p99\":2,\"max\":2},"
     "\"errors\":0,\"connection_errors\":0}\n")
+file(READ "${run_directory}/result.json" production_result_json)
+string(REPLACE
+    "\"connection_errors\":0}"
+    "\"connection_errors\":0,\"notes\":\"unreviewed\"}"
+    unknown_result_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${unknown_result_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE unknown_result_field_result
+    OUTPUT_VARIABLE unknown_result_field_output
+    ERROR_VARIABLE unknown_result_field_error
+)
+if(unknown_result_field_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an unknown JSON result field")
+endif()
+if(NOT unknown_result_field_error MATCHES
+   "result.json contains unknown production fields: notes")
+    message(FATAL_ERROR
+        "summary reported an unexpected JSON schema error: "
+        "${unknown_result_field_output}${unknown_result_field_error}")
+endif()
+file(WRITE "${run_directory}/result.json" "${production_result_json}")
 file(WRITE "${run_directory}/result-server-resource.txt"
     "captured_utc=2026-10-26T23:59:59Z\npid=42\nsystem=test system\n")
 execute_process(

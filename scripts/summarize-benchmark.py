@@ -23,7 +23,10 @@ REQUIRED_PRODUCTION_RESULT_FIELDS = {
     "errors", "connection_errors", "ram", "storage_medium", "connections", "threads",
     "request_bound", "duration_bound_s", "read_ratio", "key_count", "value_size",
     "pipeline_depth", "warmup_requests", "preload", "server_workers", "server_shards",
-    "durability",
+    "durability", "host", "port",
+}
+PRODUCTION_RESULT_FIELDS = REQUIRED_PRODUCTION_RESULT_FIELDS | {
+    "run_id", "experiment", "variant", "repetition", "seed",
 }
 
 
@@ -44,6 +47,12 @@ def validate_result_metadata(
         if missing_fields:
             raise ValueError(
                 f"{result_path.name} is missing production fields: {', '.join(missing_fields)}"
+            )
+        unknown_fields = sorted(result.keys() - PRODUCTION_RESULT_FIELDS)
+        if unknown_fields:
+            raise ValueError(
+                f"{result_path.name} contains unknown production fields: "
+                f"{', '.join(unknown_fields)}"
             )
         latency = result.get("latency_us")
         missing_latency = sorted(
