@@ -110,6 +110,8 @@ def validate_result_metadata(
             value = result[field]
             if not isinstance(value, str) or not value.strip() or "\n" in value or "\r" in value:
                 raise ValueError(f"{result_path.name} {field} must be single-line text")
+        if result["durability"] not in {"unspecified", "always", "periodic", "none"}:
+            raise ValueError(f"{result_path.name} durability is unsupported")
 
     repetition = int(row["trial"])
     seed = int(row["seed"])

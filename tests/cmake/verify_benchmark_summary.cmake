@@ -825,6 +825,27 @@ if(NOT invalid_port_error MATCHES
         "${invalid_port_output}${invalid_port_error}")
 endif()
 file(WRITE "${run_directory}/result.json" "${production_result_json}")
+string(REPLACE
+    "\"durability\":\"periodic\""
+    "\"durability\":\"async\""
+    invalid_durability_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${invalid_durability_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE invalid_durability_result
+    OUTPUT_VARIABLE invalid_durability_output
+    ERROR_VARIABLE invalid_durability_error
+)
+if(invalid_durability_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted unsupported durability metadata")
+endif()
+if(NOT invalid_durability_error MATCHES "result.json durability is unsupported")
+    message(FATAL_ERROR
+        "summary reported an unexpected durability error: "
+        "${invalid_durability_output}${invalid_durability_error}")
+endif()
+file(WRITE "${run_directory}/result.json" "${production_result_json}")
 file(WRITE "${run_directory}/result-server-resource.txt"
     "captured_utc=2026-10-26T23:59:59Z\npid=42\nsystem=test system\n")
 execute_process(
