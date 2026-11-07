@@ -76,6 +76,10 @@ def validate_result_metadata(
             value = result[field]
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise ValueError(f"{result_path.name} {field} must be a positive integer")
+        if result["threads"] > result["connections"]:
+            raise ValueError(
+                f"{result_path.name} threads cannot exceed connections"
+            )
         request_bound = result["request_bound"]
         if (
             isinstance(request_bound, bool)

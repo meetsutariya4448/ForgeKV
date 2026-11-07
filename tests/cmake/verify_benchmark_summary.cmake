@@ -845,6 +845,26 @@ if(NOT missing_workload_bound_error MATCHES
         "summary reported an unexpected workload bound error: "
         "${missing_workload_bound_output}${missing_workload_bound_error}")
 endif()
+string(REPLACE
+    "\"connections\":1,\"threads\":1"
+    "\"connections\":1,\"threads\":2"
+    excess_threads_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${excess_threads_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE excess_threads_result
+    OUTPUT_VARIABLE excess_threads_output
+    ERROR_VARIABLE excess_threads_error
+)
+if(excess_threads_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted more threads than connections")
+endif()
+if(NOT excess_threads_error MATCHES "threads cannot exceed connections")
+    message(FATAL_ERROR
+        "summary reported an unexpected thread topology error: "
+        "${excess_threads_output}${excess_threads_error}")
+endif()
 file(WRITE "${run_directory}/result.json" "${production_result_json}")
 string(REPLACE
     "\"durability\":\"periodic\""
