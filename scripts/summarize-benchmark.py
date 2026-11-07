@@ -252,6 +252,10 @@ def validate_result_metadata(
         value = result.get(field)
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             raise ValueError(f"{result_path.name} {field} must be a nonnegative integer")
+    if "operations" in result and result["errors"] > result["operations"]:
+        raise ValueError(
+            f"{result_path.name} errors cannot exceed completed operations"
+        )
 
 
 def validate_latency_evidence(

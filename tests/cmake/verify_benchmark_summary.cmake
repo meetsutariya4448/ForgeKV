@@ -886,6 +886,27 @@ if(NOT warmup_without_preload_error MATCHES
         "summary reported an unexpected warmup error: "
         "${warmup_without_preload_output}${warmup_without_preload_error}")
 endif()
+string(REPLACE
+    "\"errors\":0,\"connection_errors\":0"
+    "\"errors\":3,\"connection_errors\":0"
+    excessive_errors_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${excessive_errors_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE excessive_errors_result
+    OUTPUT_VARIABLE excessive_errors_output
+    ERROR_VARIABLE excessive_errors_error
+)
+if(excessive_errors_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted more errors than operations")
+endif()
+if(NOT excessive_errors_error MATCHES
+   "errors cannot exceed completed operations")
+    message(FATAL_ERROR
+        "summary reported an unexpected operation error count error: "
+        "${excessive_errors_output}${excessive_errors_error}")
+endif()
 file(WRITE "${run_directory}/result.json" "${production_result_json}")
 string(REPLACE
     "\"durability\":\"periodic\""
