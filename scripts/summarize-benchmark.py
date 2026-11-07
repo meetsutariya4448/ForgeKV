@@ -123,6 +123,10 @@ def validate_result_metadata(
             raise ValueError(f"{result_path.name} read_ratio must be between zero and one")
         if not isinstance(result["preload"], bool):
             raise ValueError(f"{result_path.name} preload must be boolean")
+        if not result["preload"] and warmup_requests != 0:
+            raise ValueError(
+                f"{result_path.name} warmup_requests require dataset preload"
+            )
         for field in ("ram", "storage_medium", "durability"):
             value = result[field]
             if not isinstance(value, str) or not value.strip() or "\n" in value or "\r" in value:

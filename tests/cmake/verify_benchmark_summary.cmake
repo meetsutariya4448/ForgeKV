@@ -865,6 +865,27 @@ if(NOT excess_threads_error MATCHES "threads cannot exceed connections")
         "summary reported an unexpected thread topology error: "
         "${excess_threads_output}${excess_threads_error}")
 endif()
+string(REPLACE
+    "\"warmup_requests\":0,\"preload\":false"
+    "\"warmup_requests\":1,\"preload\":false"
+    warmup_without_preload_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${warmup_without_preload_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE warmup_without_preload_result
+    OUTPUT_VARIABLE warmup_without_preload_output
+    ERROR_VARIABLE warmup_without_preload_error
+)
+if(warmup_without_preload_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted warmup without preload")
+endif()
+if(NOT warmup_without_preload_error MATCHES
+   "warmup_requests require dataset preload")
+    message(FATAL_ERROR
+        "summary reported an unexpected warmup error: "
+        "${warmup_without_preload_output}${warmup_without_preload_error}")
+endif()
 file(WRITE "${run_directory}/result.json" "${production_result_json}")
 string(REPLACE
     "\"durability\":\"periodic\""
