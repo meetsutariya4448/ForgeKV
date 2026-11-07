@@ -256,6 +256,10 @@ def validate_result_metadata(
         raise ValueError(
             f"{result_path.name} errors cannot exceed completed operations"
         )
+    if "threads" in result and result["connection_errors"] > result["threads"]:
+        raise ValueError(
+            f"{result_path.name} connection_errors cannot exceed worker threads"
+        )
 
 
 def validate_latency_evidence(
