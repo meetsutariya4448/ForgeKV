@@ -824,6 +824,27 @@ if(NOT invalid_port_error MATCHES
         "summary reported an unexpected result port error: "
         "${invalid_port_output}${invalid_port_error}")
 endif()
+string(REPLACE
+    "\"request_bound\":2"
+    "\"request_bound\":0"
+    missing_workload_bound_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${missing_workload_bound_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE missing_workload_bound_result
+    OUTPUT_VARIABLE missing_workload_bound_output
+    ERROR_VARIABLE missing_workload_bound_error
+)
+if(missing_workload_bound_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an unbounded workload")
+endif()
+if(NOT missing_workload_bound_error MATCHES
+   "request_bound and duration_bound_s cannot both be zero")
+    message(FATAL_ERROR
+        "summary reported an unexpected workload bound error: "
+        "${missing_workload_bound_output}${missing_workload_bound_error}")
+endif()
 file(WRITE "${run_directory}/result.json" "${production_result_json}")
 string(REPLACE
     "\"durability\":\"periodic\""

@@ -70,12 +70,21 @@ def validate_result_metadata(
                 f"{', '.join(unknown_latency)}"
             )
         for field in (
-            "connections", "threads", "request_bound", "key_count", "value_size",
+            "connections", "threads", "key_count", "value_size",
             "pipeline_depth", "server_workers", "server_shards",
         ):
             value = result[field]
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise ValueError(f"{result_path.name} {field} must be a positive integer")
+        request_bound = result["request_bound"]
+        if (
+            isinstance(request_bound, bool)
+            or not isinstance(request_bound, int)
+            or request_bound < 0
+        ):
+            raise ValueError(
+                f"{result_path.name} request_bound must be a nonnegative integer"
+            )
         host = result["host"]
         if not isinstance(host, str) or not host.strip() or "\n" in host or "\r" in host:
             raise ValueError(f"{result_path.name} host must be single-line text")
@@ -95,6 +104,10 @@ def validate_result_metadata(
         if isinstance(duration, bool) or not isinstance(duration, int) or duration < 0:
             raise ValueError(
                 f"{result_path.name} duration_bound_s must be a nonnegative integer"
+            )
+        if request_bound == 0 and duration == 0:
+            raise ValueError(
+                f"{result_path.name} request_bound and duration_bound_s cannot both be zero"
             )
         read_ratio = result["read_ratio"]
         if (
