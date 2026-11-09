@@ -155,7 +155,9 @@ capture_resources() {
                 echo "open_fds=$(find "/proc/$server_pid/fd" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')"
             fi
         else
-            ps -p "$server_pid" -o pid=,rss=,vsz=,%cpu=,time= 2>/dev/null || true
+            ps_snapshot=$(ps -p "$server_pid" -o pid=,rss=,vsz=,%cpu=,time= 2>/dev/null \
+                | tr -s ' ' | sed 's/^ //;s/ $//')
+            echo "ps_snapshot=$ps_snapshot"
         fi
     } > "$output"
 }
