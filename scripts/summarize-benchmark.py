@@ -322,6 +322,10 @@ def validate_resource_evidence(resource_path: Path) -> dt.datetime:
                 f"{resource_path.name} line {line_number} is not key-value evidence"
             )
         key, value = line.split("=", 1)
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*:?", key):
+            raise ValueError(
+                f"{resource_path.name} line {line_number} has an invalid field name"
+            )
         if key in values:
             raise ValueError(f"{resource_path.name} contains duplicate field {key!r}")
         values[key] = value

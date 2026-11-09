@@ -702,6 +702,22 @@ if(NOT malformed_resource_line_error MATCHES "line 4 is not key-value evidence")
         "${malformed_resource_line_output}${malformed_resource_line_error}")
 endif()
 file(WRITE "${run_directory}/result-server-resource.txt"
+    "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\nbad field=value\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE invalid_resource_field_result
+    OUTPUT_VARIABLE invalid_resource_field_output
+    ERROR_VARIABLE invalid_resource_field_error
+)
+if(invalid_resource_field_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an invalid resource field name")
+endif()
+if(NOT invalid_resource_field_error MATCHES "line 4 has an invalid field name")
+    message(FATAL_ERROR
+        "summary reported an unexpected resource field error: "
+        "${invalid_resource_field_output}${invalid_resource_field_error}")
+endif()
+file(WRITE "${run_directory}/result-server-resource.txt"
     "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
