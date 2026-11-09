@@ -686,6 +686,23 @@ if(NOT future_resource_error MATCHES "captured_utc is in the future")
 endif()
 file(WRITE "${run_directory}/result-server-resource.txt"
     "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\n")
+file(APPEND "${run_directory}/result-server-resource.txt" "unstructured resource output\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE malformed_resource_line_result
+    OUTPUT_VARIABLE malformed_resource_line_output
+    ERROR_VARIABLE malformed_resource_line_error
+)
+if(malformed_resource_line_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted malformed resource evidence")
+endif()
+if(NOT malformed_resource_line_error MATCHES "line 4 is not key-value evidence")
+    message(FATAL_ERROR
+        "summary reported an unexpected malformed resource error: "
+        "${malformed_resource_line_output}${malformed_resource_line_error}")
+endif()
+file(WRITE "${run_directory}/result-server-resource.txt"
+    "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
     RESULT_VARIABLE production_schema_result

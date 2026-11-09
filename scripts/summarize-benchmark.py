@@ -314,9 +314,13 @@ def validate_latency_evidence(
 
 def validate_resource_evidence(resource_path: Path) -> dt.datetime:
     values: dict[str, str] = {}
-    for line in resource_path.read_text(encoding="utf-8").splitlines():
+    for line_number, line in enumerate(
+        resource_path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
         if "=" not in line:
-            continue
+            raise ValueError(
+                f"{resource_path.name} line {line_number} is not key-value evidence"
+            )
         key, value = line.split("=", 1)
         if key in values:
             raise ValueError(f"{resource_path.name} contains duplicate field {key!r}")
