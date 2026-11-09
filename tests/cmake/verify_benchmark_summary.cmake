@@ -733,6 +733,22 @@ if(NOT empty_resource_value_error MATCHES "field 'VmRSS:' must not be empty")
         "summary reported an unexpected empty resource value error: "
         "${empty_resource_value_output}${empty_resource_value_error}")
 endif()
+string(REPEAT "x" 65537 oversized_resource_evidence)
+file(WRITE "${run_directory}/result-server-resource.txt" "${oversized_resource_evidence}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_resource_result
+    OUTPUT_VARIABLE oversized_resource_output
+    ERROR_VARIABLE oversized_resource_error
+)
+if(oversized_resource_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted oversized resource evidence")
+endif()
+if(NOT oversized_resource_error MATCHES "exceeds the resource evidence size limit")
+    message(FATAL_ERROR
+        "summary reported an unexpected oversized resource error: "
+        "${oversized_resource_output}${oversized_resource_error}")
+endif()
 file(WRITE "${run_directory}/result-server-resource.txt"
     "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\n")
 execute_process(

@@ -28,6 +28,7 @@ REQUIRED_PRODUCTION_RESULT_FIELDS = {
 PRODUCTION_RESULT_FIELDS = REQUIRED_PRODUCTION_RESULT_FIELDS | {
     "run_id", "experiment", "variant", "repetition", "seed",
 }
+MAX_RESOURCE_EVIDENCE_BYTES = 64 * 1024
 
 
 def unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -313,6 +314,10 @@ def validate_latency_evidence(
 
 
 def validate_resource_evidence(resource_path: Path) -> dt.datetime:
+    if resource_path.stat().st_size > MAX_RESOURCE_EVIDENCE_BYTES:
+        raise ValueError(
+            f"{resource_path.name} exceeds the resource evidence size limit"
+        )
     values: dict[str, str] = {}
     for line_number, line in enumerate(
         resource_path.read_text(encoding="utf-8").splitlines(), start=1
