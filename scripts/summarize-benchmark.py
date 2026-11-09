@@ -326,6 +326,10 @@ def validate_resource_evidence(resource_path: Path) -> dt.datetime:
             raise ValueError(
                 f"{resource_path.name} line {line_number} has an invalid field name"
             )
+        if not value.strip():
+            raise ValueError(
+                f"{resource_path.name} field {key!r} must not be empty"
+            )
         if key in values:
             raise ValueError(f"{resource_path.name} contains duplicate field {key!r}")
         values[key] = value

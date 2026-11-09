@@ -718,6 +718,22 @@ if(NOT invalid_resource_field_error MATCHES "line 4 has an invalid field name")
         "${invalid_resource_field_output}${invalid_resource_field_error}")
 endif()
 file(WRITE "${run_directory}/result-server-resource.txt"
+    "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\nVmRSS:=   \n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE empty_resource_value_result
+    OUTPUT_VARIABLE empty_resource_value_output
+    ERROR_VARIABLE empty_resource_value_error
+)
+if(empty_resource_value_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an empty resource value")
+endif()
+if(NOT empty_resource_value_error MATCHES "field 'VmRSS:' must not be empty")
+    message(FATAL_ERROR
+        "summary reported an unexpected empty resource value error: "
+        "${empty_resource_value_output}${empty_resource_value_error}")
+endif()
+file(WRITE "${run_directory}/result-server-resource.txt"
     "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
