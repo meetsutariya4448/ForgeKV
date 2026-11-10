@@ -29,6 +29,7 @@ PRODUCTION_RESULT_FIELDS = REQUIRED_PRODUCTION_RESULT_FIELDS | {
     "run_id", "experiment", "variant", "repetition", "seed",
 }
 MAX_RESOURCE_EVIDENCE_BYTES = 64 * 1024
+MAX_BENCHMARK_VALUE_BYTES = 16 * 1024 * 1024
 
 
 def unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -77,6 +78,10 @@ def validate_result_metadata(
             value = result[field]
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise ValueError(f"{result_path.name} {field} must be a positive integer")
+        if result["value_size"] > MAX_BENCHMARK_VALUE_BYTES:
+            raise ValueError(
+                f"{result_path.name} value_size exceeds the protocol limit"
+            )
         if result["threads"] > result["connections"]:
             raise ValueError(
                 f"{result_path.name} threads cannot exceed connections"

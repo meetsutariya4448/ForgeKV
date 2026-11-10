@@ -931,6 +931,26 @@ if(NOT excessive_operations_error MATCHES "operations cannot exceed request_boun
         "${excessive_operations_output}${excessive_operations_error}")
 endif()
 string(REPLACE
+    "\"value_size\":10"
+    "\"value_size\":16777217"
+    oversized_value_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${oversized_value_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_value_result
+    OUTPUT_VARIABLE oversized_value_output
+    ERROR_VARIABLE oversized_value_error
+)
+if(oversized_value_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an oversized benchmark value")
+endif()
+if(NOT oversized_value_error MATCHES "value_size exceeds the protocol limit")
+    message(FATAL_ERROR
+        "summary reported an unexpected value size error: "
+        "${oversized_value_output}${oversized_value_error}")
+endif()
+string(REPLACE
     "\"connections\":1,\"threads\":1"
     "\"connections\":1,\"threads\":2"
     excess_threads_json
