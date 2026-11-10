@@ -30,6 +30,7 @@ PRODUCTION_RESULT_FIELDS = REQUIRED_PRODUCTION_RESULT_FIELDS | {
 }
 MAX_RESOURCE_EVIDENCE_BYTES = 64 * 1024
 MAX_BENCHMARK_VALUE_BYTES = 16 * 1024 * 1024
+MAX_REQUEST_ID = (1 << 64) - 1
 
 
 def unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -132,6 +133,14 @@ def validate_result_metadata(
         if not result["preload"] and warmup_requests != 0:
             raise ValueError(
                 f"{result_path.name} warmup_requests require dataset preload"
+            )
+        setup_requests = result["key_count"] + warmup_requests if result["preload"] else 0
+        if (
+            setup_requests > MAX_REQUEST_ID
+            or request_bound > MAX_REQUEST_ID - setup_requests
+        ):
+            raise ValueError(
+                f"{result_path.name} workload exhausts request identifiers"
             )
         for field in ("ram", "storage_medium", "durability"):
             value = result[field]

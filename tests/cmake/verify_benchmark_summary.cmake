@@ -951,6 +951,26 @@ if(NOT oversized_value_error MATCHES "value_size exceeds the protocol limit")
         "${oversized_value_output}${oversized_value_error}")
 endif()
 string(REPLACE
+    "\"warmup_requests\":0,\"preload\":false"
+    "\"warmup_requests\":18446744073709551615,\"preload\":true"
+    exhausted_request_ids_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${exhausted_request_ids_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE exhausted_request_ids_result
+    OUTPUT_VARIABLE exhausted_request_ids_output
+    ERROR_VARIABLE exhausted_request_ids_error
+)
+if(exhausted_request_ids_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted exhausted request identifiers")
+endif()
+if(NOT exhausted_request_ids_error MATCHES "workload exhausts request identifiers")
+    message(FATAL_ERROR
+        "summary reported an unexpected request identifier error: "
+        "${exhausted_request_ids_output}${exhausted_request_ids_error}")
+endif()
+string(REPLACE
     "\"connections\":1,\"threads\":1"
     "\"connections\":1,\"threads\":2"
     excess_threads_json
