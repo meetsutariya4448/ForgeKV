@@ -911,6 +911,26 @@ if(NOT missing_workload_bound_error MATCHES
         "${missing_workload_bound_output}${missing_workload_bound_error}")
 endif()
 string(REPLACE
+    "\"operations\":2,\"seconds\":1,\"operations_per_second\":2"
+    "\"operations\":3,\"seconds\":1,\"operations_per_second\":3"
+    excessive_operations_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${excessive_operations_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE excessive_operations_result
+    OUTPUT_VARIABLE excessive_operations_output
+    ERROR_VARIABLE excessive_operations_error
+)
+if(excessive_operations_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted more operations than requested")
+endif()
+if(NOT excessive_operations_error MATCHES "operations cannot exceed request_bound")
+    message(FATAL_ERROR
+        "summary reported an unexpected completed operation error: "
+        "${excessive_operations_output}${excessive_operations_error}")
+endif()
+string(REPLACE
     "\"connections\":1,\"threads\":1"
     "\"connections\":1,\"threads\":2"
     excess_threads_json

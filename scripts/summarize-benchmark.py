@@ -188,6 +188,11 @@ def validate_result_metadata(
             raise ValueError(
                 f"{result_path.name} throughput is inconsistent with operations and seconds"
             )
+        request_bound = result.get("request_bound", 0)
+        if request_bound > 0 and operations > request_bound:
+            raise ValueError(
+                f"{result_path.name} operations cannot exceed request_bound"
+            )
 
     latency = result.get("latency_us")
     if isinstance(latency, dict) and any(
