@@ -32,6 +32,7 @@ MAX_RESOURCE_EVIDENCE_BYTES = 64 * 1024
 MAX_BENCHMARK_VALUE_BYTES = 16 * 1024 * 1024
 MAX_REQUEST_ID = (1 << 64) - 1
 MAX_RESULT_TEXT_CHARS = 4096
+MAX_RESOURCE_CAPTURE_DELAY = dt.timedelta(minutes=5)
 
 
 def unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -665,6 +666,10 @@ def main() -> int:
                 if resource_timestamp is None or resource_timestamp < result_timestamp:
                     raise ValueError(
                         f"{resource_path.name} predates benchmark result"
+                    )
+                if resource_timestamp > result_timestamp + MAX_RESOURCE_CAPTURE_DELAY:
+                    raise ValueError(
+                        f"{resource_path.name} was captured too long after benchmark result"
                     )
                 validate_latency_evidence(run_directory, output_prefix, result)
                 validate_csv_evidence(run_directory, output_prefix, result)

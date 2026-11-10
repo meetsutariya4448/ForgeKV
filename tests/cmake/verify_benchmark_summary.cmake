@@ -1113,6 +1113,22 @@ if(NOT stale_resource_error MATCHES "predates benchmark result")
         "${stale_resource_output}${stale_resource_error}")
 endif()
 file(WRITE "${run_directory}/result-server-resource.txt"
+    "captured_utc=2026-10-27T00:10:00Z\npid=42\nsystem=test system\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE delayed_resource_result
+    OUTPUT_VARIABLE delayed_resource_output
+    ERROR_VARIABLE delayed_resource_error
+)
+if(delayed_resource_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted a delayed resource capture")
+endif()
+if(NOT delayed_resource_error MATCHES "captured too long after benchmark result")
+    message(FATAL_ERROR
+        "summary reported an unexpected delayed resource error: "
+        "${delayed_resource_output}${delayed_resource_error}")
+endif()
+file(WRITE "${run_directory}/result-server-resource.txt"
     "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
