@@ -31,6 +31,7 @@ PRODUCTION_RESULT_FIELDS = REQUIRED_PRODUCTION_RESULT_FIELDS | {
 MAX_RESOURCE_EVIDENCE_BYTES = 64 * 1024
 MAX_BENCHMARK_VALUE_BYTES = 16 * 1024 * 1024
 MAX_REQUEST_ID = (1 << 64) - 1
+MAX_RESULT_TEXT_CHARS = 4096
 
 
 def unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -99,6 +100,8 @@ def validate_result_metadata(
         host = result["host"]
         if not isinstance(host, str) or not host.strip() or "\n" in host or "\r" in host:
             raise ValueError(f"{result_path.name} host must be single-line text")
+        if len(host) > MAX_RESULT_TEXT_CHARS:
+            raise ValueError(f"{result_path.name} host exceeds the metadata length limit")
         port = result["port"]
         if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
             raise ValueError(f"{result_path.name} port must be an integer from 1 to 65535")
@@ -146,6 +149,10 @@ def validate_result_metadata(
             value = result[field]
             if not isinstance(value, str) or not value.strip() or "\n" in value or "\r" in value:
                 raise ValueError(f"{result_path.name} {field} must be single-line text")
+            if len(value) > MAX_RESULT_TEXT_CHARS:
+                raise ValueError(
+                    f"{result_path.name} {field} exceeds the metadata length limit"
+                )
         if result["durability"] not in {"unspecified", "always", "periodic", "none"}:
             raise ValueError(f"{result_path.name} durability is unsupported")
 
@@ -258,6 +265,10 @@ def validate_result_metadata(
             value = result[field]
             if not isinstance(value, str) or not value.strip() or "\n" in value or "\r" in value:
                 raise ValueError(f"{result_path.name} {field} must be single-line text")
+            if len(value) > MAX_RESULT_TEXT_CHARS:
+                raise ValueError(
+                    f"{result_path.name} {field} exceeds the metadata length limit"
+                )
         hardware_threads = result["hardware_threads"]
         if (
             isinstance(hardware_threads, bool)

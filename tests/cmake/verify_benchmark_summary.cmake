@@ -970,6 +970,27 @@ if(NOT exhausted_request_ids_error MATCHES "workload exhausts request identifier
         "summary reported an unexpected request identifier error: "
         "${exhausted_request_ids_output}${exhausted_request_ids_error}")
 endif()
+string(REPEAT "r" 4097 oversized_ram)
+string(REPLACE
+    "\"ram\":\"test ram\""
+    "\"ram\":\"${oversized_ram}\""
+    oversized_metadata_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${oversized_metadata_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_metadata_result
+    OUTPUT_VARIABLE oversized_metadata_output
+    ERROR_VARIABLE oversized_metadata_error
+)
+if(oversized_metadata_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted oversized result metadata")
+endif()
+if(NOT oversized_metadata_error MATCHES "ram exceeds the metadata length limit")
+    message(FATAL_ERROR
+        "summary reported an unexpected metadata length error: "
+        "${oversized_metadata_output}${oversized_metadata_error}")
+endif()
 string(REPLACE
     "\"connections\":1,\"threads\":1"
     "\"connections\":1,\"threads\":2"
