@@ -21,6 +21,23 @@ if(NOT manifest_symlink_error MATCHES "manifest must not be a symbolic link")
 endif()
 file(REMOVE "${run_directory}/manifest.csv")
 
+string(REPEAT "x" 1048577 oversized_manifest)
+file(WRITE "${run_directory}/manifest.csv" "${oversized_manifest}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_manifest_result
+    OUTPUT_VARIABLE oversized_manifest_output
+    ERROR_VARIABLE oversized_manifest_error
+)
+if(oversized_manifest_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an oversized manifest")
+endif()
+if(NOT oversized_manifest_error MATCHES "manifest exceeds the evidence size limit")
+    message(FATAL_ERROR
+        "summary reported an unexpected manifest size error: "
+        "${oversized_manifest_output}${oversized_manifest_error}")
+endif()
+
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,valid,result\n")
