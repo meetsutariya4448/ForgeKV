@@ -36,6 +36,7 @@ MAX_LATENCY_SAMPLE_CHARS = 64
 MAX_BENCHMARK_VALUE_BYTES = 16 * 1024 * 1024
 MAX_REQUEST_ID = (1 << 64) - 1
 MAX_RESULT_TEXT_CHARS = 4096
+MAX_MANIFEST_TEXT_CHARS = 4096
 MAX_RESOURCE_CAPTURE_DELAY = dt.timedelta(minutes=5)
 
 
@@ -586,6 +587,10 @@ def main() -> int:
                 if not value.strip() or "\n" in value or "\r" in value:
                     raise ValueError(
                         f"manifest trial has an invalid {field}"
+                    )
+                if len(value) > MAX_MANIFEST_TEXT_CHARS:
+                    raise ValueError(
+                        f"manifest trial {field} exceeds the metadata length limit"
                     )
             if production_manifest:
                 reason = row["reason"]

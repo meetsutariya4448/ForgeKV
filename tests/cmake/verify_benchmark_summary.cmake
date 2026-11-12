@@ -501,6 +501,26 @@ if(NOT invalid_identity_text_error MATCHES "manifest trial has an invalid experi
         "${invalid_identity_text_output}${invalid_identity_text_error}")
 endif()
 
+string(REPEAT "x" 4097 oversized_experiment)
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,${oversized_experiment},0.8,1,7,invalid,result\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_identity_text_result
+    OUTPUT_VARIABLE oversized_identity_text_output
+    ERROR_VARIABLE oversized_identity_text_error
+)
+if(oversized_identity_text_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted oversized manifest metadata")
+endif()
+if(NOT oversized_identity_text_error MATCHES
+   "experiment exceeds the metadata length limit")
+    message(FATAL_ERROR
+        "summary reported an unexpected manifest metadata error: "
+        "${oversized_identity_text_output}${oversized_identity_text_error}")
+endif()
+
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,invalid,../result\n")
