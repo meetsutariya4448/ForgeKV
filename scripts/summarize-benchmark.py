@@ -30,6 +30,7 @@ PRODUCTION_RESULT_FIELDS = REQUIRED_PRODUCTION_RESULT_FIELDS | {
 }
 MAX_RESOURCE_EVIDENCE_BYTES = 64 * 1024
 MAX_MANIFEST_EVIDENCE_BYTES = 1024 * 1024
+MAX_RESULT_EVIDENCE_BYTES = 64 * 1024
 MAX_BENCHMARK_VALUE_BYTES = 16 * 1024 * 1024
 MAX_REQUEST_ID = (1 << 64) - 1
 MAX_RESULT_TEXT_CHARS = 4096
@@ -656,6 +657,10 @@ def main() -> int:
             result_path = run_directory / (output_prefix + ".json")
             if result_path.is_symlink():
                 raise ValueError(f"{result_path.name} must not be a symbolic link")
+            if result_path.stat().st_size > MAX_RESULT_EVIDENCE_BYTES:
+                raise ValueError(
+                    f"{result_path.name} exceeds the result evidence size limit"
+                )
             result = json.loads(
                 result_path.read_text(encoding="utf-8"),
                 object_pairs_hook=unique_json_object,

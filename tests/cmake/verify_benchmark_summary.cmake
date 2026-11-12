@@ -800,6 +800,23 @@ file(WRITE "${run_directory}/result.json"
     "\"latency_us\":{\"p50\":1,\"p95\":2,\"p99\":2,\"max\":2},"
     "\"errors\":0,\"connection_errors\":0}\n")
 file(READ "${run_directory}/result.json" production_result_json)
+string(REPEAT "x" 65537 oversized_result_evidence)
+file(WRITE "${run_directory}/result.json" "${oversized_result_evidence}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_result_result
+    OUTPUT_VARIABLE oversized_result_output
+    ERROR_VARIABLE oversized_result_error
+)
+if(oversized_result_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted oversized result evidence")
+endif()
+if(NOT oversized_result_error MATCHES "exceeds the result evidence size limit")
+    message(FATAL_ERROR
+        "summary reported an unexpected result size error: "
+        "${oversized_result_output}${oversized_result_error}")
+endif()
+file(WRITE "${run_directory}/result.json" "${production_result_json}")
 string(REPLACE
     "\"connection_errors\":0}"
     "\"connection_errors\":0,\"notes\":\"unreviewed\"}"
