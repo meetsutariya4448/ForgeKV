@@ -1199,6 +1199,23 @@ if(NOT latency_evidence_error MATCHES
 endif()
 
 file(WRITE "${run_directory}/result-latency-us.csv" "latency_us\n1\n2\n")
+string(REPEAT "x" 65537 oversized_csv_evidence)
+file(WRITE "${run_directory}/result.csv" "${oversized_csv_evidence}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_csv_result
+    OUTPUT_VARIABLE oversized_csv_output
+    ERROR_VARIABLE oversized_csv_error
+)
+if(oversized_csv_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted oversized CSV evidence")
+endif()
+if(NOT oversized_csv_error MATCHES "exceeds the CSV evidence size limit")
+    message(FATAL_ERROR
+        "summary reported an unexpected CSV size error: "
+        "${oversized_csv_output}${oversized_csv_error}")
+endif()
+file(REMOVE "${run_directory}/result.csv")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
     RESULT_VARIABLE csv_evidence_result

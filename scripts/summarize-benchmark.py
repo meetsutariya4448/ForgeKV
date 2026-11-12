@@ -31,6 +31,7 @@ PRODUCTION_RESULT_FIELDS = REQUIRED_PRODUCTION_RESULT_FIELDS | {
 MAX_RESOURCE_EVIDENCE_BYTES = 64 * 1024
 MAX_MANIFEST_EVIDENCE_BYTES = 1024 * 1024
 MAX_RESULT_EVIDENCE_BYTES = 64 * 1024
+MAX_CSV_EVIDENCE_BYTES = 64 * 1024
 MAX_LATENCY_SAMPLE_CHARS = 64
 MAX_BENCHMARK_VALUE_BYTES = 16 * 1024 * 1024
 MAX_REQUEST_ID = (1 << 64) - 1
@@ -406,6 +407,8 @@ def validate_csv_evidence(
     if csv_path.is_symlink():
         raise ValueError(f"{csv_path.name} must not be a symbolic link")
     try:
+        if csv_path.stat().st_size > MAX_CSV_EVIDENCE_BYTES:
+            raise ValueError(f"{csv_path.name} exceeds the CSV evidence size limit")
         with csv_path.open(newline="", encoding="utf-8") as csv_file:
             reader = csv.DictReader(csv_file)
             fields = reader.fieldnames or []
