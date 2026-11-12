@@ -31,6 +31,7 @@ PRODUCTION_RESULT_FIELDS = REQUIRED_PRODUCTION_RESULT_FIELDS | {
 MAX_RESOURCE_EVIDENCE_BYTES = 64 * 1024
 MAX_MANIFEST_EVIDENCE_BYTES = 1024 * 1024
 MAX_RESULT_EVIDENCE_BYTES = 64 * 1024
+MAX_LATENCY_SAMPLE_CHARS = 64
 MAX_BENCHMARK_VALUE_BYTES = 16 * 1024 * 1024
 MAX_REQUEST_ID = (1 << 64) - 1
 MAX_RESULT_TEXT_CHARS = 4096
@@ -303,6 +304,13 @@ def validate_latency_evidence(
     if latency_path.is_symlink():
         raise ValueError(f"{latency_path.name} must not be a symbolic link")
     try:
+        maximum_bytes = len("latency_us\n") + result["operations"] * (
+            MAX_LATENCY_SAMPLE_CHARS + 1
+        )
+        if latency_path.stat().st_size > maximum_bytes:
+            raise ValueError(
+                f"{latency_path.name} exceeds the latency evidence size limit"
+            )
         with latency_path.open(newline="", encoding="utf-8") as latency_file:
             reader = csv.reader(latency_file)
             if next(reader, None) != ["latency_us"]:

@@ -1164,6 +1164,24 @@ if(NOT delayed_resource_error MATCHES "captured too long after benchmark result"
 endif()
 file(WRITE "${run_directory}/result-server-resource.txt"
     "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\n")
+string(REPEAT "1\n" 66 oversized_latency_evidence)
+file(WRITE "${run_directory}/result-latency-us.csv"
+    "latency_us\n${oversized_latency_evidence}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_latency_result
+    OUTPUT_VARIABLE oversized_latency_output
+    ERROR_VARIABLE oversized_latency_error
+)
+if(oversized_latency_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted oversized latency evidence")
+endif()
+if(NOT oversized_latency_error MATCHES "exceeds the latency evidence size limit")
+    message(FATAL_ERROR
+        "summary reported an unexpected latency size error: "
+        "${oversized_latency_output}${oversized_latency_error}")
+endif()
+file(REMOVE "${run_directory}/result-latency-us.csv")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
     RESULT_VARIABLE latency_evidence_result
