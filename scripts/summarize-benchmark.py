@@ -585,7 +585,7 @@ def main() -> int:
                 raise ValueError(f"manifest contains unknown status {status!r}")
             for field in ("experiment", "variant"):
                 value = row[field]
-                if not value.strip() or "\n" in value or "\r" in value:
+                if not value.strip() or not value.isprintable():
                     raise ValueError(
                         f"manifest trial has an invalid {field}"
                     )

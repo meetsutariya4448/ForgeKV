@@ -476,6 +476,25 @@ if(NOT blank_identity_error MATCHES "manifest trial has an invalid experiment")
         "${blank_identity_output}${blank_identity_error}")
 endif()
 
+string(ASCII 9 manifest_tab)
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,read${manifest_tab}ratio,0.8,1,7,invalid,result\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE control_identity_result
+    OUTPUT_VARIABLE control_identity_output
+    ERROR_VARIABLE control_identity_error
+)
+if(control_identity_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted control characters in manifest metadata")
+endif()
+if(NOT control_identity_error MATCHES "manifest trial has an invalid experiment")
+    message(FATAL_ERROR
+        "summary reported an unexpected manifest control-character error: "
+        "${control_identity_output}${control_identity_error}")
+endif()
+
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,invalid,result\n")
