@@ -324,6 +324,10 @@ def validate_latency_evidence(
                     raise ValueError(
                         f"{latency_path.name} row {row_number} must contain one value"
                     )
+                if len(row[0]) > MAX_LATENCY_SAMPLE_CHARS:
+                    raise ValueError(
+                        f"{latency_path.name} row {row_number} exceeds the sample length limit"
+                    )
                 try:
                     sample = float(row[0])
                 except ValueError as error:
