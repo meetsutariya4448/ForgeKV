@@ -606,6 +606,10 @@ def main() -> int:
                 raise ValueError(
                     f"manifest run_id {row['run_id']!r} is not a safe identifier"
                 )
+            if len(row["run_id"]) > MAX_MANIFEST_TEXT_CHARS:
+                raise ValueError(
+                    "manifest run_id exceeds the metadata length limit"
+                )
             if run_id is None:
                 run_id = row["run_id"]
             elif row["run_id"] != run_id:

@@ -158,6 +158,25 @@ if(NOT unsafe_run_id_error MATCHES "manifest run_id '../run-1' is not a safe ide
         "${unsafe_run_id_output}${unsafe_run_id_error}")
 endif()
 
+string(REPEAT "r" 4097 oversized_run_id)
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "${oversized_run_id},read-ratio,0.8,1,7,invalid,result\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_run_id_result
+    OUTPUT_VARIABLE oversized_run_id_output
+    ERROR_VARIABLE oversized_run_id_error
+)
+if(oversized_run_id_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an oversized run identifier")
+endif()
+if(NOT oversized_run_id_error MATCHES "run_id exceeds the metadata length limit")
+    message(FATAL_ERROR
+        "summary reported an unexpected run identifier length error: "
+        "${oversized_run_id_output}${oversized_run_id_error}")
+endif()
+
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,result\n")
