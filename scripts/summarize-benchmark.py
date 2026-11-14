@@ -105,7 +105,7 @@ def validate_result_metadata(
                 f"{result_path.name} request_bound must be a nonnegative integer"
             )
         host = result["host"]
-        if not isinstance(host, str) or not host.strip() or "\n" in host or "\r" in host:
+        if not isinstance(host, str) or not host.strip() or not host.isprintable():
             raise ValueError(f"{result_path.name} host must be single-line text")
         if len(host) > MAX_RESULT_TEXT_CHARS:
             raise ValueError(f"{result_path.name} host exceeds the metadata length limit")
@@ -154,7 +154,7 @@ def validate_result_metadata(
             )
         for field in ("ram", "storage_medium", "durability"):
             value = result[field]
-            if not isinstance(value, str) or not value.strip() or "\n" in value or "\r" in value:
+            if not isinstance(value, str) or not value.strip() or not value.isprintable():
                 raise ValueError(f"{result_path.name} {field} must be single-line text")
             if len(value) > MAX_RESULT_TEXT_CHARS:
                 raise ValueError(
@@ -270,7 +270,7 @@ def validate_result_metadata(
             raise ValueError(f"{result_path.name} working_tree_dirty must be boolean")
         for field in ("compiler", "build", "system"):
             value = result[field]
-            if not isinstance(value, str) or not value.strip() or "\n" in value or "\r" in value:
+            if not isinstance(value, str) or not value.strip() or not value.isprintable():
                 raise ValueError(f"{result_path.name} {field} must be single-line text")
             if len(value) > MAX_RESULT_TEXT_CHARS:
                 raise ValueError(

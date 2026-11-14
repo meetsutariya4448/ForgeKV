@@ -1103,6 +1103,27 @@ if(NOT oversized_metadata_error MATCHES "ram exceeds the metadata length limit")
         "summary reported an unexpected metadata length error: "
         "${oversized_metadata_output}${oversized_metadata_error}")
 endif()
+string(ASCII 92 json_backslash)
+string(REPLACE
+    "\"compiler\":\"Clang 17\""
+    "\"compiler\":\"Clang${json_backslash}t17\""
+    unsafe_metadata_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${unsafe_metadata_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE unsafe_metadata_result
+    OUTPUT_VARIABLE unsafe_metadata_output
+    ERROR_VARIABLE unsafe_metadata_error
+)
+if(unsafe_metadata_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted unsafe result metadata")
+endif()
+if(NOT unsafe_metadata_error MATCHES "compiler must be single-line text")
+    message(FATAL_ERROR
+        "summary reported an unexpected unsafe metadata error: "
+        "${unsafe_metadata_output}${unsafe_metadata_error}")
+endif()
 string(REPLACE
     "\"connections\":1,\"threads\":1"
     "\"connections\":1,\"threads\":2"
