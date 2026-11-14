@@ -37,6 +37,7 @@ MAX_BENCHMARK_VALUE_BYTES = 16 * 1024 * 1024
 MAX_REQUEST_ID = (1 << 64) - 1
 MAX_RESULT_TEXT_CHARS = 4096
 MAX_MANIFEST_TEXT_CHARS = 4096
+MAX_ARTIFACT_PREFIX_CHARS = 200
 MAX_RESOURCE_CAPTURE_DELAY = dt.timedelta(minutes=5)
 
 
@@ -644,6 +645,10 @@ def main() -> int:
             if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", output_prefix):
                 raise ValueError(
                     f"manifest output prefix {output_prefix!r} is not a safe filename"
+                )
+            if len(output_prefix) > MAX_ARTIFACT_PREFIX_CHARS:
+                raise ValueError(
+                    "manifest output prefix exceeds the filename length limit"
                 )
             if output_prefix in seen_output_prefixes:
                 raise ValueError(

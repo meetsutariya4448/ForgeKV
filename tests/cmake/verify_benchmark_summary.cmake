@@ -420,6 +420,26 @@ if(NOT unsafe_path_error MATCHES "output prefix '../result' is not a safe filena
         "summary reported an unexpected path error: ${unsafe_path_output}${unsafe_path_error}")
 endif()
 
+string(REPEAT "p" 201 oversized_output_prefix)
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1,read-ratio,0.8,1,7,invalid,${oversized_output_prefix}\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_output_prefix_result
+    OUTPUT_VARIABLE oversized_output_prefix_output
+    ERROR_VARIABLE oversized_output_prefix_error
+)
+if(oversized_output_prefix_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an oversized output prefix")
+endif()
+if(NOT oversized_output_prefix_error MATCHES
+   "output prefix exceeds the filename length limit")
+    message(FATAL_ERROR
+        "summary reported an unexpected output prefix length error: "
+        "${oversized_output_prefix_output}${oversized_output_prefix_error}")
+endif()
+
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,result\n"
