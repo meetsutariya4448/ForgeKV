@@ -370,12 +370,19 @@ def validate_resource_evidence(resource_path: Path) -> dt.datetime:
     for line_number, line in enumerate(
         resource_path.read_text(encoding="utf-8").splitlines(), start=1
     ):
-        if "=" not in line:
-            raise ValueError(
-                f"{resource_path.name} line {line_number} is not key-value evidence"
+        if "=" in line:
+            key, value = line.split("=", 1)
+            key = key.removesuffix(":")
+        else:
+            proc_field = re.fullmatch(
+                r"([A-Za-z][A-Za-z0-9_]*):[ \t]*(.*)", line
             )
-        key, value = line.split("=", 1)
-        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*:?", key):
+            if proc_field is None:
+                raise ValueError(
+                    f"{resource_path.name} line {line_number} is not key-value evidence"
+                )
+            key, value = proc_field.groups()
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", key):
             raise ValueError(
                 f"{resource_path.name} line {line_number} has an invalid field name"
             )

@@ -823,7 +823,7 @@ execute_process(
 if(empty_resource_value_result EQUAL 0)
     message(FATAL_ERROR "benchmark summary accepted an empty resource value")
 endif()
-if(NOT empty_resource_value_error MATCHES "field 'VmRSS:' must not be empty")
+if(NOT empty_resource_value_error MATCHES "field 'VmRSS' must not be empty")
     message(FATAL_ERROR
         "summary reported an unexpected empty resource value error: "
         "${empty_resource_value_output}${empty_resource_value_error}")
@@ -845,7 +845,8 @@ if(NOT oversized_resource_error MATCHES "exceeds the resource evidence size limi
         "${oversized_resource_output}${oversized_resource_error}")
 endif()
 file(WRITE "${run_directory}/result-server-resource.txt"
-    "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\n")
+    "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\n"
+    "VmPeak:\t4096 kB\nThreads:\t7\n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
     RESULT_VARIABLE production_schema_result
