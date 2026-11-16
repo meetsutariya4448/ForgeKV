@@ -604,6 +604,10 @@ def main() -> int:
                     raise ValueError(
                         f"manifest trial has an invalid {field}"
                     )
+                if value != value.strip():
+                    raise ValueError(
+                        f"manifest trial {field} must not have surrounding whitespace"
+                    )
                 if len(value) > MAX_MANIFEST_TEXT_CHARS:
                     raise ValueError(
                         f"manifest trial {field} exceeds the metadata length limit"

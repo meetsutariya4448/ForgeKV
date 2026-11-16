@@ -179,6 +179,25 @@ endif()
 
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
+    "run-1, read-ratio,0.8,1,7,invalid,result\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE noncanonical_manifest_text_result
+    OUTPUT_VARIABLE noncanonical_manifest_text_output
+    ERROR_VARIABLE noncanonical_manifest_text_error
+)
+if(noncanonical_manifest_text_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted noncanonical manifest text")
+endif()
+if(NOT noncanonical_manifest_text_error MATCHES
+   "experiment must not have surrounding whitespace")
+    message(FATAL_ERROR
+        "summary reported an unexpected manifest text error: "
+        "${noncanonical_manifest_text_output}${noncanonical_manifest_text_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,valid,result\n")
 
 file(WRITE "${run_directory}/result.json"
