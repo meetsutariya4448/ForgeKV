@@ -812,6 +812,24 @@ if(NOT invalid_resource_field_error MATCHES "line 4 has an invalid field name")
         "summary reported an unexpected resource field error: "
         "${invalid_resource_field_output}${invalid_resource_field_error}")
 endif()
+string(ASCII 9 resource_tab)
+file(WRITE "${run_directory}/result-server-resource.txt"
+    "captured_utc=2026-10-27T00:00:00Z\npid=42\n"
+    "system=test${resource_tab}system\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE unsafe_resource_value_result
+    OUTPUT_VARIABLE unsafe_resource_value_output
+    ERROR_VARIABLE unsafe_resource_value_error
+)
+if(unsafe_resource_value_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted unsafe resource evidence")
+endif()
+if(NOT unsafe_resource_value_error MATCHES "field 'system' must be printable text")
+    message(FATAL_ERROR
+        "summary reported an unexpected unsafe resource value error: "
+        "${unsafe_resource_value_output}${unsafe_resource_value_error}")
+endif()
 file(WRITE "${run_directory}/result-server-resource.txt"
     "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\nVmRSS:=   \n")
 execute_process(
