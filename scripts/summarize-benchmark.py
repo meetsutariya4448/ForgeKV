@@ -107,6 +107,10 @@ def validate_result_metadata(
         host = result["host"]
         if not isinstance(host, str) or not host.strip() or not host.isprintable():
             raise ValueError(f"{result_path.name} host must be single-line text")
+        if host != host.strip():
+            raise ValueError(
+                f"{result_path.name} host must not have surrounding whitespace"
+            )
         if len(host) > MAX_RESULT_TEXT_CHARS:
             raise ValueError(f"{result_path.name} host exceeds the metadata length limit")
         port = result["port"]
@@ -156,6 +160,10 @@ def validate_result_metadata(
             value = result[field]
             if not isinstance(value, str) or not value.strip() or not value.isprintable():
                 raise ValueError(f"{result_path.name} {field} must be single-line text")
+            if value != value.strip():
+                raise ValueError(
+                    f"{result_path.name} {field} must not have surrounding whitespace"
+                )
             if len(value) > MAX_RESULT_TEXT_CHARS:
                 raise ValueError(
                     f"{result_path.name} {field} exceeds the metadata length limit"
@@ -272,6 +280,10 @@ def validate_result_metadata(
             value = result[field]
             if not isinstance(value, str) or not value.strip() or not value.isprintable():
                 raise ValueError(f"{result_path.name} {field} must be single-line text")
+            if value != value.strip():
+                raise ValueError(
+                    f"{result_path.name} {field} must not have surrounding whitespace"
+                )
             if len(value) > MAX_RESULT_TEXT_CHARS:
                 raise ValueError(
                     f"{result_path.name} {field} exceeds the metadata length limit"

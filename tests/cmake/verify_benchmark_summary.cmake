@@ -1163,6 +1163,27 @@ if(NOT unsafe_metadata_error MATCHES "compiler must be single-line text")
         "${unsafe_metadata_output}${unsafe_metadata_error}")
 endif()
 string(REPLACE
+    "\"host\":\"127.0.0.1\""
+    "\"host\":\" 127.0.0.1\""
+    noncanonical_result_text_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${noncanonical_result_text_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE noncanonical_result_text_result
+    OUTPUT_VARIABLE noncanonical_result_text_output
+    ERROR_VARIABLE noncanonical_result_text_error
+)
+if(noncanonical_result_text_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted noncanonical result text")
+endif()
+if(NOT noncanonical_result_text_error MATCHES
+   "host must not have surrounding whitespace")
+    message(FATAL_ERROR
+        "summary reported an unexpected result text error: "
+        "${noncanonical_result_text_output}${noncanonical_result_text_error}")
+endif()
+string(REPLACE
     "\"connections\":1,\"threads\":1"
     "\"connections\":1,\"threads\":2"
     excess_threads_json
