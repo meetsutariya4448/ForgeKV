@@ -340,6 +340,10 @@ def validate_latency_evidence(
                     raise ValueError(
                         f"{latency_path.name} row {row_number} exceeds the sample length limit"
                     )
+                if row[0] != row[0].strip():
+                    raise ValueError(
+                        f"{latency_path.name} row {row_number} must not have surrounding whitespace"
+                    )
                 try:
                     sample = float(row[0])
                 except ValueError as error:

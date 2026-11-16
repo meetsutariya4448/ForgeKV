@@ -1322,6 +1322,23 @@ if(NOT delayed_resource_error MATCHES "captured too long after benchmark result"
 endif()
 file(WRITE "${run_directory}/result-server-resource.txt"
     "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\n")
+file(WRITE "${run_directory}/result-latency-us.csv"
+    "latency_us\n 1\n2\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE noncanonical_latency_sample_result
+    OUTPUT_VARIABLE noncanonical_latency_sample_output
+    ERROR_VARIABLE noncanonical_latency_sample_error
+)
+if(noncanonical_latency_sample_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted a noncanonical latency sample")
+endif()
+if(NOT noncanonical_latency_sample_error MATCHES
+   "row 2 must not have surrounding whitespace")
+    message(FATAL_ERROR
+        "summary reported an unexpected noncanonical latency sample error: "
+        "${noncanonical_latency_sample_output}${noncanonical_latency_sample_error}")
+endif()
 string(REPEAT "1" 65 oversized_latency_sample)
 file(WRITE "${run_directory}/result-latency-us.csv"
     "latency_us\n${oversized_latency_sample}\n2\n")
