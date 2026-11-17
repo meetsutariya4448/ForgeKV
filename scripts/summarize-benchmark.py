@@ -33,6 +33,7 @@ MAX_RESOURCE_FIELD_CHARS = 4096
 MAX_MANIFEST_EVIDENCE_BYTES = 1024 * 1024
 MAX_RESULT_EVIDENCE_BYTES = 64 * 1024
 MAX_CSV_EVIDENCE_BYTES = 64 * 1024
+MAX_CSV_FIELD_CHARS = 4096
 MAX_LATENCY_SAMPLE_CHARS = 64
 MAX_BENCHMARK_VALUE_BYTES = 16 * 1024 * 1024
 MAX_REQUEST_ID = (1 << 64) - 1
@@ -482,6 +483,11 @@ def validate_csv_evidence(
     if len(rows) != 1 or None in rows[0]:
         raise ValueError(f"{csv_path.name} must contain exactly one complete result row")
     row = rows[0]
+    for field, value in row.items():
+        if len(value) > MAX_CSV_FIELD_CHARS:
+            raise ValueError(
+                f"{csv_path.name} field {field!r} exceeds the field length limit"
+            )
 
     for field in (
         "timestamp_utc", "run_id", "experiment", "variant", "git_sha", "compiler",

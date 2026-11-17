@@ -1479,6 +1479,32 @@ if(NOT csv_evidence_error MATCHES "CSV evidence is missing: result.csv")
         "${csv_evidence_output}${csv_evidence_error}")
 endif()
 
+string(REPEAT "x" 4097 oversized_csv_field)
+file(WRITE "${run_directory}/result.csv"
+    "timestamp_utc,run_id,experiment,variant,git_sha,working_tree_dirty,compiler,build,system,"
+    "ram,storage_medium,connections,threads,requests,duration_s,read_ratio,key_count,value_size,"
+    "pipeline_depth,warmup,preload,workers,shards,durability,seed,repetition,operations,seconds,"
+    "ops_per_second,p50_us,p95_us,p99_us,max_us,errors,connection_errors\n"
+    "2026-10-27T00:00:00Z,run-1,read-ratio,0.8,"
+    "0123456789abcdef0123456789abcdef01234567,0,${oversized_csv_field},Release,test system,"
+    "test ram,ssd,1,1,2,0,0.8,100,10,1,0,0,1,1,periodic,"
+    "7,1,2,1,2,1,2,2,2,0,0\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_csv_field_result
+    OUTPUT_VARIABLE oversized_csv_field_output
+    ERROR_VARIABLE oversized_csv_field_error
+)
+if(oversized_csv_field_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an oversized CSV field")
+endif()
+if(NOT oversized_csv_field_error MATCHES
+   "field 'compiler' exceeds the field length limit")
+    message(FATAL_ERROR
+        "summary reported an unexpected CSV field length error: "
+        "${oversized_csv_field_output}${oversized_csv_field_error}")
+endif()
+
 file(WRITE "${run_directory}/result.csv"
     "timestamp_utc,run_id,experiment,variant,git_sha,working_tree_dirty,compiler,build,system,"
     "ram,storage_medium,connections,threads,requests,duration_s,read_ratio,key_count,value_size,"
