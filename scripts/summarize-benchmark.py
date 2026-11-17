@@ -410,6 +410,10 @@ def validate_resource_evidence(resource_path: Path) -> dt.datetime:
             raise ValueError(
                 f"{resource_path.name} field {key!r} must be printable text"
             )
+        if value != value.strip():
+            raise ValueError(
+                f"{resource_path.name} field {key!r} must not have surrounding whitespace"
+            )
         if key in values:
             raise ValueError(f"{resource_path.name} contains duplicate field {key!r}")
         values[key] = value

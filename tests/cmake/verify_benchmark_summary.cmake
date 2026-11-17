@@ -850,6 +850,24 @@ if(NOT unsafe_resource_value_error MATCHES "field 'system' must be printable tex
         "${unsafe_resource_value_output}${unsafe_resource_value_error}")
 endif()
 file(WRITE "${run_directory}/result-server-resource.txt"
+    "captured_utc=2026-10-27T00:00:00Z\npid=42\n"
+    "system= test system\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE noncanonical_resource_value_result
+    OUTPUT_VARIABLE noncanonical_resource_value_output
+    ERROR_VARIABLE noncanonical_resource_value_error
+)
+if(noncanonical_resource_value_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted noncanonical resource evidence")
+endif()
+if(NOT noncanonical_resource_value_error MATCHES
+   "field 'system' must not have surrounding whitespace")
+    message(FATAL_ERROR
+        "summary reported an unexpected resource whitespace error: "
+        "${noncanonical_resource_value_output}${noncanonical_resource_value_error}")
+endif()
+file(WRITE "${run_directory}/result-server-resource.txt"
     "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\nVmRSS:=   \n")
 execute_process(
     COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
