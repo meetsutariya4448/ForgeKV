@@ -664,6 +664,10 @@ def main() -> int:
                 raise ValueError(
                     "manifest seed must be a nonnegative integer in canonical decimal form"
                 )
+            if int(row["trial"]) > MAX_REQUEST_ID or int(row["seed"]) > MAX_REQUEST_ID:
+                raise ValueError(
+                    "manifest trial and seed must fit in unsigned 64-bit integers"
+                )
             if "case_order" in row:
                 if not re.fullmatch(r"[1-9][0-9]*", row["case_order"]):
                     raise ValueError(
