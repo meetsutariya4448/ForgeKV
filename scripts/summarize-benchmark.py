@@ -29,6 +29,7 @@ PRODUCTION_RESULT_FIELDS = REQUIRED_PRODUCTION_RESULT_FIELDS | {
     "run_id", "experiment", "variant", "repetition", "seed",
 }
 MAX_RESOURCE_EVIDENCE_BYTES = 64 * 1024
+MAX_RESOURCE_FIELD_CHARS = 4096
 MAX_MANIFEST_EVIDENCE_BYTES = 1024 * 1024
 MAX_RESULT_EVIDENCE_BYTES = 64 * 1024
 MAX_CSV_EVIDENCE_BYTES = 64 * 1024
@@ -413,6 +414,10 @@ def validate_resource_evidence(resource_path: Path) -> dt.datetime:
         if value != value.strip():
             raise ValueError(
                 f"{resource_path.name} field {key!r} must not have surrounding whitespace"
+            )
+        if len(value) > MAX_RESOURCE_FIELD_CHARS:
+            raise ValueError(
+                f"{resource_path.name} field {key!r} exceeds the field length limit"
             )
         if key in values:
             raise ValueError(f"{resource_path.name} contains duplicate field {key!r}")

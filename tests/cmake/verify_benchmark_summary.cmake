@@ -885,6 +885,25 @@ if(NOT noncanonical_resource_value_error MATCHES
         "summary reported an unexpected resource whitespace error: "
         "${noncanonical_resource_value_output}${noncanonical_resource_value_error}")
 endif()
+string(REPEAT "x" 4097 oversized_resource_field)
+file(WRITE "${run_directory}/result-server-resource.txt"
+    "captured_utc=2026-10-27T00:00:00Z\npid=42\n"
+    "system=${oversized_resource_field}\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_resource_field_result
+    OUTPUT_VARIABLE oversized_resource_field_output
+    ERROR_VARIABLE oversized_resource_field_error
+)
+if(oversized_resource_field_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an oversized resource field")
+endif()
+if(NOT oversized_resource_field_error MATCHES
+   "field 'system' exceeds the field length limit")
+    message(FATAL_ERROR
+        "summary reported an unexpected resource field length error: "
+        "${oversized_resource_field_output}${oversized_resource_field_error}")
+endif()
 file(WRITE "${run_directory}/result-server-resource.txt"
     "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\nVmRSS:=   \n")
 execute_process(
