@@ -1509,6 +1509,31 @@ file(WRITE "${run_directory}/result.csv"
     "timestamp_utc,run_id,experiment,variant,git_sha,working_tree_dirty,compiler,build,system,"
     "ram,storage_medium,connections,threads,requests,duration_s,read_ratio,key_count,value_size,"
     "pipeline_depth,warmup,preload,workers,shards,durability,seed,repetition,operations,seconds,"
+    "ops_per_second,p50_us,p95_us,p99_us,max_us,errors,connection_errors\n"
+    "2026-10-27T00:00:00Z,run-1,read-ratio,0.8,"
+    "0123456789abcdef0123456789abcdef01234567,0,Clang 17,Release,test system,"
+    "test ram,ssd,1,1,2,0,0.8,100,10,1,0,0,1,1,periodic,"
+    "7,1,2, 1,2,1,2,2,2,0,0\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE noncanonical_csv_number_result
+    OUTPUT_VARIABLE noncanonical_csv_number_output
+    ERROR_VARIABLE noncanonical_csv_number_error
+)
+if(noncanonical_csv_number_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted a noncanonical CSV number")
+endif()
+if(NOT noncanonical_csv_number_error MATCHES
+   "seconds must not have surrounding whitespace")
+    message(FATAL_ERROR
+        "summary reported an unexpected CSV number error: "
+        "${noncanonical_csv_number_output}${noncanonical_csv_number_error}")
+endif()
+
+file(WRITE "${run_directory}/result.csv"
+    "timestamp_utc,run_id,experiment,variant,git_sha,working_tree_dirty,compiler,build,system,"
+    "ram,storage_medium,connections,threads,requests,duration_s,read_ratio,key_count,value_size,"
+    "pipeline_depth,warmup,preload,workers,shards,durability,seed,repetition,operations,seconds,"
     "ops_per_second,p50_us,p95_us,p99_us,max_us,errors,connection_errors,notes\n"
     "2026-10-27T00:00:00Z,run-1,read-ratio,0.8,"
     "0123456789abcdef0123456789abcdef01234567,0,Clang 17,Release,test system,"

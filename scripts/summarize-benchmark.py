@@ -527,6 +527,10 @@ def validate_csv_evidence(
         "read_ratio": result["read_ratio"],
     }
     for field, expected in expected_numbers.items():
+        if row[field] != row[field].strip():
+            raise ValueError(
+                f"{csv_path.name} {field} must not have surrounding whitespace"
+            )
         try:
             actual = float(row[field])
         except ValueError as error:
