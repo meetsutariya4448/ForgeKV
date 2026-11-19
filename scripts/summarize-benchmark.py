@@ -304,10 +304,10 @@ def validate_result_metadata(
         if (
             isinstance(hardware_threads, bool)
             or not isinstance(hardware_threads, int)
-            or hardware_threads < 0
+            or not 0 <= hardware_threads <= MAX_REQUEST_ID
         ):
             raise ValueError(
-                f"{result_path.name} hardware_threads must be a nonnegative integer"
+                f"{result_path.name} hardware_threads must be an unsigned 64-bit integer"
             )
 
     for field in ("errors", "connection_errors"):

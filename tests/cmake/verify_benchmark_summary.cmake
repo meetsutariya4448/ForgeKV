@@ -1052,6 +1052,27 @@ if(NOT future_result_error MATCHES "result.json timestamp_utc is in the future")
         "summary reported an unexpected result timestamp error: "
         "${future_result_output}${future_result_error}")
 endif()
+string(REPLACE
+    "\"hardware_threads\":8"
+    "\"hardware_threads\":18446744073709551616"
+    oversized_hardware_threads_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${oversized_hardware_threads_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_hardware_threads_result
+    OUTPUT_VARIABLE oversized_hardware_threads_output
+    ERROR_VARIABLE oversized_hardware_threads_error
+)
+if(oversized_hardware_threads_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted oversized hardware metadata")
+endif()
+if(NOT oversized_hardware_threads_error MATCHES
+   "hardware_threads must be an unsigned 64-bit integer")
+    message(FATAL_ERROR
+        "summary reported an unexpected hardware bounds error: "
+        "${oversized_hardware_threads_output}${oversized_hardware_threads_error}")
+endif()
 file(WRITE "${run_directory}/result.json" "${production_result_json}")
 string(REPLACE
     "\"host\":\"127.0.0.1\""
