@@ -219,6 +219,10 @@ def validate_result_metadata(
         seconds = result.get("seconds")
         if isinstance(operations, bool) or not isinstance(operations, int) or operations <= 0:
             raise ValueError(f"{result_path.name} operations must be a positive integer")
+        if operations > MAX_REQUEST_ID:
+            raise ValueError(
+                f"{result_path.name} operations exceeds the unsigned 64-bit limit"
+            )
         if (
             isinstance(seconds, bool)
             or not isinstance(seconds, (int, float))

@@ -1157,6 +1157,26 @@ if(NOT excessive_operations_error MATCHES "operations cannot exceed request_boun
         "${excessive_operations_output}${excessive_operations_error}")
 endif()
 string(REPLACE
+    "\"operations\":2,\"seconds\":1,\"operations_per_second\":2"
+    "\"operations\":18446744073709551616,\"seconds\":1,\"operations_per_second\":18446744073709551616"
+    oversized_operations_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${oversized_operations_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_operations_result
+    OUTPUT_VARIABLE oversized_operations_output
+    ERROR_VARIABLE oversized_operations_error
+)
+if(oversized_operations_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an oversized operation count")
+endif()
+if(NOT oversized_operations_error MATCHES "operations exceeds the unsigned 64-bit limit")
+    message(FATAL_ERROR
+        "summary reported an unexpected operation bounds error: "
+        "${oversized_operations_output}${oversized_operations_error}")
+endif()
+string(REPLACE
     "\"value_size\":10"
     "\"value_size\":16777217"
     oversized_value_json
