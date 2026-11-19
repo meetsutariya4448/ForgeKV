@@ -1259,6 +1259,26 @@ if(NOT excess_threads_error MATCHES "threads cannot exceed connections")
         "${excess_threads_output}${excess_threads_error}")
 endif()
 string(REPLACE
+    "\"connections\":1,\"threads\":1"
+    "\"connections\":18446744073709551616,\"threads\":1"
+    oversized_topology_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${oversized_topology_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_topology_result
+    OUTPUT_VARIABLE oversized_topology_output
+    ERROR_VARIABLE oversized_topology_error
+)
+if(oversized_topology_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted oversized topology metadata")
+endif()
+if(NOT oversized_topology_error MATCHES "connections exceeds the unsigned 64-bit limit")
+    message(FATAL_ERROR
+        "summary reported an unexpected topology bounds error: "
+        "${oversized_topology_output}${oversized_topology_error}")
+endif()
+string(REPLACE
     "\"warmup_requests\":0,\"preload\":false"
     "\"warmup_requests\":1,\"preload\":false"
     warmup_without_preload_json

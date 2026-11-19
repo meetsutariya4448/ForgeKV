@@ -89,6 +89,8 @@ def validate_result_metadata(
             value = result[field]
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise ValueError(f"{result_path.name} {field} must be a positive integer")
+            if value > MAX_REQUEST_ID:
+                raise ValueError(f"{result_path.name} {field} exceeds the unsigned 64-bit limit")
         if result["value_size"] > MAX_BENCHMARK_VALUE_BYTES:
             raise ValueError(
                 f"{result_path.name} value_size exceeds the protocol limit"
