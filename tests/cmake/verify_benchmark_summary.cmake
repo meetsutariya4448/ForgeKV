@@ -1116,6 +1116,27 @@ if(NOT missing_workload_bound_error MATCHES
         "${missing_workload_bound_output}${missing_workload_bound_error}")
 endif()
 string(REPLACE
+    "\"request_bound\":2,\"duration_bound_s\":0"
+    "\"request_bound\":0,\"duration_bound_s\":18446744073709551616"
+    oversized_duration_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${oversized_duration_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_duration_result
+    OUTPUT_VARIABLE oversized_duration_output
+    ERROR_VARIABLE oversized_duration_error
+)
+if(oversized_duration_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an oversized duration bound")
+endif()
+if(NOT oversized_duration_error MATCHES
+   "duration_bound_s exceeds the unsigned 64-bit limit")
+    message(FATAL_ERROR
+        "summary reported an unexpected duration bounds error: "
+        "${oversized_duration_output}${oversized_duration_error}")
+endif()
+string(REPLACE
     "\"operations\":2,\"seconds\":1,\"operations_per_second\":2"
     "\"operations\":3,\"seconds\":1,\"operations_per_second\":3"
     excessive_operations_json

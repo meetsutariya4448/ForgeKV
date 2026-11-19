@@ -134,6 +134,10 @@ def validate_result_metadata(
             raise ValueError(
                 f"{result_path.name} duration_bound_s must be a nonnegative integer"
             )
+        if duration > MAX_REQUEST_ID:
+            raise ValueError(
+                f"{result_path.name} duration_bound_s exceeds the unsigned 64-bit limit"
+            )
         if request_bound == 0 and duration == 0:
             raise ValueError(
                 f"{result_path.name} request_bound and duration_bound_s cannot both be zero"
