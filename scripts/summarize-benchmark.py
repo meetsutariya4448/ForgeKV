@@ -227,9 +227,11 @@ def validate_result_metadata(
             isinstance(seconds, bool)
             or not isinstance(seconds, (int, float))
             or not math.isfinite(seconds)
-            or seconds <= 0
+            or not 0 < seconds <= MAX_REQUEST_ID
         ):
-            raise ValueError(f"{result_path.name} seconds must be a finite positive number")
+            raise ValueError(
+                f"{result_path.name} seconds must be a finite positive unsigned 64-bit value"
+            )
         if not math.isclose(
             float(result["operations_per_second"]), operations / seconds, rel_tol=1e-5
         ):

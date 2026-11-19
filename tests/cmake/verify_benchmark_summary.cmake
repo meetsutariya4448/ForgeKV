@@ -1198,6 +1198,27 @@ if(NOT oversized_operations_error MATCHES "operations exceeds the unsigned 64-bi
         "${oversized_operations_output}${oversized_operations_error}")
 endif()
 string(REPLACE
+    "\"operations\":2,\"seconds\":1,\"operations_per_second\":2"
+    "\"operations\":2,\"seconds\":18446744073709551616,\"operations_per_second\":0"
+    oversized_elapsed_time_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${oversized_elapsed_time_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_elapsed_time_result
+    OUTPUT_VARIABLE oversized_elapsed_time_output
+    ERROR_VARIABLE oversized_elapsed_time_error
+)
+if(oversized_elapsed_time_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted oversized elapsed time")
+endif()
+if(NOT oversized_elapsed_time_error MATCHES
+   "seconds must be a finite positive unsigned 64-bit value")
+    message(FATAL_ERROR
+        "summary reported an unexpected elapsed-time bounds error: "
+        "${oversized_elapsed_time_output}${oversized_elapsed_time_error}")
+endif()
+string(REPLACE
     "\"value_size\":10"
     "\"value_size\":16777217"
     oversized_value_json
