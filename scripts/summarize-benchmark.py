@@ -528,6 +528,7 @@ def validate_csv_evidence(
         "connections": result["connections"],
         "threads": result["threads"],
         "requests": result["request_bound"],
+        "duration_s": result["duration_bound_s"],
         "key_count": result["key_count"],
         "value_size": result["value_size"],
         "pipeline_depth": result["pipeline_depth"],
@@ -546,7 +547,6 @@ def validate_csv_evidence(
         "p95_us": result["latency_us"]["p95"],
         "p99_us": result["latency_us"]["p99"],
         "max_us": result["latency_us"]["max"],
-        "duration_s": result["duration_bound_s"],
         "read_ratio": result["read_ratio"],
     }
     for field, expected in expected_numbers.items():
