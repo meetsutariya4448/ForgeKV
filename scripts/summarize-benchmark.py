@@ -701,9 +701,13 @@ def main() -> int:
                     "manifest trial and seed must fit in unsigned 64-bit integers"
                 )
             if "case_order" in row:
-                if not re.fullmatch(r"[1-9][0-9]*", row["case_order"]):
+                if (
+                    not re.fullmatch(r"[1-9][0-9]*", row["case_order"])
+                    or int(row["case_order"]) > MAX_REQUEST_ID
+                ):
                     raise ValueError(
-                        "manifest case_order must be a positive integer in canonical decimal form"
+                        "manifest case_order must be a positive unsigned 64-bit integer "
+                        "in canonical decimal form"
                     )
                 case_order = int(row["case_order"])
                 if case_order != row_number:

@@ -691,6 +691,26 @@ if(NOT case_order_error MATCHES "manifest case_order does not match row order")
 endif()
 
 file(WRITE "${run_directory}/manifest.csv"
+    "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
+    "run-1,18446744073709551616,read-ratio,0.8,1,7,invalid,server-not-ready,"
+    "result,result-server-resource.txt\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_case_order_result
+    OUTPUT_VARIABLE oversized_case_order_output
+    ERROR_VARIABLE oversized_case_order_error
+)
+if(oversized_case_order_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an oversized case order")
+endif()
+if(NOT oversized_case_order_error MATCHES
+   "case_order must be a positive unsigned 64-bit integer")
+    message(FATAL_ERROR
+        "summary reported an unexpected case order bounds error: "
+        "${oversized_case_order_output}${oversized_case_order_error}")
+endif()
+
+file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix,resource_file\n"
     "run-1,read-ratio,0.8,1,7,valid,result,result-server-resource.txt\n")
 execute_process(
