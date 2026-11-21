@@ -748,6 +748,14 @@ def main() -> int:
                     f"manifest resource file {resource_file!r} is not a safe filename"
                 )
             if (
+                resource_file is not None
+                and len(resource_file)
+                > MAX_ARTIFACT_PREFIX_CHARS + len("-server-resource.txt")
+            ):
+                raise ValueError(
+                    "manifest resource file exceeds the filename length limit"
+                )
+            if (
                 production_manifest
                 and resource_file != f"{output_prefix}-server-resource.txt"
             ):

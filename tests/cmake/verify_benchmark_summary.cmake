@@ -653,6 +653,27 @@ if(NOT invalid_resource_name_error MATCHES
         "${invalid_resource_name_output}${invalid_resource_name_error}")
 endif()
 
+string(REPEAT "r" 221 oversized_resource_name)
+file(WRITE "${run_directory}/manifest.csv"
+    "run_id,case_order,experiment,variant,trial,seed,status,reason,output_prefix,resource_file\n"
+    "run-1,1,read-ratio,0.8,1,7,invalid,server-not-ready,result,"
+    "${oversized_resource_name}\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_resource_name_result
+    OUTPUT_VARIABLE oversized_resource_name_output
+    ERROR_VARIABLE oversized_resource_name_error
+)
+if(oversized_resource_name_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an oversized resource filename")
+endif()
+if(NOT oversized_resource_name_error MATCHES
+   "resource file exceeds the filename length limit")
+    message(FATAL_ERROR
+        "summary reported an unexpected resource filename error: "
+        "${oversized_resource_name_output}${oversized_resource_name_error}")
+endif()
+
 file(WRITE "${run_directory}/manifest.csv"
     "run_id,experiment,variant,trial,seed,status,output_prefix\n"
     "run-1,read-ratio,0.8,1,7,invalid,result\n"
