@@ -1425,6 +1425,26 @@ if(NOT excessive_errors_error MATCHES
 endif()
 string(REPLACE
     "\"errors\":0,\"connection_errors\":0"
+    "\"errors\":18446744073709551616,\"connection_errors\":0"
+    oversized_errors_json
+    "${production_result_json}")
+file(WRITE "${run_directory}/result.json" "${oversized_errors_json}")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_errors_result
+    OUTPUT_VARIABLE oversized_errors_output
+    ERROR_VARIABLE oversized_errors_error
+)
+if(oversized_errors_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an oversized error count")
+endif()
+if(NOT oversized_errors_error MATCHES "errors must be an unsigned 64-bit integer")
+    message(FATAL_ERROR
+        "summary reported an unexpected error count bounds error: "
+        "${oversized_errors_output}${oversized_errors_error}")
+endif()
+string(REPLACE
+    "\"errors\":0,\"connection_errors\":0"
     "\"errors\":0,\"connection_errors\":2"
     excessive_connection_errors_json
     "${production_result_json}")

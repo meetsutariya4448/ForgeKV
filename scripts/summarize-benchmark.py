@@ -314,8 +314,14 @@ def validate_result_metadata(
 
     for field in ("errors", "connection_errors"):
         value = result.get(field)
-        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-            raise ValueError(f"{result_path.name} {field} must be a nonnegative integer")
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, int)
+            or not 0 <= value <= MAX_REQUEST_ID
+        ):
+            raise ValueError(
+                f"{result_path.name} {field} must be an unsigned 64-bit integer"
+            )
     if "operations" in result and result["errors"] > result["operations"]:
         raise ValueError(
             f"{result_path.name} errors cannot exceed completed operations"
