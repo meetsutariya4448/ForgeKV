@@ -1479,6 +1479,25 @@ if(NOT delayed_resource_error MATCHES "captured too long after benchmark result"
         "${delayed_resource_output}${delayed_resource_error}")
 endif()
 file(WRITE "${run_directory}/result-server-resource.txt"
+    "captured_utc=2026-10-27T00:00:00Z\n"
+    "pid=18446744073709551616\n"
+    "system=test system\n")
+execute_process(
+    COMMAND python3 "${SUMMARY_SCRIPT}" "${run_directory}"
+    RESULT_VARIABLE oversized_resource_pid_result
+    OUTPUT_VARIABLE oversized_resource_pid_output
+    ERROR_VARIABLE oversized_resource_pid_error
+)
+if(oversized_resource_pid_result EQUAL 0)
+    message(FATAL_ERROR "benchmark summary accepted an oversized resource process id")
+endif()
+if(NOT oversized_resource_pid_error MATCHES
+   "pid must be a positive unsigned 64-bit integer")
+    message(FATAL_ERROR
+        "summary reported an unexpected resource pid error: "
+        "${oversized_resource_pid_output}${oversized_resource_pid_error}")
+endif()
+file(WRITE "${run_directory}/result-server-resource.txt"
     "captured_utc=2026-10-27T00:00:00Z\npid=42\nsystem=test system\n")
 file(WRITE "${run_directory}/result-latency-us.csv"
     "latency_us\n 1\n2\n")
