@@ -103,6 +103,33 @@ class ContentionOutputValidatorTest(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("must be positive", result.stderr)
 
+    def test_rejects_ambiguous_requested_shards(self):
+        rows = [
+            ["same-key", "1", "1", "1", "1", "1", "0.1", "10", "0"],
+            ["distributed-key", "1", "1", "1", "1", "1", "0.1", "10", "1"],
+        ]
+        invalid_shards = (("1,1", "duplicates"), ("01", "canonical"), ("", "canonical"))
+        for shards, expected_error in invalid_shards:
+            with self.subTest(shards=shards):
+                result = self.run_validator(
+                    rows,
+                    [
+                        "--threads",
+                        "1",
+                        "--operations-per-thread",
+                        "1",
+                        "--keys",
+                        "1",
+                        "--repetitions",
+                        "1",
+                        "--shards",
+                        shards,
+                    ],
+                )
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(expected_error, result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -35,6 +35,13 @@ def nonnegative_integer(value: str, field: str) -> int:
     return int(value)
 
 
+def shard_counts(value: str) -> set[int]:
+    parsed = [positive_integer(item, "shards") for item in value.split(",")]
+    if len(set(parsed)) != len(parsed):
+        raise ValueError("shards must not contain duplicates")
+    return set(parsed)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("path", type=pathlib.Path)
@@ -49,7 +56,7 @@ def main() -> int:
         if getattr(arguments, name) <= 0:
             raise ValueError(f"{name.replace('_', '-')} must be positive")
 
-    expected_shards = {int(value) for value in arguments.shards.split(",")}
+    expected_shards = shard_counts(arguments.shards)
     expected_operations = arguments.threads * arguments.operations_per_thread
     expected_runs = {
         (workload, shards, repetition)
