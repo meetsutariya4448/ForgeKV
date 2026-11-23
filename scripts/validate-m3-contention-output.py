@@ -45,6 +45,10 @@ def main() -> int:
     parser.add_argument("--shards", required=True)
     arguments = parser.parse_args()
 
+    for name in ("threads", "operations_per_thread", "keys", "repetitions"):
+        if getattr(arguments, name) <= 0:
+            raise ValueError(f"{name.replace('_', '-')} must be positive")
+
     expected_shards = {int(value) for value in arguments.shards.split(",")}
     expected_operations = arguments.threads * arguments.operations_per_thread
     expected_runs = {

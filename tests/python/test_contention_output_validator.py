@@ -25,18 +25,15 @@ HEADER = [
 
 
 class ContentionOutputValidatorTest(unittest.TestCase):
-    def run_validator(self, rows):
+    def run_validator(self, rows, arguments=None):
         with tempfile.TemporaryDirectory() as directory:
             evidence = pathlib.Path(directory) / "contention.csv"
             with evidence.open("w", newline="") as stream:
                 writer = csv.writer(stream)
                 writer.writerow(HEADER)
                 writer.writerows(rows)
-            return subprocess.run(
-                [
-                    sys.executable,
-                    str(VALIDATOR),
-                    str(evidence),
+            if arguments is None:
+                arguments = [
                     "--threads",
                     "1",
                     "--operations-per-thread",
@@ -47,7 +44,9 @@ class ContentionOutputValidatorTest(unittest.TestCase):
                     "1",
                     "--shards",
                     "1",
-                ],
+                ]
+            return subprocess.run(
+                [sys.executable, str(VALIDATOR), str(evidence), *arguments],
                 capture_output=True,
                 check=False,
                 text=True,
@@ -76,6 +75,33 @@ class ContentionOutputValidatorTest(unittest.TestCase):
 
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("canonical", result.stderr)
+
+    def test_rejects_nonpositive_requested_dimensions(self):
+        rows = [
+            ["same-key", "1", "1", "1", "1", "1", "0.1", "10", "0"],
+            ["distributed-key", "1", "1", "1", "1", "1", "0.1", "10", "1"],
+        ]
+        options = ("--threads", "--operations-per-thread", "--keys", "--repetitions")
+        for option in options:
+            with self.subTest(option=option):
+                arguments = [
+                    "--threads",
+                    "1",
+                    "--operations-per-thread",
+                    "1",
+                    "--keys",
+                    "1",
+                    "--repetitions",
+                    "1",
+                    "--shards",
+                    "1",
+                ]
+                arguments[arguments.index(option) + 1] = "0"
+
+                result = self.run_validator(rows, arguments)
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("must be positive", result.stderr)
 
 
 if __name__ == "__main__":
