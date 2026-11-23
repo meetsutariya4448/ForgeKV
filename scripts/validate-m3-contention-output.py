@@ -5,6 +5,7 @@ import argparse
 import csv
 import math
 import pathlib
+import re
 import sys
 
 
@@ -23,23 +24,15 @@ WORKLOADS = {"same-key", "distributed-key"}
 
 
 def positive_integer(value: str, field: str) -> int:
-    try:
-        parsed = int(value)
-    except ValueError as error:
-        raise ValueError(f"{field} must be an integer") from error
-    if parsed <= 0:
-        raise ValueError(f"{field} must be positive")
-    return parsed
+    if re.fullmatch(r"[1-9][0-9]*", value) is None:
+        raise ValueError(f"{field} must be a canonical positive integer")
+    return int(value)
 
 
 def nonnegative_integer(value: str, field: str) -> int:
-    try:
-        parsed = int(value)
-    except ValueError as error:
-        raise ValueError(f"{field} must be an integer") from error
-    if parsed < 0:
-        raise ValueError(f"{field} must not be negative")
-    return parsed
+    if re.fullmatch(r"0|[1-9][0-9]*", value) is None:
+        raise ValueError(f"{field} must be a canonical nonnegative integer")
+    return int(value)
 
 
 def main() -> int:

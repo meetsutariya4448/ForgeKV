@@ -196,6 +196,10 @@ add_test(
     NAME ForgeKVScenarioTest.ValidatesPingResponses
     COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/python/test_overload_scenario.py
 )
+add_test(
+    NAME ForgeKVBenchTest.ValidatesContentionEvidence
+    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/python/test_contention_output_validator.py
+)
 set_tests_properties(
     ForgeKVBenchTest.RejectsDurationOutsideChronoRange
     ForgeKVBenchTest.RejectsMalformedShardLists
@@ -215,6 +219,7 @@ set_tests_properties(
     ForgeKVServerTest.RejectsDuplicateOptions
     ForgeKVScenarioTest.CleansUpFailedLaunch
     ForgeKVScenarioTest.ValidatesPingResponses
+    ForgeKVBenchTest.ValidatesContentionEvidence
     PROPERTIES TIMEOUT ${FORGEKV_TEST_TIMEOUT_SECONDS}
 )
 
