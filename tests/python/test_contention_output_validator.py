@@ -130,6 +130,67 @@ class ContentionOutputValidatorTest(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(expected_error, result.stderr)
 
+    def test_rejects_counters_outside_unsigned_64_bit_range(self):
+        rows = [
+            ["same-key", "1", "1", "1", "1", "1", "0.1", "10", str(1 << 64)],
+            ["distributed-key", "1", "1", "1", "1", "1", "0.1", "10", "1"],
+        ]
+
+        result = self.run_validator(rows)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unsigned 64-bit range", result.stderr)
+
+    def test_rejects_requested_operation_count_overflow(self):
+        rows = [
+            ["same-key", "1", "1", "1", "1", "1", "0.1", "10", "0"],
+            ["distributed-key", "1", "1", "1", "1", "1", "0.1", "10", "1"],
+        ]
+
+        result = self.run_validator(
+            rows,
+            [
+                "--threads",
+                str((1 << 64) - 1),
+                "--operations-per-thread",
+                "2",
+                "--keys",
+                "1",
+                "--repetitions",
+                "1",
+                "--shards",
+                "1",
+            ],
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("operation count exceeds", result.stderr)
+
+    def test_rejects_requested_dimensions_outside_unsigned_64_bit_range(self):
+        rows = [
+            ["same-key", "1", "1", "1", "1", "1", "0.1", "10", "0"],
+            ["distributed-key", "1", "1", "1", "1", "1", "0.1", "10", "1"],
+        ]
+
+        result = self.run_validator(
+            rows,
+            [
+                "--threads",
+                "1",
+                "--operations-per-thread",
+                "1",
+                "--keys",
+                str(1 << 64),
+                "--repetitions",
+                "1",
+                "--shards",
+                "1",
+            ],
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("keys exceeds the unsigned 64-bit range", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

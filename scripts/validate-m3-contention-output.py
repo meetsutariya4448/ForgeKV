@@ -21,18 +21,25 @@ HEADER = [
     "checksum",
 ]
 WORKLOADS = {"same-key", "distributed-key"}
+MAX_UINT64 = (1 << 64) - 1
 
 
 def positive_integer(value: str, field: str) -> int:
     if re.fullmatch(r"[1-9][0-9]*", value) is None:
         raise ValueError(f"{field} must be a canonical positive integer")
-    return int(value)
+    parsed = int(value)
+    if parsed > MAX_UINT64:
+        raise ValueError(f"{field} exceeds the unsigned 64-bit range")
+    return parsed
 
 
 def nonnegative_integer(value: str, field: str) -> int:
     if re.fullmatch(r"0|[1-9][0-9]*", value) is None:
         raise ValueError(f"{field} must be a canonical nonnegative integer")
-    return int(value)
+    parsed = int(value)
+    if parsed > MAX_UINT64:
+        raise ValueError(f"{field} exceeds the unsigned 64-bit range")
+    return parsed
 
 
 def shard_counts(value: str) -> set[int]:
@@ -53,11 +60,16 @@ def main() -> int:
     arguments = parser.parse_args()
 
     for name in ("threads", "operations_per_thread", "keys", "repetitions"):
-        if getattr(arguments, name) <= 0:
+        value = getattr(arguments, name)
+        if value <= 0:
             raise ValueError(f"{name.replace('_', '-')} must be positive")
+        if value > MAX_UINT64:
+            raise ValueError(f"{name.replace('_', '-')} exceeds the unsigned 64-bit range")
 
     expected_shards = shard_counts(arguments.shards)
     expected_operations = arguments.threads * arguments.operations_per_thread
+    if expected_operations > MAX_UINT64:
+        raise ValueError("requested operation count exceeds the unsigned 64-bit range")
     expected_runs = {
         (workload, shards, repetition)
         for workload in WORKLOADS
