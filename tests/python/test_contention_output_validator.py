@@ -50,6 +50,7 @@ class ContentionOutputValidatorTest(unittest.TestCase):
                 capture_output=True,
                 check=False,
                 text=True,
+                timeout=5,
             )
 
     def test_accepts_complete_canonical_output(self):
@@ -190,6 +191,42 @@ class ContentionOutputValidatorTest(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("keys exceeds the unsigned 64-bit range", result.stderr)
+
+    def test_large_requested_run_counts_do_not_require_materializing_every_run(self):
+        rows = [
+            ["same-key", "1", "1", "1", "1", "1", "0.1", "10", "0"],
+            ["distributed-key", "1", "1", "1", "1", "1", "0.1", "10", "1"],
+        ]
+
+        result = self.run_validator(
+            rows,
+            [
+                "--threads",
+                "1",
+                "--operations-per-thread",
+                "1",
+                "--keys",
+                "1",
+                "--repetitions",
+                "1000000",
+                "--shards",
+                "1",
+            ],
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("1999998 missing", result.stderr)
+
+    def test_rejects_repetitions_outside_requested_range(self):
+        rows = [
+            ["same-key", "1", "1", "1", "1", "2", "0.1", "10", "0"],
+            ["distributed-key", "1", "1", "1", "1", "1", "0.1", "10", "1"],
+        ]
+
+        result = self.run_validator(rows)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unexpected repetition", result.stderr)
 
 
 if __name__ == "__main__":

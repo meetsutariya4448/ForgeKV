@@ -70,12 +70,7 @@ def main() -> int:
     expected_operations = arguments.threads * arguments.operations_per_thread
     if expected_operations > MAX_UINT64:
         raise ValueError("requested operation count exceeds the unsigned 64-bit range")
-    expected_runs = {
-        (workload, shards, repetition)
-        for workload in WORKLOADS
-        for shards in expected_shards
-        for repetition in range(1, arguments.repetitions + 1)
-    }
+    expected_run_count = len(WORKLOADS) * len(expected_shards) * arguments.repetitions
 
     with arguments.path.open(newline="") as stream:
         reader = csv.reader(line for line in stream if not line.startswith("#"))
@@ -120,15 +115,16 @@ def main() -> int:
                 raise ValueError(f"benchmark row {line_number} does not match the requested configuration")
             if operations != expected_operations:
                 raise ValueError(f"benchmark row {line_number} has an unexpected operation count")
+            if repetition > arguments.repetitions:
+                raise ValueError(f"benchmark row {line_number} has an unexpected repetition")
             run = (workload, shards, repetition)
             if run in observed_runs:
                 raise ValueError(f"benchmark row {line_number} duplicates a workload run")
             observed_runs.add(run)
 
-    if observed_runs != expected_runs:
-        missing = len(expected_runs - observed_runs)
-        extra = len(observed_runs - expected_runs)
-        raise ValueError(f"benchmark output has incomplete run coverage ({missing} missing, {extra} extra)")
+    if len(observed_runs) != expected_run_count:
+        missing = expected_run_count - len(observed_runs)
+        raise ValueError(f"benchmark output has incomplete run coverage ({missing} missing)")
     return 0
 
 
