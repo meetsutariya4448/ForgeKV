@@ -23,6 +23,30 @@ DEFAULT_ARGUMENTS = [
     "--shards",
     "1",
 ]
+DEFAULT_METADATA = [
+    ("date_utc", "2026-11-23T00:00:00Z"),
+    ("git_commit", "a" * 40),
+    ("working_tree_dirty", "0"),
+    ("benchmark_binary_sha256", "b" * 64),
+    ("benchmark_runner_sha256", "c" * 64),
+    ("output_validator_sha256", "d" * 64),
+    ("compiler", "test compiler"),
+    ("compile_command", "c++ -O2"),
+    ("os", "test os"),
+    ("architecture", "test architecture"),
+    ("cpu", "test cpu"),
+    ("logical_cores", "1"),
+    ("ram", "1024"),
+    ("storage_medium", "not applicable"),
+    ("durability_mode", "not applicable"),
+    ("dataset_size", "1 keys"),
+    ("value_size", "not applicable"),
+    ("connection_count", "not applicable"),
+    ("worker_count", "1 benchmark threads"),
+    ("shard_counts", "1"),
+    ("repetitions", "1"),
+    ("warmup", "1000 operations per thread"),
+]
 HEADER = [
     "workload",
     "shards",
@@ -37,10 +61,14 @@ HEADER = [
 
 
 class ContentionOutputValidatorTest(unittest.TestCase):
-    def run_validator(self, rows, arguments=None):
+    def run_validator(self, rows, arguments=None, metadata=None):
         with tempfile.TemporaryDirectory() as directory:
             evidence = pathlib.Path(directory) / "contention.csv"
             with evidence.open("w", newline="") as stream:
+                if metadata is None:
+                    metadata = DEFAULT_METADATA
+                for key, value in metadata:
+                    stream.write(f"# {key},{value}\n")
                 writer = csv.writer(stream)
                 writer.writerow(HEADER)
                 writer.writerows(rows)
@@ -316,6 +344,45 @@ class ContentionOutputValidatorTest(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("exceeds 1048576 bytes", result.stderr)
+
+    def test_requires_complete_metadata(self):
+        rows = [
+            ["same-key", "1", "1", "1", "1", "1", "0.1", "10", "0"],
+            ["distributed-key", "1", "1", "1", "1", "1", "0.1", "10", "1"],
+        ]
+
+        result = self.run_validator(rows, metadata=DEFAULT_METADATA[:-1])
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing metadata fields: warmup", result.stderr)
+
+    def test_rejects_duplicate_or_unknown_metadata(self):
+        rows = [
+            ["same-key", "1", "1", "1", "1", "1", "0.1", "10", "0"],
+            ["distributed-key", "1", "1", "1", "1", "1", "0.1", "10", "1"],
+        ]
+        invalid_metadata = (
+            (DEFAULT_METADATA + [("date_utc", "duplicate")], "duplicates metadata field"),
+            (DEFAULT_METADATA + [("surprise", "value")], "unknown metadata field"),
+        )
+        for metadata, expected_error in invalid_metadata:
+            with self.subTest(expected_error=expected_error):
+                result = self.run_validator(rows, metadata=metadata)
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(expected_error, result.stderr)
+
+    def test_rejects_metadata_after_csv_header(self):
+        rows = [
+            ["same-key", "1", "1", "1", "1", "1", "0.1", "10", "0"],
+            ["# date_utc", "2026-11-23T01:00:00Z"],
+            ["distributed-key", "1", "1", "1", "1", "1", "0.1", "10", "1"],
+        ]
+
+        result = self.run_validator(rows)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("metadata must precede", result.stderr)
 
 
 if __name__ == "__main__":

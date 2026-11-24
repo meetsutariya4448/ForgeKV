@@ -21,6 +21,30 @@ HEADER = [
     "ops_per_second",
     "checksum",
 ]
+METADATA_FIELDS = {
+    "date_utc",
+    "git_commit",
+    "working_tree_dirty",
+    "benchmark_binary_sha256",
+    "benchmark_runner_sha256",
+    "output_validator_sha256",
+    "compiler",
+    "compile_command",
+    "os",
+    "architecture",
+    "cpu",
+    "logical_cores",
+    "ram",
+    "storage_medium",
+    "durability_mode",
+    "dataset_size",
+    "value_size",
+    "connection_count",
+    "worker_count",
+    "shard_counts",
+    "repetitions",
+    "warmup",
+}
 WORKLOADS = {"same-key", "distributed-key"}
 MAX_UINT64 = (1 << 64) - 1
 MAX_EVIDENCE_BYTES = 1 << 20
@@ -87,7 +111,31 @@ def main() -> int:
         raise ValueError(f"benchmark output exceeds {MAX_EVIDENCE_BYTES} bytes")
 
     with arguments.path.open(newline="") as stream:
-        reader = csv.reader(line for line in stream if not line.startswith("#"))
+        metadata = {}
+        csv_lines = []
+        csv_started = False
+        for line in stream:
+            if line.startswith("# "):
+                if csv_started:
+                    raise ValueError("benchmark metadata must precede the CSV payload")
+                key, separator, value = line[2:].rstrip("\r\n").partition(",")
+                if not separator or not key or not value:
+                    raise ValueError("benchmark output has malformed metadata")
+                if key not in METADATA_FIELDS:
+                    raise ValueError(f"benchmark output has unknown metadata field: {key}")
+                if key in metadata:
+                    raise ValueError(f"benchmark output duplicates metadata field: {key}")
+                metadata[key] = value
+                continue
+            csv_started = True
+            csv_lines.append(line)
+
+        missing_metadata = METADATA_FIELDS - metadata.keys()
+        if missing_metadata:
+            missing = ", ".join(sorted(missing_metadata))
+            raise ValueError(f"benchmark output is missing metadata fields: {missing}")
+
+        reader = csv.reader(csv_lines)
         try:
             header = next(reader)
         except StopIteration:
