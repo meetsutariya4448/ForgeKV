@@ -281,6 +281,10 @@ class ContentionOutputValidatorTest(unittest.TestCase):
             ["distributed-key", "1", "1", "1", "1", "1", "0.1", "10", "1"],
         ]
 
+        metadata = [
+            (key, "1000000" if key == "repetitions" else value)
+            for key, value in DEFAULT_METADATA
+        ]
         result = self.run_validator(
             rows,
             [
@@ -295,6 +299,7 @@ class ContentionOutputValidatorTest(unittest.TestCase):
                 "--shards",
                 "1",
             ],
+            metadata=metadata,
         )
 
         self.assertNotEqual(result.returncode, 0)
@@ -383,6 +388,29 @@ class ContentionOutputValidatorTest(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("metadata must precede", result.stderr)
+
+    def test_rejects_metadata_that_disagrees_with_requested_configuration(self):
+        rows = [
+            ["same-key", "1", "1", "1", "1", "1", "0.1", "10", "0"],
+            ["distributed-key", "1", "1", "1", "1", "1", "0.1", "10", "1"],
+        ]
+        mismatches = {
+            "dataset_size": "2 keys",
+            "worker_count": "2 benchmark threads",
+            "shard_counts": "1,2",
+            "repetitions": "2",
+        }
+        for field, value in mismatches.items():
+            with self.subTest(field=field):
+                metadata = [
+                    (key, value if key == field else metadata_value)
+                    for key, metadata_value in DEFAULT_METADATA
+                ]
+
+                result = self.run_validator(rows, metadata=metadata)
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(f"metadata {field} does not match", result.stderr)
 
 
 if __name__ == "__main__":

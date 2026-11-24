@@ -135,6 +135,16 @@ def main() -> int:
             missing = ", ".join(sorted(missing_metadata))
             raise ValueError(f"benchmark output is missing metadata fields: {missing}")
 
+        expected_metadata = {
+            "dataset_size": f"{arguments.keys} keys",
+            "worker_count": f"{arguments.threads} benchmark threads",
+            "shard_counts": arguments.shards,
+            "repetitions": str(arguments.repetitions),
+        }
+        for key, expected_value in expected_metadata.items():
+            if metadata[key] != expected_value:
+                raise ValueError(f"benchmark metadata {key} does not match the requested configuration")
+
         reader = csv.reader(csv_lines)
         try:
             header = next(reader)
