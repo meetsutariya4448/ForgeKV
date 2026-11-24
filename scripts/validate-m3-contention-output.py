@@ -52,19 +52,16 @@ def shard_counts(value: str) -> set[int]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("path", type=pathlib.Path)
-    parser.add_argument("--threads", type=int, required=True)
-    parser.add_argument("--operations-per-thread", type=int, required=True)
-    parser.add_argument("--keys", type=int, required=True)
-    parser.add_argument("--repetitions", type=int, required=True)
+    parser.add_argument("--threads", required=True)
+    parser.add_argument("--operations-per-thread", required=True)
+    parser.add_argument("--keys", required=True)
+    parser.add_argument("--repetitions", required=True)
     parser.add_argument("--shards", required=True)
     arguments = parser.parse_args()
 
     for name in ("threads", "operations_per_thread", "keys", "repetitions"):
-        value = getattr(arguments, name)
-        if value <= 0:
-            raise ValueError(f"{name.replace('_', '-')} must be positive")
-        if value > MAX_UINT64:
-            raise ValueError(f"{name.replace('_', '-')} exceeds the unsigned 64-bit range")
+        field = name.replace("_", "-")
+        setattr(arguments, name, positive_integer(getattr(arguments, name), field))
 
     expected_shards = shard_counts(arguments.shards)
     expected_operations = arguments.threads * arguments.operations_per_thread

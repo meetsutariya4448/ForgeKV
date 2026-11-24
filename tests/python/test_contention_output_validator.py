@@ -102,7 +102,32 @@ class ContentionOutputValidatorTest(unittest.TestCase):
                 result = self.run_validator(rows, arguments)
 
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn("must be positive", result.stderr)
+                self.assertIn("positive integer", result.stderr)
+
+    def test_rejects_noncanonical_requested_dimensions(self):
+        rows = [
+            ["same-key", "1", "1", "1", "1", "1", "0.1", "10", "0"],
+            ["distributed-key", "1", "1", "1", "1", "1", "0.1", "10", "1"],
+        ]
+        for value in ("01", "+1", " 1"):
+            with self.subTest(value=value):
+                arguments = [
+                    "--threads",
+                    value,
+                    "--operations-per-thread",
+                    "1",
+                    "--keys",
+                    "1",
+                    "--repetitions",
+                    "1",
+                    "--shards",
+                    "1",
+                ]
+
+                result = self.run_validator(rows, arguments)
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("canonical positive integer", result.stderr)
 
     def test_rejects_ambiguous_requested_shards(self):
         rows = [
