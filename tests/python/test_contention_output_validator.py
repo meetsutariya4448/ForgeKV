@@ -11,6 +11,18 @@ import unittest
 
 REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
 VALIDATOR = REPOSITORY_ROOT / "scripts" / "validate-m3-contention-output.py"
+DEFAULT_ARGUMENTS = [
+    "--threads",
+    "1",
+    "--operations-per-thread",
+    "1",
+    "--keys",
+    "1",
+    "--repetitions",
+    "1",
+    "--shards",
+    "1",
+]
 HEADER = [
     "workload",
     "shards",
@@ -33,18 +45,7 @@ class ContentionOutputValidatorTest(unittest.TestCase):
                 writer.writerow(HEADER)
                 writer.writerows(rows)
             if arguments is None:
-                arguments = [
-                    "--threads",
-                    "1",
-                    "--operations-per-thread",
-                    "1",
-                    "--keys",
-                    "1",
-                    "--repetitions",
-                    "1",
-                    "--shards",
-                    "1",
-                ]
+                arguments = DEFAULT_ARGUMENTS
             return subprocess.run(
                 [sys.executable, str(VALIDATOR), str(evidence), *arguments],
                 capture_output=True,
@@ -252,6 +253,40 @@ class ContentionOutputValidatorTest(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("unexpected repetition", result.stderr)
+
+    def test_rejects_symlinked_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = pathlib.Path(directory) / "target.csv"
+            target.write_text(",".join(HEADER) + "\n")
+            evidence = pathlib.Path(directory) / "contention.csv"
+            evidence.symlink_to(target)
+
+            result = subprocess.run(
+                [sys.executable, str(VALIDATOR), str(evidence), *DEFAULT_ARGUMENTS],
+                capture_output=True,
+                check=False,
+                text=True,
+                timeout=5,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("regular file", result.stderr)
+
+    def test_rejects_oversized_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            evidence = pathlib.Path(directory) / "contention.csv"
+            evidence.write_bytes(b"x" * ((1 << 20) + 1))
+
+            result = subprocess.run(
+                [sys.executable, str(VALIDATOR), str(evidence), *DEFAULT_ARGUMENTS],
+                capture_output=True,
+                check=False,
+                text=True,
+                timeout=5,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("exceeds 1048576 bytes", result.stderr)
 
 
 if __name__ == "__main__":

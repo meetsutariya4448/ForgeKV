@@ -6,6 +6,7 @@ import csv
 import math
 import pathlib
 import re
+import stat
 import sys
 
 
@@ -22,6 +23,7 @@ HEADER = [
 ]
 WORKLOADS = {"same-key", "distributed-key"}
 MAX_UINT64 = (1 << 64) - 1
+MAX_EVIDENCE_BYTES = 1 << 20
 
 
 def positive_integer(value: str, field: str) -> int:
@@ -68,6 +70,12 @@ def main() -> int:
     if expected_operations > MAX_UINT64:
         raise ValueError("requested operation count exceeds the unsigned 64-bit range")
     expected_run_count = len(WORKLOADS) * len(expected_shards) * arguments.repetitions
+
+    evidence_status = arguments.path.lstat()
+    if stat.S_ISLNK(evidence_status.st_mode) or not stat.S_ISREG(evidence_status.st_mode):
+        raise ValueError("benchmark output must be a regular file, not a symlink or special file")
+    if evidence_status.st_size > MAX_EVIDENCE_BYTES:
+        raise ValueError(f"benchmark output exceeds {MAX_EVIDENCE_BYTES} bytes")
 
     with arguments.path.open(newline="") as stream:
         reader = csv.reader(line for line in stream if not line.startswith("#"))
