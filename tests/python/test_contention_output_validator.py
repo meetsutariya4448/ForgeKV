@@ -78,6 +78,35 @@ class ContentionOutputValidatorTest(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("canonical", result.stderr)
 
+    def test_rejects_noncanonical_measurements(self):
+        invalid_measurements = ((6, "1e-1"), (6, " 0.1"), (7, "+10"), (7, "010"))
+        for field_index, value in invalid_measurements:
+            with self.subTest(field=HEADER[field_index], value=value):
+                rows = [
+                    ["same-key", "1", "1", "1", "1", "1", "0.1", "10", "0"],
+                    ["distributed-key", "1", "1", "1", "1", "1", "0.1", "10", "1"],
+                ]
+                rows[0][field_index] = value
+
+                result = self.run_validator(rows)
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("canonical positive decimal", result.stderr)
+
+    def test_rejects_nonfinite_or_nonpositive_measurements(self):
+        for field_index, value in ((6, "0"), (6, "9" * 400), (7, "0.0")):
+            with self.subTest(field=HEADER[field_index], value=value):
+                rows = [
+                    ["same-key", "1", "1", "1", "1", "1", "0.1", "10", "0"],
+                    ["distributed-key", "1", "1", "1", "1", "1", "0.1", "10", "1"],
+                ]
+                rows[0][field_index] = value
+
+                result = self.run_validator(rows)
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("finite positive decimal", result.stderr)
+
     def test_rejects_nonpositive_requested_dimensions(self):
         rows = [
             ["same-key", "1", "1", "1", "1", "1", "0.1", "10", "0"],

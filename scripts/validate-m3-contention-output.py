@@ -44,6 +44,15 @@ def nonnegative_integer(value: str, field: str) -> int:
     return parsed
 
 
+def positive_decimal(value: str, field: str) -> float:
+    if re.fullmatch(r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?", value) is None:
+        raise ValueError(f"{field} must be a canonical positive decimal")
+    parsed = float(value)
+    if not math.isfinite(parsed) or parsed <= 0:
+        raise ValueError(f"{field} must be a finite positive decimal")
+    return parsed
+
+
 def shard_counts(value: str) -> set[int]:
     parsed = [positive_integer(item, "shards") for item in value.split(",")]
     if len(set(parsed)) != len(parsed):
@@ -100,15 +109,8 @@ def main() -> int:
             operations = positive_integer(record["operations"], "operations")
             repetition = positive_integer(record["repetition"], "repetition")
             nonnegative_integer(record["checksum"], "checksum")
-            try:
-                seconds = float(record["seconds"])
-                throughput = float(record["ops_per_second"])
-            except ValueError as error:
-                raise ValueError(f"benchmark row {line_number} has a nonnumeric measurement") from error
-            if not math.isfinite(seconds) or seconds <= 0:
-                raise ValueError(f"benchmark row {line_number} has invalid elapsed time")
-            if not math.isfinite(throughput) or throughput <= 0:
-                raise ValueError(f"benchmark row {line_number} has invalid throughput")
+            seconds = positive_decimal(record["seconds"], "seconds")
+            throughput = positive_decimal(record["ops_per_second"], "ops_per_second")
             expected_throughput = operations / seconds
             if not math.isclose(throughput, expected_throughput, rel_tol=1e-4):
                 raise ValueError(
