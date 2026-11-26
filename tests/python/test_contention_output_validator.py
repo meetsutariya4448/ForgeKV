@@ -61,7 +61,7 @@ HEADER = [
 
 
 class ContentionOutputValidatorTest(unittest.TestCase):
-    def run_validator(self, rows, arguments=None, metadata=None):
+    def run_validator(self, rows, arguments=None, metadata=None, trailing_csv=""):
         with tempfile.TemporaryDirectory() as directory:
             evidence = pathlib.Path(directory) / "contention.csv"
             with evidence.open("w", newline="") as stream:
@@ -72,6 +72,7 @@ class ContentionOutputValidatorTest(unittest.TestCase):
                 writer = csv.writer(stream)
                 writer.writerow(HEADER)
                 writer.writerows(rows)
+                stream.write(trailing_csv)
             if arguments is None:
                 arguments = DEFAULT_ARGUMENTS
             return subprocess.run(
@@ -101,6 +102,16 @@ class ContentionOutputValidatorTest(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_rejects_truncated_quoted_csv_fields(self):
+        result = self.run_validator(
+            [["same-key", "1", "1", "1", "1", "1", "0.1", "10", "0"]],
+            trailing_csv='distributed-key,1,1,1,1,1,0.1,10,"1',
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid M3 contention output", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
 
     def test_rejects_noncanonical_integer_fields(self):
         for field_index, value in ((1, "01"), (8, "+1")):

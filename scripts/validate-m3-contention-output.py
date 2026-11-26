@@ -145,7 +145,7 @@ def main() -> int:
             if metadata[key] != expected_value:
                 raise ValueError(f"benchmark metadata {key} does not match the requested configuration")
 
-        reader = csv.reader(csv_lines)
+        reader = csv.reader(csv_lines, strict=True)
         try:
             header = next(reader)
         except StopIteration:
@@ -196,6 +196,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (OSError, ValueError) as error:
+    except (csv.Error, OSError, ValueError) as error:
         print(f"invalid M3 contention output: {error}", file=sys.stderr)
         raise SystemExit(1)
