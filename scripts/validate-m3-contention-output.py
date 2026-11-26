@@ -8,6 +8,7 @@ import pathlib
 import re
 import stat
 import sys
+from datetime import datetime
 
 
 HEADER = [
@@ -48,6 +49,28 @@ METADATA_FIELDS = {
 WORKLOADS = {"same-key", "distributed-key"}
 MAX_UINT64 = (1 << 64) - 1
 MAX_EVIDENCE_BYTES = 1 << 20
+PROVENANCE_DIGEST_LENGTHS = {
+    "git_commit": 40,
+    "benchmark_binary_sha256": 64,
+    "benchmark_runner_sha256": 64,
+    "output_validator_sha256": 64,
+}
+
+
+def validate_provenance(metadata: dict[str, str]) -> None:
+    for field, length in PROVENANCE_DIGEST_LENGTHS.items():
+        if re.fullmatch(rf"[0-9a-f]{{{length}}}", metadata[field]) is None:
+            raise ValueError(f"benchmark metadata {field} must be {length} lowercase hex digits")
+    if metadata["working_tree_dirty"] not in {"true", "false"}:
+        raise ValueError("benchmark metadata working_tree_dirty must be true or false")
+    timestamp = metadata["date_utc"]
+    timestamp_format = "%Y-%m-%dT%H:%M:%SZ"
+    try:
+        parsed = datetime.strptime(timestamp, timestamp_format)
+    except ValueError as error:
+        raise ValueError("benchmark metadata date_utc must be a valid UTC timestamp") from error
+    if parsed.strftime(timestamp_format) != timestamp:
+        raise ValueError("benchmark metadata date_utc must be a canonical UTC timestamp")
 
 
 def positive_integer(value: str, field: str) -> int:
@@ -134,6 +157,8 @@ def main() -> int:
         if missing_metadata:
             missing = ", ".join(sorted(missing_metadata))
             raise ValueError(f"benchmark output is missing metadata fields: {missing}")
+
+        validate_provenance(metadata)
 
         expected_metadata = {
             "dataset_size": f"{arguments.keys} keys",

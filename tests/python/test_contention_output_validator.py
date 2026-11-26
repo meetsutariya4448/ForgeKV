@@ -26,7 +26,7 @@ DEFAULT_ARGUMENTS = [
 DEFAULT_METADATA = [
     ("date_utc", "2026-11-23T00:00:00Z"),
     ("git_commit", "a" * 40),
-    ("working_tree_dirty", "0"),
+    ("working_tree_dirty", "false"),
     ("benchmark_binary_sha256", "b" * 64),
     ("benchmark_runner_sha256", "c" * 64),
     ("output_validator_sha256", "d" * 64),
@@ -397,6 +397,29 @@ class ContentionOutputValidatorTest(unittest.TestCase):
 
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(expected_error, result.stderr)
+
+    def test_rejects_invalid_provenance_metadata(self):
+        rows = [
+            ["same-key", "1", "1", "1", "1", "1", "0.1", "10", "0"],
+            ["distributed-key", "1", "1", "1", "1", "1", "0.1", "10", "1"],
+        ]
+        for field, invalid in (
+            ("date_utc", "2026-02-30T00:00:00Z"),
+            ("date_utc", "2026-2-03T00:00:00Z"),
+            ("git_commit", "b" * 39),
+            ("working_tree_dirty", "0"),
+            ("benchmark_binary_sha256", "G" * 64),
+            ("benchmark_runner_sha256", "b" * 63),
+            ("output_validator_sha256", "C" * 64),
+        ):
+            with self.subTest(field=field, invalid=invalid):
+                metadata = [
+                    (key, invalid if key == field else value)
+                    for key, value in DEFAULT_METADATA
+                ]
+                result = self.run_validator(rows, metadata=metadata)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(f"metadata {field} must be", result.stderr)
 
     def test_rejects_metadata_after_csv_header(self):
         rows = [
