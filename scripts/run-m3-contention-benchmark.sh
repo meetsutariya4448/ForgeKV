@@ -104,7 +104,8 @@ FORGEKV_BENCH_RAM=$(sysctl -n hw.memsize 2>/dev/null || true)
 if [ -z "$FORGEKV_BENCH_RAM" ] && [ -r /proc/meminfo ]; then
     FORGEKV_BENCH_RAM=$(awk '/MemTotal/ {print $2 " kB"; exit}' /proc/meminfo)
 fi
-FORGEKV_BENCH_CXX=$(sed -n 's/^CMAKE_CXX_COMPILER:FILEPATH=//p' "$FORGEKV_BENCH_BUILD_DIR/CMakeCache.txt")
+FORGEKV_BENCH_CXX=$(sed -n -e 's/^CMAKE_CXX_COMPILER:FILEPATH=//p' \
+    -e 's/^CMAKE_CXX_COMPILER:STRING=//p' "$FORGEKV_BENCH_BUILD_DIR/CMakeCache.txt")
 if [ -z "$FORGEKV_BENCH_CXX" ] || [ ! -x "$FORGEKV_BENCH_CXX" ]; then
     echo "M3 contention benchmark cannot identify the configured C++ compiler" >&2
     exit 1

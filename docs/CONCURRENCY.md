@@ -113,6 +113,20 @@ of accepted storage operations. There is no forced cancellation in the middle of
 distributed keys. The runner warms each case, sweeps 1/4/16/64/256 shards, records three repetitions,
 and preserves complete metadata and raw rows.
 
+To generate a new artifact, build in Release mode with compile-command export enabled,
+then run the evidence wrapper from the repository root:
+
+```sh
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+cmake --build build-release --target forgekv-bench --parallel
+FORGEKV_BENCH_BUILD_DIR="$PWD/build-release" sh scripts/run-m3-contention-benchmark.sh
+```
+
+The wrapper prints the published CSV path after validation. Set
+`FORGEKV_BENCH_OUTPUT_DIR` to an existing directory to keep a local run outside
+`bench/raw/`. The validator expects the current wrapper's metadata and accepts
+artifacts up to 1 MiB. Older recorded runs may predate the current metadata schema.
+
 The first Milestone 3 run is in `bench/raw/`. Its debug-build medians show distributed-key scaling
 from roughly 646 thousand operations/second at one shard to 3.82 million at 64 and 4.11 million at
 256. Same-key results remain around 0.82–0.89 million operations/second across the sweep because all

@@ -268,7 +268,7 @@ execute_process(COMMAND chmod +x "${success_build}/forgekv-bench")
 file(WRITE "${success_build}/fake-cxx" "#!/bin/sh\nprintf 'fake c++ 1.0\\n'\n")
 execute_process(COMMAND chmod +x "${success_build}/fake-cxx")
 file(WRITE "${success_build}/CMakeCache.txt"
-    "CMAKE_BUILD_TYPE:STRING=Release\nCMAKE_CXX_COMPILER:FILEPATH=${success_build}/fake-cxx\n")
+    "CMAKE_BUILD_TYPE:STRING=Release\nCMAKE_CXX_COMPILER:STRING=${success_build}/fake-cxx\n")
 file(WRITE "${success_build}/compile_commands.json"
     "[{\"file\":\"apps/forgekv-bench/main.cpp\",\"command\":\"c++ main.cpp\"}]\n")
 file(WRITE "${success_bin}/git" [=[#!/bin/sh
