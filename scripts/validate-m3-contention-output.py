@@ -69,7 +69,7 @@ def nonnegative_integer(value: str, field: str) -> int:
 
 
 def positive_decimal(value: str, field: str) -> float:
-    if re.fullmatch(r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?", value) is None:
+    if re.fullmatch(r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:e[+-][0-9]{2,})?", value) is None:
         raise ValueError(f"{field} must be a canonical positive decimal")
     parsed = float(value)
     if not math.isfinite(parsed) or parsed <= 0:

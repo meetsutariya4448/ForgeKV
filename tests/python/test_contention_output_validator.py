@@ -92,6 +92,16 @@ class ContentionOutputValidatorTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_accepts_benchmark_scientific_notation(self):
+        result = self.run_validator(
+            [
+                ["same-key", "1", "1", "1", "1", "1", "1.25e-07", "8e+06", "0"],
+                ["distributed-key", "1", "1", "1", "1", "1", "0.1", "10", "1"],
+            ]
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_rejects_noncanonical_integer_fields(self):
         for field_index, value in ((1, "01"), (8, "+1")):
             with self.subTest(field=HEADER[field_index], value=value):
