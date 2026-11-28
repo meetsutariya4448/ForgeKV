@@ -209,28 +209,29 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 {
-    echo "# date_utc,$FORGEKV_BENCH_DATE_UTC"
-    echo "# git_commit,$FORGEKV_BENCH_SHA"
-    echo "# working_tree_dirty,$FORGEKV_BENCH_DIRTY"
-    echo "# benchmark_binary_sha256,$FORGEKV_BENCH_BINARY_SHA256"
-    echo "# benchmark_runner_sha256,$FORGEKV_BENCH_RUNNER_SHA256"
-    echo "# output_validator_sha256,$FORGEKV_BENCH_VALIDATOR_SHA256"
-    echo "# compiler,$FORGEKV_BENCH_COMPILER"
-    echo "# compile_command,$FORGEKV_BENCH_COMPILE_COMMAND"
-    echo "# os,$FORGEKV_BENCH_OS"
-    echo "# architecture,$FORGEKV_BENCH_ARCH"
-    echo "# cpu,$FORGEKV_BENCH_CPU"
-    echo "# logical_cores,$FORGEKV_BENCH_CORES"
-    echo "# ram,$FORGEKV_BENCH_RAM"
-    echo "# storage_medium,not applicable (in-memory index benchmark)"
-    echo "# durability_mode,not applicable"
-    echo "# dataset_size,$FORGEKV_BENCH_KEYS keys"
-    echo "# value_size,not applicable"
-    echo "# connection_count,not applicable"
-    echo "# worker_count,$FORGEKV_BENCH_THREADS benchmark threads"
-    echo "# shard_counts,$FORGEKV_BENCH_SHARDS"
-    echo "# repetitions,$FORGEKV_BENCH_REPETITIONS"
-    echo "# warmup,1000 operations per thread before each workload and shard count"
+    printf '# %s,%s\n' \
+        date_utc "$FORGEKV_BENCH_DATE_UTC" \
+        git_commit "$FORGEKV_BENCH_SHA" \
+        working_tree_dirty "$FORGEKV_BENCH_DIRTY" \
+        benchmark_binary_sha256 "$FORGEKV_BENCH_BINARY_SHA256" \
+        benchmark_runner_sha256 "$FORGEKV_BENCH_RUNNER_SHA256" \
+        output_validator_sha256 "$FORGEKV_BENCH_VALIDATOR_SHA256" \
+        compiler "$FORGEKV_BENCH_COMPILER" \
+        compile_command "$FORGEKV_BENCH_COMPILE_COMMAND" \
+        os "$FORGEKV_BENCH_OS" \
+        architecture "$FORGEKV_BENCH_ARCH" \
+        cpu "$FORGEKV_BENCH_CPU" \
+        logical_cores "$FORGEKV_BENCH_CORES" \
+        ram "$FORGEKV_BENCH_RAM" \
+        storage_medium "not applicable (in-memory index benchmark)" \
+        durability_mode "not applicable" \
+        dataset_size "$FORGEKV_BENCH_KEYS keys" \
+        value_size "not applicable" \
+        connection_count "not applicable" \
+        worker_count "$FORGEKV_BENCH_THREADS benchmark threads" \
+        shard_counts "$FORGEKV_BENCH_SHARDS" \
+        repetitions "$FORGEKV_BENCH_REPETITIONS" \
+        warmup "1000 operations per thread before each workload and shard count"
     "$FORGEKV_BENCH_BUILD_DIR/forgekv-bench" contention \
         --threads "$FORGEKV_BENCH_THREADS" \
         --operations-per-thread "$FORGEKV_BENCH_OPERATIONS" \
@@ -267,4 +268,4 @@ fi
 rm -f "$temporary_output"
 temporary_output=""
 
-echo "$FORGEKV_BENCH_OUTPUT"
+printf '%s\n' "$FORGEKV_BENCH_OUTPUT"

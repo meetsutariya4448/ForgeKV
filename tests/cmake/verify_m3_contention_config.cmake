@@ -265,7 +265,9 @@ file(MAKE_DIRECTORY "${success_build}" "${success_output}" "${success_bin}")
 file(WRITE "${success_build}/forgekv-bench"
     "#!/bin/sh\nprintf 'workload,shards,threads,keys,operations,repetition,seconds,ops_per_second,checksum\\nsame-key,1,1,1,1,1,0.1,10,1\\ndistributed-key,1,1,1,1,1,0.1,10,1\\n'\n")
 execute_process(COMMAND chmod +x "${success_build}/forgekv-bench")
-file(WRITE "${success_build}/fake-cxx" "#!/bin/sh\nprintf 'fake c++ 1.0\\n'\n")
+file(WRITE "${success_build}/fake-cxx" [=[#!/bin/sh
+printf '%s\n' 'fake c++ 1.0 \n literal'
+]=])
 execute_process(COMMAND chmod +x "${success_build}/fake-cxx")
 file(WRITE "${success_build}/CMakeCache.txt"
     "CMAKE_BUILD_TYPE:STRING=Release\nCMAKE_CXX_COMPILER:STRING=${success_build}/fake-cxx\n")
@@ -319,6 +321,10 @@ if(NOT success_evidence_text MATCHES "# working_tree_dirty,true")
 endif()
 if(NOT success_evidence_text MATCHES "# compiler,fake c\\+\\+ 1.0")
     message(FATAL_ERROR "M3 contention evidence did not identify the configured compiler")
+endif()
+string(FIND "${success_evidence_text}" [=[# compiler,fake c++ 1.0 \n literal]=] compiler_literal)
+if(compiler_literal EQUAL -1)
+    message(FATAL_ERROR "M3 contention evidence changed a literal metadata backslash")
 endif()
 file(SHA256 "${success_build}/forgekv-bench" success_binary_sha256)
 if(NOT success_evidence_text MATCHES "# benchmark_binary_sha256,${success_binary_sha256}")
