@@ -62,9 +62,11 @@ Detailed locking, recovery, compaction, and replication-model diagrams live in t
 
 ## Quickstart
 
-Prerequisites: Git, CMake 3.24 or newer, a C++20 compiler, and network access during the first
-configuration so CMake can fetch the pinned GoogleTest dependency. Linux and macOS are exercised
-by CI.
+Prerequisites are Git, CMake 3.24 or newer, and a C++20 compiler. The test suite and
+benchmark evidence scripts also use Python 3. Linux and macOS are exercised by CI.
+The default configuration fetches the pinned GoogleTest dependency. If GoogleTest
+is already installed, use `-DFORGEKV_USE_SYSTEM_GTEST=ON` to have CMake look for it
+locally.
 
 ```sh
 git clone https://github.com/meetsutariya4448/ForgeKV.git
@@ -93,6 +95,9 @@ Run the complete test suite:
 ```sh
 ctest --test-dir build --output-on-failure
 ```
+
+To build only the library and command-line tools, configure with `-DBUILD_TESTING=OFF`.
+That configuration skips the GoogleTest dependency and does not register tests.
 
 ## Performance finding
 
