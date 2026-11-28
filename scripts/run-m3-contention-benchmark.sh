@@ -247,8 +247,21 @@ python3 "$FORGEKV_BENCH_ROOT/scripts/validate-m3-contention-output.py" \
     --repetitions "$FORGEKV_BENCH_REPETITIONS" \
     --shards "$FORGEKV_BENCH_SHARDS"
 
-if ! ln "$temporary_output" "$FORGEKV_BENCH_OUTPUT"; then
-    echo "refusing to replace existing benchmark evidence: $FORGEKV_BENCH_OUTPUT" >&2
+if ! python3 - "$temporary_output" "$FORGEKV_BENCH_OUTPUT" <<'PY'
+import os
+import sys
+
+source, destination = sys.argv[1:]
+try:
+    os.link(source, destination)
+except FileExistsError:
+    print(f"refusing to replace existing benchmark evidence: {destination}", file=sys.stderr)
+    raise SystemExit(1)
+except OSError as error:
+    print(f"cannot publish benchmark evidence: {error}", file=sys.stderr)
+    raise SystemExit(1)
+PY
+then
     exit 1
 fi
 rm -f "$temporary_output"

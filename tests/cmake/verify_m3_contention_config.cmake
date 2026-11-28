@@ -335,6 +335,35 @@ if(NOT success_evidence_text MATCHES "# output_validator_sha256,${validator_sha2
     message(FATAL_ERROR "M3 contention evidence omitted the output validator digest")
 endif()
 
+get_filename_component(success_evidence_name "${success_evidence_path}" NAME)
+set(directory_collision "${success_output}/collision")
+file(MAKE_DIRECTORY "${directory_collision}/${success_evidence_name}")
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        "PATH=${success_bin}:$ENV{PATH}"
+        "FORGEKV_BENCH_BUILD_DIR=${success_build}"
+        "FORGEKV_BENCH_OUTPUT_DIR=${directory_collision}"
+        "FORGEKV_BENCH_THREADS=1"
+        "FORGEKV_BENCH_OPERATIONS=1"
+        "FORGEKV_BENCH_KEYS=1"
+        "FORGEKV_BENCH_REPETITIONS=1"
+        "FORGEKV_BENCH_SHARDS=1"
+        /bin/sh "${M3_RUNNER}"
+    RESULT_VARIABLE collision_result
+    OUTPUT_VARIABLE collision_stdout
+    ERROR_VARIABLE collision_error
+)
+if(collision_result EQUAL 0 OR NOT collision_error MATCHES "refusing to replace existing benchmark evidence")
+    message(FATAL_ERROR "M3 contention runner failed to reject a directory collision: ${collision_stdout}${collision_error}")
+endif()
+file(GLOB collision_entries "${directory_collision}/${success_evidence_name}/*"
+    "${directory_collision}/${success_evidence_name}/.m3-contention*"
+    "${directory_collision}/.m3-contention*")
+if(collision_entries)
+    message(FATAL_ERROR "M3 contention runner left evidence after a directory collision: ${collision_entries}")
+endif()
+
 set(malformed_output "${CMAKE_CURRENT_BINARY_DIR}/m3-contention-malformed-output")
 file(REMOVE_RECURSE "${malformed_output}")
 file(MAKE_DIRECTORY "${malformed_output}")
